@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Shanklife Pro{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    {% set is_balletour_page = request.endpoint and (request.endpoint.startswith('balletour.') or (series is defined and series.name in ['Balletour', 'BalleTour'])) %}
+    {% set is_balletour_scoring_page = is_balletour_scoring_page|default(false) %}
+    <header class="site-header">
+        <div class="container">
+            <h1 class="site-brand">
+                <span class="brand-logos">
+                    {% if is_balletour_scoring_page or is_balletour_page %}
+                    <a href="{{ url_for('balletour.index') }}">
+                        <img src="{{ url_for('static', filename='balletourlogo.png') }}" alt="BalleTour2026" class="site-logo balletour-logo">
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('main.index') }}">
+                        <img src="{{ url_for('static', filename='shanklife.png') }}" alt="Shanklife score" class="site-logo">
+                    </a>
+                    {% if request.endpoint == 'main.index' and current_user_is_balletour_player %}
+                    <a href="{{ url_for('balletour.index') }}">
+                        <img src="{{ url_for('static', filename='balletourlogo.png') }}" alt="BalleTour2026" class="site-logo balletour-logo">
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                </span>
+            </h1>
+            {% if not is_balletour_scoring_page %}
+            <nav>
+                {% if is_balletour_page %}
+                <a href="{{ url_for('main.index') }}">Shanklife Pro</a>
+                <a href="{{ url_for('balletour.stats') }}">Statistikk</a>
+                {% if series is defined %}
+                <a href="{{ url_for('series.club_stats', series_id=series.id) }}">Køllestatistikk</a>
+                <a href="{{ url_for('series.gallery', series_id=series.id) }}">Galleri</a>
+                {% endif %}
+                {% if current_user %}
+                <form method="post" action="{{ url_for('auth.logout') }}" class="nav-form">
+                    <button type="submit">Logg ut</button>
+                </form>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}">Logg inn</a>
+                {% endif %}
+                {% else %}
+                <a href="{{ url_for('main.index') }}">Hjem</a>
+                <a href="{{ url_for('players.players') }}">Spillere</a>
+                <a href="{{ url_for('courses.courses') }}">Baner</a>
+                <a href="{{ url_for('rounds.new_round') }}">Ny runde</a>
+                {% if current_user %}
+                <a href="{{ url_for('rounds.new_stats_round') }}">Ny runde med statistikk</a>
+                <a href="{{ url_for('profile.me') }}">Min side</a>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('admin.admin_home') }}">Admin</a>
+                {% endif %}
+                {% endif %}
+                <a href="{{ url_for('rounds.ongoing_rounds') }}">Pågående</a>
+                <a href="{{ url_for('rounds.finished_rounds') }}">Fullførte</a>
+                <a href="{{ url_for('leaderboard.live_leaderboard') }}">Live leaderboard</a>
+                {% if current_user_is_balletour_player %}
+                <a href="{{ url_for('balletour.index') }}">BalleTour2026</a>
+                {% endif %}
+                {% if current_user %}
+                <form method="post" action="{{ url_for('auth.logout') }}" class="nav-form">
+                    <button type="submit">Logg ut</button>
+                </form>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}">Logg inn</a>
+                {% endif %}
+                {% endif %}
+            </nav>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-wrapper">
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

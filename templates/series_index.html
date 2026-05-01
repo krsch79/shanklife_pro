@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Serier - Shanklife Pro{% endblock %}
+
+{% block content %}
+<h2>Serier</h2>
+
+<div class="card-grid">
+    {% for series in series_rows %}
+    <a class="card-link" href="{{ url_for('series.overview', series_id=series.id) }}">
+        <h3>{{ series.name }}</h3>
+        <p>{{ series.course.name }}</p>
+    </a>
+    {% else %}
+    <p>Ingen serier er opprettet ennå.</p>
+    {% endfor %}
+</div>
+{% endblock %}

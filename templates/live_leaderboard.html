@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Live leaderboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Live leaderboard</h2>
+    <div class="button-row compact">
+        <a class="button {% if view_mode != 'gross' %}secondary{% endif %}" href="{{ url_for('leaderboard.live_leaderboard', view='gross') }}">Brutto</a>
+        <a class="button {% if view_mode != 'net' %}secondary{% endif %}" href="{{ url_for('leaderboard.live_leaderboard', view='net') }}">Netto</a>
+    </div>
+</div>
+
+<div class="muted" style="margin-bottom: 12px;">
+    Oppdateres automatisk hvert 10. sekund.
+</div>
+
+<div id="live-leaderboard-container" data-view-mode="{{ view_mode }}">
+    {% include "live_leaderboard_content.html" %}
+</div>
+
+<div id="leaderboard-modal-overlay" class="leaderboard-modal-overlay hidden">
+    <div class="leaderboard-modal">
+        <div class="leaderboard-modal-header">
+            <strong>Rundedetaljer</strong>
+            <button type="button" class="leaderboard-modal-close" id="leaderboard-modal-close">×</button>
+        </div>
+        <div id="leaderboard-modal-body" class="leaderboard-modal-body">
+            Laster...
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const container = document.getElementById("live-leaderboard-container");
+    const modalOverlay = document.getElementById("leaderboard-modal-overlay");
+    const modalBody = document.getElementById("leaderboard-modal-body");
+    const modalClose = document.getElementById("leaderboard-modal-close");
+
+    async function refreshLeaderboard() {
+        try {
+            const currentView = container.dataset.viewMode || "gross";
+            const response = await fetch(`{{ url_for('leaderboard.live_leaderboard_partial') }}?view=${encodeURIComponent(currentView)}`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+                cache: "no-store"
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const html = await response.text();
+            container.innerHTML = html;
+            container.dataset.viewMode = currentView;
+        } catch (error) {
+            console.error("Klarte ikke å oppdatere leaderboard:", error);
+        }
+    }
+
+    async function openPlayerModal(roundPlayerId) {
+        modalOverlay.classList.remove("hidden");
+        modalBody.innerHTML = "Laster...";
+
+        try {
+            const response = await fetch(`/leaderboard/player/${roundPlayerId}/modal`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+                cache: "no-store"
+            });
+
+            if (!response.ok) {
+                throw new Error("Klarte ikke å hente rundedetaljer.");
+            }
+
+            modalBody.innerHTML = await response.text();
+        } catch (error) {
+            console.error(error);
+            modalBody.innerHTML = `<div class="muted">Feil ved lasting av detaljer.</div>`;
+        }
+    }
+
+    function closePlayerModal() {
+        modalOverlay.classList.add("hidden");
+        modalBody.innerHTML = "";
+    }
+
+    container.addEventListener("click", function (event) {
+        const trigger = event.target.closest(".leaderboard-player-link");
+        if (!trigger) {
+            return;
+        }
+
+        event.preventDefault();
+        openPlayerModal(trigger.dataset.roundPlayerId);
+    });
+
+    modalClose.addEventListener("click", closePlayerModal);
+
+    modalOverlay.addEventListener("click", function (event) {
+        if (event.target === modalOverlay) {
+            closePlayerModal();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !modalOverlay.classList.contains("hidden")) {
+            closePlayerModal();
+        }
+    });
+
+    setInterval(refreshLeaderboard, 10000);
+})();
+</script>
+{% endblock %}

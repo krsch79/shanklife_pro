@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{% if course %}Rediger bane{% else %}Ny bane{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% if course %}Rediger bane{% else %}Ny bane{% endif %}</h2>
+
+<form
+    method="post"
+    class="form-card"
+    action="{% if course %}{{ url_for('courses.edit_course', course_id=course.id) }}{% else %}{{ url_for('courses.new_course') }}{% endif %}"
+>
+    <label for="name">Banenavn</label>
+    <input
+        type="text"
+        id="name"
+        name="name"
+        value="{{ request.form.get('name', imported_course_name if imported_course_name is defined else (course.name if course else '')) }}"
+        required
+    >
+
+    {% if not course %}
+    <label for="hole_count">Antall hull</label>
+    <select id="hole_count" name="hole_count">
+        <option value="9" {% if hole_count == 9 %}selected{% endif %}>9</option>
+        <option value="18" {% if hole_count == 18 %}selected{% endif %}>18</option>
+    </select>
+    {% else %}
+    <p><strong>Antall hull:</strong> {{ hole_count }}</p>
+    <input type="hidden" name="hole_count" value="{{ hole_count }}">
+    {% endif %}
+
+    <label for="tee_count">Antall tees</label>
+    <select id="tee_count" name="tee_count">
+        {% for n in range(1, 7) %}
+        <option value="{{ n }}" {% if tee_count == n %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+    </select>
+
+    <div class="button-row">
+        <button type="submit" name="form_action" value="refresh_layout" class="button secondary">Oppdater skjema</button>
+    </div>
+
+    <p class="muted">
+        Fyll inn par og index per hull, navn og lengder per tee, og slope/course rating for herre og dame.
+    </p>
+
+    {% if slope_imported is defined and not slope_imported %}
+    <div class="flash flash-error">
+        <strong>Advarsel:</strong> Slope- og course rating-verdier er satt til dummy-verdier siden de ikke kunne leses fra bildet. Disse må justeres til reelle verdier før banen brukes til scoring.
+    </div>
+    {% endif %}
+
+    <h3>Hulloppsett</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Hull</th>
+                    <th>Par</th>
+                    <th>Index</th>
+                    {% for tee in tees_data %}
+                    <th>{{ tee.name }} lengde</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for hole in holes_data %}
+                <tr>
+                    <td>{{ hole.hole_number }}</td>
+                    <td>
+                        <input type="number" name="par_{{ hole.hole_number }}" value="{{ hole.par }}" min="3" max="6" required>
+                    </td>
+                    <td>
+                        <input type="number" name="index_{{ hole.hole_number }}" value="{{ hole.stroke_index }}" min="1" max="{{ hole_count }}" required>
+                    </td>
+                    {% for tee in tees_data %}
+                    <td>
+                        <input
+                            type="number"
+                            name="tee_{{ tee.index }}_length_{{ hole.hole_number }}"
+                            value="{{ tee.lengths[hole.hole_number] }}"
+                            min="50"
+                            max="650"
+                            required
+                        >
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Tee-navn og rating</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tee</th>
+                    <th>Navn</th>
+                    <th>Herre slope</th>
+                    <th>Herre course rating</th>
+                    <th>Dame slope</th>
+                    <th>Dame course rating</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tee in tees_data %}
+                <tr>
+                    <td>{{ tee.index }}</td>
+                    <td>
+                        <input type="text" name="tee_{{ tee.index }}_name" value="{{ tee.name }}" required>
+                    </td>
+                    <td>
+                        <input type="number" name="tee_{{ tee.index }}_male_slope" value="{{ tee.ratings.male.slope }}" min="55" max="155" required>
+                    </td>
+                    <td>
+                        <input type="text" name="tee_{{ tee.index }}_male_course_rating" value="{{ tee.ratings.male.course_rating }}" required>
+                    </td>
+                    <td>
+                        <input type="number" name="tee_{{ tee.index }}_female_slope" value="{{ tee.ratings.female.slope }}" min="55" max="155" required>
+                    </td>
+                    <td>
+                        <input type="text" name="tee_{{ tee.index }}_female_course_rating" value="{{ tee.ratings.female.course_rating }}" required>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="button-row">
+        <button type="submit" name="form_action" value="save" class="button">Lagre</button>
+        <a class="button secondary" href="{{ url_for('courses.courses') }}">Avbryt</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Scorekort - BalleTour{% endblock %}
+
+{% block content %}
+<div class="scorecard-popup-shell">
+    <section class="scorecard-popup">
+        <div class="scorecard-popup-header">
+            <div>
+                <p class="muted">Runde {{ round.id }}</p>
+                <h2>{{ round.course.name }} - scorekort</h2>
+            </div>
+            <a class="button secondary compact-button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=return_hole) }}">Tilbake</a>
+        </div>
+
+        <div class="table-wrap">
+            <table class="balletour-compact-scorecard balletour-popup-scorecard">
+                <thead>
+                    <tr>
+                        <th>Spiller</th>
+                        {% for hole in scorecard.holes %}
+                        <th>{{ hole.hole_number }}</th>
+                        {% endfor %}
+                        <th>Tot</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in scorecard.rows %}
+                    <tr>
+                        <td>{{ row.player_name }}</td>
+                        {% for cell in row.cells %}
+                        <td>
+                            <span class="score-shape {{ cell.shape_class }}">
+                                {{ cell.score if cell.score is not none else "-" }}
+                            </span>
+                        </td>
+                        {% endfor %}
+                        <td><strong>{{ row.total if row.total is not none else "-" }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

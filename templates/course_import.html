@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Importer bane fra bilde{% endblock %}
+
+{% block content %}
+<h2>Importer bane fra bilde</h2>
+
+<form method="post" enctype="multipart/form-data" class="form-card">
+    <label for="scorecard_image">Velg bilde av scorekort</label>
+    <input type="file" id="scorecard_image" name="scorecard_image" accept=".jpg,.jpeg,.png,.webp" required>
+
+    <label for="slope_table_image">Velg bilde av slopetabell (valgfritt)</label>
+    <input type="file" id="slope_table_image" name="slope_table_image" accept=".jpg,.jpeg,.png,.webp">
+
+    <p class="muted">
+        Importen prøver å lese banenavn, antall hull, par, index, tee-navn og lengder fra scorekortet.
+        Hvis du laster opp slopetabell, prøver den også å lese slope og course rating for herre og dame.
+        Problemer med slopeverdier stopper aldri importen – de kan fylles ut manuelt.
+    </p>
+
+    <div class="button-row">
+        <button type="submit" class="button">Analyser bilde</button>
+        <a class="button secondary" href="{{ url_for('courses.courses') }}">Tilbake</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Avsluttede BalleTour-runder{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>Avsluttede runder</h2>
+        <p class="muted">{{ series.course.name }}</p>
+    </div>
+    <div class="button-row compact">
+        <a class="button" href="{{ url_for('balletour.new_round') }}">Start ny runde</a>
+        <a class="button secondary" href="{{ url_for('balletour.ongoing_rounds') }}">Pågående runder</a>
+    </div>
+</div>
+
+{% for card in score_cards %}
+<section class="compact-round-card">
+    <div class="compact-round-card-header">
+        <div>
+            <h3>Runde {{ card.round.id }}</h3>
+            <p class="muted">{{ card.round.started_at|datetime_local }}</p>
+        </div>
+        <div class="button-row compact">
+            <a class="button secondary compact-button" href="{{ url_for('rounds.round_score', round_id=card.round.id) }}">Scorekort</a>
+            {% if current_user and current_user.is_admin %}
+            <form
+                method="post"
+                action="{{ url_for('rounds.delete_round', round_id=card.round.id) }}"
+                onsubmit="return confirm('Er du sikker på at du vil slette runde {{ card.round.id }}?');"
+                class="inline-form"
+            >
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <button type="submit" class="button danger compact-button">Slett</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table class="balletour-compact-scorecard">
+            <thead>
+                <tr>
+                    <th>Spiller</th>
+                    {% for hole in card.holes %}
+                    <th>{{ hole.hole_number }}</th>
+                    {% endfor %}
+                    <th>Tot</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in card.rows %}
+                <tr>
+                    <td>{{ row.player_name }}</td>
+                    {% for cell in row.cells %}
+                    <td>
+                        <span class="score-shape {{ cell.shape_class }}">
+                            {{ cell.score if cell.score is not none else "-" }}
+                        </span>
+                    </td>
+                    {% endfor %}
+                    <td><strong>{{ row.total if row.total is not none else "-" }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% else %}
+<p>Ingen avsluttede BalleTour-runder ennå.</p>
+{% endfor %}
+{% endblock %}

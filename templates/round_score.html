@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+{% block title %}Scorekort{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ round.course.name }} - scorekort</h2>
+    <a class="button secondary" href="{{ url_for('rounds.rounds') }}">Alle runder</a>
+</div>
+
+<div class="form-card">
+    <p><strong>Status:</strong> {{ round.status }}</p>
+    <p><strong>Startet:</strong> {{ round.started_at|datetime_local }}</p>
+    {% if round.finished_at %}
+    <p><strong>Fullført:</strong> {{ round.finished_at|datetime_local }}</p>
+    {% endif %}
+
+    {% if round.status == 'ongoing' %}
+    <p>
+        <strong>Autosave:</strong>
+        <span id="autosave-status" class="muted">Klar</span>
+    </p>
+    {% endif %}
+</div>
+
+<form method="post" id="score-form">
+    <div class="table-wrap compact-table-wrap">
+        <table class="score-table compact-score-table">
+            <thead>
+                <tr>
+                    <th class="sticky-col meta-col">Hull</th>
+                    <th class="meta-col">Par</th>
+                    <th class="meta-col">Index</th>
+
+                    {% for tee_col in tee_length_columns %}
+                    <th class="tee-length-col">
+                        <div class="player-header">
+                            <div class="player-name">{{ tee_col.tee_name }}</div>
+                            <div class="muted">lengde</div>
+                        </div>
+                    </th>
+                    {% endfor %}
+
+                    {% for rp in round_players %}
+                    <th class="player-col">
+                        <div class="player-header">
+                            <div class="player-name">{{ rp.player_name_snapshot }}</div>
+                            <div class="muted">hcp {{ "%.1f"|format(rp.hcp_for_round) }}</div>
+                            {% if playing_handicap_map[rp.id] is not none %}
+                            <div class="muted">mottatte {{ playing_handicap_map[rp.id] if playing_handicap_map[rp.id] > 0 else 0 }}</div>
+                            {% endif %}
+                            <div class="muted">tee {{ rp.selected_tee.name if rp.selected_tee else '—' }}</div>
+                        </div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for hole in course.holes %}
+                <tr class="{% if hole.hole_number == 10 %}back-nine-start{% endif %}">
+                    <td class="sticky-col meta-col">{{ hole.hole_number }}</td>
+                    <td class="meta-col">{{ hole.par }}</td>
+                    <td class="meta-col">
+                        <span class="hole-index">{{ hole.stroke_index }}</span>
+                    </td>
+
+                    {% for tee_col in tee_length_columns %}
+                    <td class="tee-length-cell">
+                        {{ tee_col.lengths.get(hole.hole_number, '—') }}
+                        {% if tee_col.lengths.get(hole.hole_number) %}m{% endif %}
+                    </td>
+                    {% endfor %}
+
+                    {% for rp in round_players %}
+                    <td class="score-cell">
+                        {% set received_strokes = received_strokes_map[rp.id][hole.hole_number] %}
+                        {% if received_strokes > 0 %}
+                        <span class="hole-received-strokes">{{ received_strokes }}</span>
+                        {% endif %}
+                        <select
+                            name="score_{{ rp.id }}_{{ hole.hole_number }}"
+                            data-round-player-id="{{ rp.id }}"
+                            data-hole-number="{{ hole.hole_number }}"
+                            class="{% if round.status == 'ongoing' %}autosave-score {% endif %}compact-score-input {% if stats_round_player_id == rp.id %}stat-score-select{% endif %}"
+                            {% if round.status == 'finished' %}disabled{% endif %}
+                        >
+                            <option value="" {% if score_map[rp.id][hole.hole_number] is none %}selected{% endif %}>—</option>
+                            {% for score_option in score_options_by_hole[hole.hole_number] %}
+                            <option value="{{ score_option }}" {% if score_map[rp.id][hole.hole_number] == score_option %}selected{% endif %}>{{ score_option }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if stats_round_player_id == rp.id %}
+                        {% set stat = stats_map.get(hole.hole_number, {}) %}
+                        <div class="score-stat-fields">
+                            {% if hole.par == 3 %}
+                            <select
+                                name="stat_green_status_{{ hole.hole_number }}"
+                                class="autosave-stat stat-select"
+                                data-hole-number="{{ hole.hole_number }}"
+                                data-stat-field="green_status"
+                                {% if round.status == 'finished' %}disabled{% endif %}
+                            >
+                                <option value="hit" {% if stat.green_status == 'hit' %}selected{% endif %}>Greentreff</option>
+                                <option value="miss" {% if stat.green_status == 'miss' %}selected{% endif %}>Miss</option>
+                                <option value="bunker" {% if stat.green_status == 'bunker' %}selected{% endif %}>Bunker</option>
+                            </select>
+                            <div class="score-green-directions">
+                                <label class="green-pin-option"><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="pin" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'pin' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> F</label>
+                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="left" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'left' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> V</label>
+                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="right" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'right' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> H</label>
+                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="short" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'short' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> K</label>
+                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="long" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'long' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> L</label>
+                            </div>
+                            {% endif %}
+
+                            {% if hole.par in [4, 5] %}
+                            <input
+                                type="number"
+                                min="1"
+                                max="500"
+                                name="stat_drive_{{ hole.hole_number }}"
+                                value="{{ stat.drive_distance_m if stat.drive_distance_m is not none else '' }}"
+                                placeholder="m"
+                                class="autosave-stat stat-input"
+                                data-hole-number="{{ hole.hole_number }}"
+                                data-stat-field="drive_distance"
+                                {% if round.status == 'finished' %}disabled{% endif %}
+                            >
+                            <select
+                                name="stat_fairway_{{ hole.hole_number }}"
+                                class="autosave-stat stat-select"
+                                data-hole-number="{{ hole.hole_number }}"
+                                data-stat-field="fairway_result"
+                                {% if round.status == 'finished' %}disabled{% endif %}
+                            >
+                                <option value="" {% if not stat.fairway_result %}selected{% endif %}>FW</option>
+                                <option value="hit" {% if stat.fairway_result == 'hit' %}selected{% endif %}>Treff</option>
+                                <option value="left" {% if stat.fairway_result == 'left' %}selected{% endif %}>Venstre</option>
+                                <option value="right" {% if stat.fairway_result == 'right' %}selected{% endif %}>Høyre</option>
+                            </select>
+                            {% endif %}
+                            <select
+                                name="stat_putts_{{ hole.hole_number }}"
+                                class="autosave-stat stat-select"
+                                data-hole-number="{{ hole.hole_number }}"
+                                data-stat-field="putts"
+                                data-putts-select="true"
+                                {% if round.status == 'finished' %}disabled{% endif %}
+                            >
+                                <option value="" {% if stat.putts is none %}selected{% endif %}>P</option>
+                                {% for putt_option in putt_options %}
+                                <option value="{{ putt_option }}" {% if stat.putts == putt_option %}selected{% endif %}>{{ putt_option }}</option>
+                                {% endfor %}
+                            </select>
+                            <select
+                                name="stat_last_putt_distance_{{ hole.hole_number }}"
+                                class="autosave-stat stat-select"
+                                data-hole-number="{{ hole.hole_number }}"
+                                data-stat-field="last_putt_distance"
+                                {% if round.status == 'finished' %}disabled{% endif %}
+                            >
+                                <option value="" {% if stat.last_putt_distance_m is none %}selected{% endif %}>Siste</option>
+                                {% for distance in last_putt_distance_options %}
+                                <option value="{{ distance }}" {% if stat.last_putt_distance_m == distance %}selected{% endif %}>{{ distance|string|replace(".0", "") }}m</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+
+                {% if hole.hole_number == 9 and course.hole_count > 9 %}
+                <tr class="summary-row nine-summary-row">
+                    <td colspan="{{ 3 + (tee_length_columns|length) }}"><strong>Ut</strong></td>
+                    {% for rp in round_players %}
+                    <td><strong id="total-out-{{ rp.id }}">{{ totals[rp.id].out }}</strong></td>
+                    {% endfor %}
+                </tr>
+                {% endif %}
+                {% endfor %}
+
+                {% if course.hole_count <= 9 %}
+                <tr class="summary-row">
+                    <td colspan="{{ 3 + (tee_length_columns|length) }}"><strong>Ut</strong></td>
+                    {% for rp in round_players %}
+                    <td><strong id="total-out-{{ rp.id }}">{{ totals[rp.id].out }}</strong></td>
+                    {% endfor %}
+                </tr>
+                {% else %}
+                <tr class="summary-row">
+                    <td colspan="{{ 3 + (tee_length_columns|length) }}"><strong>Inn</strong></td>
+                    {% for rp in round_players %}
+                    <td><strong id="total-in-{{ rp.id }}">{{ totals[rp.id].in }}</strong></td>
+                    {% endfor %}
+                </tr>
+                {% endif %}
+
+                <tr class="summary-row">
+                    <td colspan="{{ 3 + (tee_length_columns|length) }}"><strong>Totalt</strong></td>
+                    {% for rp in round_players %}
+                    <td><strong id="total-all-{{ rp.id }}">{{ totals[rp.id].total }}</strong></td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    {% if round.status == 'ongoing' %}
+    <div class="button-row">
+        <button type="submit" name="action" value="save" class="button">Lagre score</button>
+        <button type="submit" name="action" value="finish" class="button danger" id="finish-round-button">Fullfør runde</button>
+    </div>
+    {% else %}
+    <p>Denne runden er fullført og kan bare vises.</p>
+    {% endif %}
+</form>
+
+{% if round.status == 'ongoing' %}
+<script>
+(function () {
+    const inputs = document.querySelectorAll(".autosave-score");
+    const statInputs = document.querySelectorAll(".autosave-stat");
+    const statusEl = document.getElementById("autosave-status");
+    const finishButton = document.getElementById("finish-round-button");
+    const scoreForm = document.getElementById("score-form");
+    const timers = new Map();
+
+    function setStatus(text, isError = false) {
+        statusEl.textContent = text;
+        statusEl.style.color = isError ? "#b91c1c" : "";
+    }
+
+    function hasEmptyScoreFields() {
+        return Array.from(inputs).some((input) => input.value.trim() === "");
+    }
+
+    function getNextPlayerInput(input) {
+        const row = input.closest("tr");
+        if (!row) {
+            return null;
+        }
+
+        const playerInputs = Array.from(row.querySelectorAll(".autosave-score"));
+        const index = playerInputs.indexOf(input);
+
+        if (index === -1 || index === playerInputs.length - 1) {
+            // No more players in this row, try next hole
+            const tbody = row.closest("tbody");
+            if (!tbody) {
+                return null;
+            }
+
+            const allRows = Array.from(tbody.querySelectorAll("tr"));
+            const currentRowIndex = allRows.indexOf(row);
+
+            if (currentRowIndex === -1) {
+                return null;
+            }
+
+            // Find next regular data row (skip summary rows)
+            for (let i = currentRowIndex + 1; i < allRows.length; i++) {
+                const nextRow = allRows[i];
+                if (nextRow.classList.contains("summary-row") || nextRow.classList.contains("nine-summary-row")) {
+                    continue;
+                }
+
+                const nextRowInputs = Array.from(nextRow.querySelectorAll(".autosave-score"));
+                if (nextRowInputs.length > 0) {
+                    return nextRowInputs[0];
+                }
+            }
+
+            return null;
+        }
+
+        return playerInputs[index + 1];
+    }
+
+    function focusNextPlayerInput(input) {
+        const nextInput = getNextPlayerInput(input);
+        if (!nextInput) {
+            return;
+        }
+
+        nextInput.focus();
+        if (typeof nextInput.select === "function") {
+            nextInput.select();
+        }
+    }
+
+    async function saveInput(input) {
+        const roundPlayerId = input.dataset.roundPlayerId;
+        const holeNumber = input.dataset.holeNumber;
+        const strokes = input.value.trim();
+
+        const formData = new FormData();
+        formData.append("round_player_id", roundPlayerId);
+        formData.append("hole_number", holeNumber);
+        formData.append("strokes", strokes);
+
+        setStatus("Lagrer...");
+
+        try {
+            const response = await fetch("{{ url_for('rounds.autosave_score', round_id=round.id) }}", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                throw new Error(data.error || "Lagring feilet.");
+            }
+
+            const playerId = data.round_player_id;
+            const totals = data.totals;
+
+            const outEl = document.getElementById(`total-out-${playerId}`);
+            const inEl = document.getElementById(`total-in-${playerId}`);
+            const totalEl = document.getElementById(`total-all-${playerId}`);
+
+            if (outEl) outEl.textContent = totals.out ?? "";
+            if (inEl && totals.in !== null) inEl.textContent = totals.in;
+            if (totalEl) totalEl.textContent = totals.total ?? "";
+
+            setStatus("Lagret");
+        } catch (error) {
+            console.error(error);
+            setStatus(error.message || "Feil ved lagring", true);
+        }
+    }
+
+    async function saveStatsForHole(holeNumber) {
+        const fields = Array.from(document.querySelectorAll(`.autosave-stat[data-hole-number="${holeNumber}"]`));
+        const formData = new FormData();
+        formData.append("hole_number", holeNumber);
+
+        fields.forEach((field) => {
+            if (field.type === "checkbox" && !field.checked) {
+                return;
+            }
+            formData.append(field.dataset.statField, field.value.trim());
+        });
+
+        setStatus("Lagrer statistikk...");
+
+        try {
+            const response = await fetch("{{ url_for('rounds.autosave_score_stat', round_id=round.id) }}", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                throw new Error(data.error || "Lagring av statistikk feilet.");
+            }
+
+            setStatus("Lagret");
+        } catch (error) {
+            console.error(error);
+            setStatus(error.message || "Feil ved lagring", true);
+        }
+    }
+
+    inputs.forEach((input) => {
+        input.addEventListener("change", () => {
+            const key = `${input.dataset.roundPlayerId}-${input.dataset.holeNumber}`;
+
+            if (timers.has(key)) {
+                clearTimeout(timers.get(key));
+            }
+
+            setStatus("Venter...");
+
+            const timer = setTimeout(() => {
+                saveInput(input);
+                timers.delete(key);
+            }, 150);
+
+            timers.set(key, timer);
+        });
+
+        input.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                const trimmedValue = input.value.trim();
+                if (trimmedValue === "") {
+                    return;
+                }
+
+                const nextInput = getNextPlayerInput(input);
+                saveInput(input).then(() => {
+                    if (nextInput) {
+                        nextInput.focus();
+                        if (typeof nextInput.select === "function") {
+                            nextInput.select();
+                        }
+                    }
+                });
+            }
+        });
+
+        input.addEventListener("blur", () => {
+            const key = `${input.dataset.roundPlayerId}-${input.dataset.holeNumber}`;
+
+            if (timers.has(key)) {
+                clearTimeout(timers.get(key));
+                timers.delete(key);
+            }
+
+            saveInput(input);
+        });
+    });
+
+    statInputs.forEach((input) => {
+        input.addEventListener("change", () => {
+            if (input.dataset.statField === "green_status") {
+                syncPinOption(input);
+            }
+            saveStatsForHole(input.dataset.holeNumber);
+        });
+
+        input.addEventListener("blur", () => {
+            saveStatsForHole(input.dataset.holeNumber);
+        });
+    });
+
+    function syncPinOption(statusSelect) {
+        const container = statusSelect.closest(".score-stat-fields");
+        if (!container) return;
+        const pinInput = container.querySelector('.green-pin-option input[type="checkbox"]');
+        if (!pinInput) return;
+        const directionInputs = Array.from(container.querySelectorAll('input[data-stat-field="green_direction"]'));
+        const pinUnavailable = statusSelect.value !== "hit";
+        pinInput.disabled = pinUnavailable || statusSelect.disabled;
+        if (pinUnavailable) pinInput.checked = false;
+        if (pinInput.checked) {
+            directionInputs.forEach((input) => {
+                if (input !== pinInput) {
+                    input.checked = false;
+                    input.disabled = true;
+                }
+            });
+        } else {
+            directionInputs.forEach((input) => {
+                if (input !== pinInput) input.disabled = statusSelect.disabled;
+            });
+        }
+        const leftInput = container.querySelector('input[value="left"]');
+        const rightInput = container.querySelector('input[value="right"]');
+        const shortInput = container.querySelector('input[value="short"]');
+        const longInput = container.querySelector('input[value="long"]');
+        if (leftInput && rightInput) {
+            rightInput.disabled = rightInput.disabled || leftInput.checked;
+            leftInput.disabled = leftInput.disabled || rightInput.checked;
+        }
+        if (shortInput && longInput) {
+            longInput.disabled = longInput.disabled || shortInput.checked;
+            shortInput.disabled = shortInput.disabled || longInput.checked;
+        }
+    }
+
+    document.querySelectorAll('select[data-stat-field="green_status"]').forEach(syncPinOption);
+    document.querySelectorAll('input[data-stat-field="green_direction"]').forEach((input) => {
+        input.addEventListener("change", () => {
+            const container = input.closest(".score-stat-fields");
+            const select = container ? container.querySelector('select[data-stat-field="green_status"]') : null;
+            if (select) syncPinOption(select);
+        });
+    });
+
+    function syncPuttsOptions(holeNumber) {
+        const scoreSelect = document.querySelector(`.stat-score-select[data-hole-number="${holeNumber}"]`);
+        const puttsSelect = document.querySelector(`select[data-putts-select="true"][data-hole-number="${holeNumber}"]`);
+        const greenStatusSelect = document.querySelector(`select[data-stat-field="green_status"][data-hole-number="${holeNumber}"]`);
+        if (!scoreSelect || !puttsSelect) return;
+        const score = parseInt(scoreSelect.value, 10);
+        const hasGreenMiss = greenStatusSelect && greenStatusSelect.value !== "hit";
+        Array.from(puttsSelect.options).forEach((option) => {
+            if (option.value === "") {
+                option.disabled = false;
+                return;
+            }
+            const putts = parseInt(option.value, 10);
+            const maxPutts = hasGreenMiss ? score - 2 : score - 1;
+            option.disabled = putts > 0 && (!Number.isInteger(score) || putts > maxPutts);
+        });
+        if (puttsSelect.selectedOptions[0] && puttsSelect.selectedOptions[0].disabled) {
+            puttsSelect.value = "";
+        }
+    }
+
+    document.querySelectorAll(".stat-score-select").forEach((select) => {
+        select.addEventListener("change", () => syncPuttsOptions(select.dataset.holeNumber));
+        syncPuttsOptions(select.dataset.holeNumber);
+    });
+    document.querySelectorAll('select[data-stat-field="green_status"]').forEach((select) => {
+        select.addEventListener("change", () => syncPuttsOptions(select.dataset.holeNumber));
+    });
+
+    if (finishButton) {
+        finishButton.addEventListener("click", function (event) {
+            if (!hasEmptyScoreFields()) {
+                return;
+            }
+
+            const confirmed = window.confirm(
+                "Ikke alle scorer er lagt inn ennå. Er du sikker på at du vil fullføre runden?"
+            );
+
+            if (!confirmed) {
+                event.preventDefault();
+            }
+        });
+    }
+
+    scoreForm.addEventListener("submit", function (event) {
+        const submitter = event.submitter;
+        if (!submitter) {
+            return;
+        }
+
+        if (submitter.value !== "finish") {
+            return;
+        }
+
+        if (!hasEmptyScoreFields()) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            "Ikke alle scorer er lagt inn ennå. Er du sikker på at du vil fullføre runden?"
+        );
+
+        if (!confirmed) {
+            event.preventDefault();
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

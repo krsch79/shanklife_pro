@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}BalleTour2026{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>BalleTour2026</h2>
+        <p class="muted">{{ series.course.name }} · {{ series.course.hole_count }} hull</p>
+    </div>
+    <div class="button-row compact">
+        <a class="button" href="{{ url_for('balletour.new_round') }}">Start ny BalleTour-runde</a>
+        <a class="button secondary" href="{{ url_for('balletour.ongoing_rounds') }}">Pågående runder</a>
+        <a class="button secondary" href="{{ url_for('balletour.finished_rounds') }}">Avsluttede runder</a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card"><strong>{{ round_count }}</strong><span>Runder totalt</span></div>
+    <div class="stat-card"><strong>{{ finished_round_count }}</strong><span>Fullførte runder</span></div>
+    <div class="stat-card"><strong>{{ memberships|length }}</strong><span>BalleTour-spillere</span></div>
+    <div class="stat-card"><strong>{{ series.min_qualifying_rounds }}</strong><span>Tellende grense</span></div>
+</div>
+
+<div class="card-grid">
+    <a class="card-link" href="{{ url_for('balletour.stats') }}">
+        <h3>Statistikk</h3>
+        <p>Spillerkort, greenkart og nøkkeltall.</p>
+    </a>
+    <a class="card-link" href="{{ url_for('balletour.players') }}">
+        <h3>Spillere</h3>
+        <p>Registrerte BalleTour-spillere og brukere.</p>
+    </a>
+</div>
+
+<h3>Leaderboard</h3>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Spiller</th>
+                <th>Runder</th>
+                <th>Totalt</th>
+                <th>Snitt</th>
+                <th>Beste runde</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in leaderboard_rows %}
+            <tr>
+                <td>{{ row.rank }}</td>
+                <td>{{ display_name(row.player) }}</td>
+                <td>{{ row.rounds_played }}</td>
+                <td>{{ row.total_vs_par_display }}</td>
+                <td>{{ row.avg_round if row.avg_round is not none else "-" }}</td>
+                <td>{{ row.best_round if row.best_round is not none else "-" }}</td>
+                <td>{{ "Tellende" if row.qualified else "Mangler runder" }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="muted">Ingen BalleTour-spillere funnet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h3>Beste score per hull</h3>
+<div class="table-wrap best-hole-table-wrap">
+    <table class="best-hole-table">
+        <thead>
+            <tr>
+                <th>Spiller</th>
+                {% for hole in best_hole_score_table.holes %}
+                <th>{{ hole.hole_number }}</th>
+                {% endfor %}
+                <th>Totalt</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in best_hole_score_table.player_rows %}
+            <tr>
+                <td>{{ display_name(row.player) }}</td>
+                {% for cell in row.cells %}
+                <td class="{% if cell.is_best %}best-hole-score{% endif %}">
+                    <span class="score-shape {{ cell.shape_class }}">
+                        {{ cell.score if cell.score is not none else "-" }}
+                    </span>
+                </td>
+                {% endfor %}
+                {% set total_cell = best_hole_score_table.total_cells[loop.index0] %}
+                <td class="{% if total_cell.is_best %}best-hole-score{% endif %}">
+                    {{ total_cell.score if total_cell.score is not none else "-" }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

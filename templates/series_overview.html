@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ series.name }} - Shanklife Pro{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>{{ series.name }}</h2>
+        <p class="muted">{{ series.course.name }} · {{ series.course.hole_count }} hull</p>
+    </div>
+    <div class="button-row">
+        <a class="button secondary" href="{{ url_for('series.players', series_id=series.id) }}">Spillere</a>
+        <a class="button secondary" href="{{ url_for('series.club_stats', series_id=series.id) }}">Køllestatistikk</a>
+        <a class="button secondary" href="{{ url_for('series.gallery', series_id=series.id) }}">Galleri</a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card"><strong>{{ round_count }}</strong><span>Runder</span></div>
+    <div class="stat-card"><strong>{{ series.players|length }}</strong><span>Spillere</span></div>
+    <div class="stat-card"><strong>{{ image_count }}</strong><span>Bilder</span></div>
+    <div class="stat-card"><strong>{{ series.min_qualifying_rounds }}</strong><span>Tellende grense</span></div>
+</div>
+
+<div class="tee-tabs">
+    <a class="{% if not selected_tee %}active{% endif %}" href="{{ url_for('series.overview', series_id=series.id) }}">Alle tees</a>
+    {% for tee in tees %}
+    <a class="{% if selected_tee == tee.name %}active{% endif %}" href="{{ url_for('series.overview', series_id=series.id, tee=tee.name) }}">{{ tee.name }}</a>
+    {% endfor %}
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Spiller</th>
+                <th>Runder</th>
+                <th>Totalt</th>
+                <th>Snitt</th>
+                <th>Beste</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in leaderboard_rows %}
+            <tr>
+                <td>{{ row.rank }}</td>
+                <td><a href="{{ url_for('series.player_profile', series_id=series.id, player_id=row.player.id) }}">{{ row.player.name }}</a></td>
+                <td>{{ row.rounds_played }}</td>
+                <td>{{ row.total_vs_par_display }}</td>
+                <td>{{ row.avg_round }}</td>
+                <td>{{ row.best_round }}</td>
+                <td>{% if row.qualified %}Tellende{% else %}Mangler runder{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7">Ingen ferdige runder i denne visningen.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

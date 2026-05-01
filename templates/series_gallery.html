@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Galleri - {{ series.name }}{% endblock %}
+
+{% block content %}
+<h2>{{ series.name }}: Galleri</h2>
+
+<div class="gallery-grid">
+    {% for image in images %}
+    <figure>
+        <img src="{{ url_for('main.uploaded_file', filename='round-images/' ~ image.filename) }}" alt="Rundebilde">
+        <figcaption>
+            {{ image.round.course.name }}
+            {% if image.hole_number %} · hull {{ image.hole_number }}{% endif %}
+            {% if image.tagged_player %} · {{ image.tagged_player.name }}{% endif %}
+        </figcaption>
+    </figure>
+    {% else %}
+    <p>Ingen bilder importert.</p>
+    {% endfor %}
+</div>
+{% endblock %}

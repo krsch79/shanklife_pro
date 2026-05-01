@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Baner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Baner</h2>
+    <div class="button-row">
+        <a class="button secondary" href="{{ url_for('courses.import_course') }}">Importer fra bilde</a>
+        <a class="button" href="{{ url_for('courses.new_course') }}">Ny bane</a>
+    </div>
+</div>
+
+{% if courses %}
+<table>
+    <thead>
+        <tr>
+            <th>Banenavn</th>
+            <th>Hull</th>
+            <th>Tees</th>
+            <th>Handling</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for course in courses %}
+        <tr>
+            <td>{{ course.name }}</td>
+            <td>{{ course.hole_count }}</td>
+            <td>{{ course.tees|length }}</td>
+            <td>
+                <div class="button-row compact">
+                    <a class="button secondary" href="{{ url_for('courses.edit_course', course_id=course.id) }}">Rediger</a>
+                    <form
+                        method="post"
+                        action="{{ url_for('courses.delete_course', course_id=course.id) }}"
+                        onsubmit="return confirm('Er du sikker på at du vil slette banen {{ course.name }}?');"
+                        class="inline-form"
+                    >
+                        <button type="submit" class="button danger">Slett</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Ingen baner registrert ennå.</p>
+{% endif %}
+{% endblock %}

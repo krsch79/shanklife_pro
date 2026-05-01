@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Runde {{ round.id }}{% endblock %}
+
+{% block content %}
+<h2>Runde {{ round.id }}</h2>
+
+<div class="form-card">
+    <p><strong>Bane:</strong> {{ round.course.name }}</p>
+    <p><strong>Status:</strong> {{ round.status }}</p>
+    <p><strong>Startet:</strong> {{ round.started_at|datetime_local }}</p>
+    <p><strong>Fullført:</strong> {{ round.finished_at|datetime_local }}</p>
+
+    <h3>Spillere</h3>
+    <ul>
+        {% for rp in round.round_players %}
+        <li>
+            {{ rp.player_name_snapshot }}
+            (hcp {{ "%.1f"|format(rp.hcp_for_round) }})
+            {% if rp.selected_tee %}
+            - tee {{ rp.selected_tee.name }}
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+
+    <div class="button-row">
+        {% if round.status == 'ongoing' %}
+        <a class="button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=1) }}">Fortsett runde</a>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('rounds.round_score', round_id=round.id) }}">Åpne scorekort</a>
+        {% if current_user and current_user.is_admin %}
+        <form
+            method="post"
+            action="{{ url_for('rounds.delete_round', round_id=round.id) }}"
+            onsubmit="return confirm('Er du sikker på at du vil slette runde {{ round.id }}?');"
+            class="inline-form"
+        >
+            <input type="hidden" name="next" value="{{ url_for('rounds.rounds') }}">
+            <button type="submit" class="button danger">Slett runde</button>
+        </form>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('rounds.rounds') }}">Tilbake</a>
+    </div>
+</div>
+{% endblock %}

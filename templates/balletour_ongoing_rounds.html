@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Pågående BalleTour-runder{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>Pågående runder</h2>
+        <p class="muted">{{ series.course.name }}</p>
+    </div>
+    <div class="button-row compact">
+        <a class="button" href="{{ url_for('balletour.new_round') }}">Start ny runde</a>
+        <a class="button secondary" href="{{ url_for('balletour.finished_rounds') }}">Avsluttede runder</a>
+    </div>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Runde</th>
+                <th>Startet</th>
+                <th>Spillere</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for round in rounds %}
+            <tr>
+                <td>Runde {{ round.id }}</td>
+                <td>{{ round.started_at|datetime_local }}</td>
+                <td>
+                    {% for rp in round.round_players %}
+                    {{ rp.player_name_snapshot }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </td>
+                <td>
+                    <div class="button-row compact">
+                        <a class="button compact-button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=1) }}">Fortsett</a>
+                        {% if current_user and current_user.is_admin %}
+                        <form
+                            method="post"
+                            action="{{ url_for('rounds.delete_round', round_id=round.id) }}"
+                            onsubmit="return confirm('Er du sikker på at du vil slette runde {{ round.id }}?');"
+                            class="inline-form"
+                        >
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button type="submit" class="button danger compact-button">Slett</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">Ingen pågående BalleTour-runder.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

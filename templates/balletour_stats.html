@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Statistikk - BalleTour2026{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>BalleTour-statistikk</h2>
+        <p class="muted">{{ series.course.name }}</p>
+    </div>
+</div>
+
+<div class="tee-tabs player-tabs">
+    {% for player in players %}
+    <a
+        class="{% if selected_player and selected_player.id == player.id %}active{% endif %}"
+        href="{{ url_for('balletour.stats', player_id=player.id, hole=selected_hole_number) }}"
+    >
+        {{ display_name(player) }}
+    </a>
+    {% endfor %}
+</div>
+
+{% if selected_player %}
+<div class="page-title-row">
+    <div>
+        <h3>{{ display_name(selected_player) }}</h3>
+        <p class="muted">{{ stats.scored_holes }} registrerte hull · {{ stats.completed_round_count }} fullførte runder</p>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card"><strong>{{ stats.avg_round if stats.avg_round is not none else "-" }}</strong><span>Snittrunde</span></div>
+    <div class="stat-card"><strong>{{ stats.best_round if stats.best_round is not none else "-" }}</strong><span>Beste runde</span></div>
+    <div class="stat-card"><strong>{% if stats.best_round_vs_par is not none %}{% if stats.best_round_vs_par > 0 %}+{% endif %}{{ stats.best_round_vs_par }}{% else %}-{% endif %}</strong><span>Beste mot par</span></div>
+    <div class="stat-card"><strong>{{ stats.green_hit_percent if stats.green_hit_percent is not none else "-" }}{% if stats.green_hit_percent is not none %}%{% endif %}</strong><span>Greentreff</span></div>
+    <div class="stat-card"><strong>{{ stats.bunker_percent if stats.bunker_percent is not none else "-" }}{% if stats.bunker_percent is not none %}%{% endif %}</strong><span>Bunker</span></div>
+    <div class="stat-card"><strong>{{ stats.sand_save_percent if stats.sand_save_percent is not none else "-" }}{% if stats.sand_save_percent is not none %}%{% endif %}</strong><span>Sand saves</span></div>
+    <div class="stat-card"><strong>{{ stats.avg_putts if stats.avg_putts is not none else "-" }}</strong><span>Putter</span></div>
+    <div class="stat-card"><strong>{{ stats.avg_last_putt_distance if stats.avg_last_putt_distance is not none else "-" }}{% if stats.avg_last_putt_distance is not none %} m{% endif %}</strong><span>Gjennomsnittelig lengde på siste putt</span></div>
+</div>
+
+<div class="tee-tabs">
+    <a class="{% if not selected_hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', player_id=selected_player.id) }}">Alle hull</a>
+    {% for hole in stats.holes %}
+    <a class="{% if selected_hole_number == hole.hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', player_id=selected_player.id, hole=hole.hole_number) }}">Hull {{ hole.hole_number }}</a>
+    {% endfor %}
+</div>
+
+<div class="balletour-stats-layout">
+    <section class="green-map-panel">
+        <div class="green-map-header">
+            <div>
+                <h3>Greenmønster</h3>
+                <p class="muted">{% if selected_hole_number %}Hull {{ selected_hole_number }}{% else %}Alle 9 hull{% endif %} · greentreff, miss, bunker og retning</p>
+            </div>
+            <div class="green-map-legend">
+                <span><i class="green-dot hit"></i> Treff</span>
+                <span><i class="green-dot miss"></i> Miss</span>
+                <span><i class="green-dot bunker"></i> Bunker</span>
+            </div>
+        </div>
+        <div class="green-map">
+            {% for point in stats.green_points %}
+            <span class="green-point {{ point.status }}" style="left: {{ point.x }}%; top: {{ point.y }}%;"></span>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section>
+        <h3>Greentreff</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Resultat</th><th>Antall</th><th>%</th></tr></thead>
+                <tbody>
+                    {% for row in stats.green_distribution %}
+                    <tr>
+                        <td>{{ row.label }}</td>
+                        <td>{{ row.count }}</td>
+                        <td>{{ row.percent if row.percent is not none else "-" }}{% if row.percent is not none %}%{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="muted">Sand saves: {{ stats.sand_saves }} av {{ stats.sand_save_attempts }} bunkertreff.</p>
+    </section>
+</div>
+
+<section>
+    <h3>Køllebruk</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Kølle</th><th>Slag</th><th>Snitt</th></tr></thead>
+            <tbody>
+                {% for club in stats.club_rows %}
+                <tr>
+                    <td>{{ club.name }}</td>
+                    <td>{{ club.count }}</td>
+                    <td>{{ club.avg }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3">Ingen kølledata.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% else %}
+<p>Ingen BalleTour-spillere funnet.</p>
+{% endif %}
+{% endblock %}

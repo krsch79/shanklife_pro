@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Køllestatistikk - {{ series.name }}{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>{{ series.name }}: Køllestatistikk</h2>
+        <p class="muted">Snittscore per kølle per hull</p>
+    </div>
+    {% if selected_player %}
+    <a
+        class="button secondary"
+        href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=selected_player.id, edit_defaults=1) }}#default-clubs"
+    >
+        Default-køller
+    </a>
+    {% endif %}
+</div>
+
+<div class="tee-tabs">
+    <a class="{% if not selected_tee %}active{% endif %}" href="{{ url_for('series.club_stats', series_id=series.id, player_id=selected_player.id if selected_player else none) }}">Alle tees</a>
+    {% for tee in tees %}
+    <a class="{% if selected_tee == tee.name %}active{% endif %}" href="{{ url_for('series.club_stats', series_id=series.id, tee=tee.name, player_id=selected_player.id if selected_player else none) }}">{{ tee.name }}</a>
+    {% endfor %}
+</div>
+
+<div class="tee-tabs player-tabs">
+    {% for player in players %}
+    <a
+        class="{% if selected_player and selected_player.id == player.id %}active{% endif %}"
+        href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=player.id) }}"
+    >
+        {{ player.name }}
+    </a>
+    {% endfor %}
+</div>
+
+{% if selected_player and show_default_club_editor %}
+<div class="scorecard-popup-shell" id="default-clubs">
+    <section class="scorecard-popup default-club-popup">
+        <div class="scorecard-popup-header">
+            <div>
+                <p class="muted">{{ series.course.name }}</p>
+                <h2>Default-køller for {{ selected_player.name }}</h2>
+            </div>
+            <a class="button secondary compact-button" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=selected_player.id) }}">Lukk</a>
+        </div>
+        <form method="post" action="{{ url_for('series.save_club_defaults', series_id=series.id) }}">
+            <input type="hidden" name="player_id" value="{{ selected_player.id }}">
+            <div class="default-club-grid">
+                {% for hole in series.course.holes %}
+                <label>
+                    <span>Hull {{ hole.hole_number }}</span>
+                    <select name="default_club_{{ hole.hole_number }}">
+                        <option value="">Ingen default</option>
+                        {% for club in all_clubs %}
+                        <option value="{{ club.id }}" {% if default_clubs.get(hole.hole_number) == club.id %}selected{% endif %}>{{ club.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% endfor %}
+            </div>
+            <div class="button-row">
+                <button type="submit" class="button">Lagre default-køller</button>
+                <a class="button secondary" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=selected_player.id) }}">Avbryt</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endif %}
+
+{% for table in player_tables %}
+<h3>{{ table.player.name }}</h3>
+<div class="table-wrap club-stat-table-wrap">
+    <table class="club-stat-table">
+        <thead>
+            <tr>
+                <th class="sticky-col">Hull</th>
+                <th>Lengde</th>
+                {% for club in clubs %}
+                <th>{{ club.name }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table.hole_rows %}
+            <tr>
+                <td class="sticky-col">{{ row.hole_number }}</td>
+                <td>
+                    {% for length in row.lengths %}
+                    <span>
+                        {% if selected_tee %}
+                        {{ length.length_meters }} m
+                        {% else %}
+                        {{ length.tee_name }}: {{ length.length_meters }} m
+                        {% endif %}
+                    </span>
+                    {% else %}
+                    <span class="muted">-</span>
+                    {% endfor %}
+                </td>
+                {% for cell in row.cells %}
+                <td class="{{ cell.class_name }}">
+                    {% if cell.avg_strokes is not none %}
+                    <strong>{{ "%.2f"|format(cell.avg_strokes) }}</strong>
+                    <span>{{ cell.shot_count }} slag</span>
+                    {% else %}
+                    <span class="muted">-</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p>Ingen køllestatistikk funnet.</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{% if player %}Rediger spiller{% else %}Ny spiller{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% if player %}Rediger spiller{% else %}Ny spiller{% endif %}</h2>
+
+<form method="post" class="form-card">
+    <label for="name">Navn</label>
+    <input type="text" id="name" name="name" value="{{ player.name if player else '' }}" required>
+
+    <label for="gender">Kjønn</label>
+    <select id="gender" name="gender" required>
+        <option value="male" {% if not player or player.gender == 'male' %}selected{% endif %}>Mann</option>
+        <option value="female" {% if player and player.gender == 'female' %}selected{% endif %}>Dame</option>
+    </select>
+
+    <label for="default_hcp">Standard hcp</label>
+    <input type="text" id="default_hcp" name="default_hcp" value="{{ player.default_hcp if player else '' }}" required>
+
+    <div class="button-row">
+        <button type="submit" class="button">Lagre</button>
+        <a class="button secondary" href="{{ url_for('players.players') }}">Avbryt</a>
+    </div>
+</form>
+{% endblock %}

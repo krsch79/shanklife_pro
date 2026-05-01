@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}BalleTour-spillere{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>BalleTour-spillere</h2>
+        <p class="muted">{{ series.name }}</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('balletour.index') }}">BalleTour2026</a>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Navn</th>
+                <th>Brukernavn</th>
+                <th>Passord</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for membership in memberships %}
+            {% set users = users_by_player_id.get(membership.player_id, []) %}
+            <tr>
+                <td>{{ display_name(membership.player) }}</td>
+                <td>
+                    {% for user in users %}
+                    {{ user.username }}{% if not loop.last %}, {% endif %}
+                    {% else %}
+                    -
+                    {% endfor %}
+                </td>
+                <td>Kan ikke vises, passord er lagret kryptert</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3">Ingen BalleTour-spillere registrert.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

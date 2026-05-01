@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Spillere{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Spillere</h2>
+    <a class="button" href="{{ url_for('players.new_player') }}">Ny spiller</a>
+</div>
+
+{% if players %}
+<table>
+    <thead>
+        <tr>
+            <th>Navn</th>
+            <th>Kjønn</th>
+            <th>Standard hcp</th>
+            <th>Handling</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for player in players %}
+        <tr>
+            <td>{{ player.name }}</td>
+            <td>{{ "Mann" if player.gender == "male" else "Dame" }}</td>
+            <td>{{ "%.1f"|format(player.default_hcp) }}</td>
+            <td>
+                <div class="button-row compact">
+                    <a class="button secondary" href="{{ url_for('players.edit_player', player_id=player.id) }}">Rediger</a>
+                    <form
+                        method="post"
+                        action="{{ url_for('players.delete_player', player_id=player.id) }}"
+                        onsubmit="return confirm('Er du sikker på at du vil slette spilleren {{ player.name }}?');"
+                        class="inline-form"
+                    >
+                        <button type="submit" class="button danger">Slett</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Ingen spillere registrert ennå.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Ny runde{% endblock %}
+
+{% block content %}
+<h2>Start ny runde</h2>
+
+<form method="post" class="form-card">
+    <label for="course_id">Bane</label>
+    <select id="course_id" name="course_id" required>
+        <option value="">Velg bane</option>
+        {% for course in courses %}
+        <option value="{{ course.id }}" {% if selected_course_id == course.id|string %}selected{% endif %}>
+            {{ course.name }} ({{ course.hole_count }} hull)
+        </option>
+        {% endfor %}
+    </select>
+
+    <p class="muted">Velg bane først. Deretter velger du spillere og tee for hver.</p>
+
+    <h3>Velg spillere (maks 4)</h3>
+    <div class="player-slots">
+        {% for slot in player_slots %}
+        <div class="player-slot" data-slot="{{ slot.slot }}">
+            <label for="player_slot_{{ slot.slot }}">Spiller {{ slot.slot }}</label>
+            <select id="player_slot_{{ slot.slot }}" name="player_slot_{{ slot.slot }}" class="player-select" {% if not selected_course_id %}disabled{% endif %}>
+                <option value="">Velg spiller</option>
+                <option value="new" {% if slot.selected_player == 'new' %}selected{% endif %}>Ny spiller</option>
+                {% for player in players %}
+                <option value="{{ player.id }}" {% if player.id|string == slot.selected_player %}selected{% endif %}>
+                    {{ player.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <div class="new-player-fields" style="display: none;">
+                <input type="text" name="new_player_name_{{ slot.slot }}" value="{{ slot.new_name }}" placeholder="Navn" class="new-player-name">
+                <input type="text" name="new_player_hcp_{{ slot.slot }}" value="{{ slot.new_hcp }}" placeholder="HCP" class="new-player-hcp">
+                <select name="new_player_tee_{{ slot.slot }}" class="tee-select new-player-tee" data-selected="{{ slot.new_tee }}">
+                    <option value="">Velg tee</option>
+                </select>
+                <div class="received-strokes-display muted" aria-live="polite"></div>
+            </div>
+
+            <div class="existing-player-fields" style="display: none;">
+                <input type="text" name="hcp_existing_{{ slot.slot }}" value="{{ slot.existing_hcp }}" placeholder="HCP" class="existing-player-hcp">
+                <select name="tee_existing_{{ slot.slot }}" class="tee-select existing-player-tee" data-selected="{{ slot.existing_tee }}">
+                    <option value="">Velg tee</option>
+                </select>
+                <div class="received-strokes-display muted" aria-live="polite"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="button-row">
+        <button type="submit" class="button">Opprett runde</button>
+        <a class="button secondary" href="{{ url_for('main.index') }}">Avbryt</a>
+    </div>
+</form>
+
+<script>
+(function () {
+    const courseSelect = document.getElementById("course_id");
+    const playerSelects = document.querySelectorAll(".player-select");
+    const teeSelects = document.querySelectorAll(".tee-select");
+    const courseTeeOptions = {{ course_tee_options|tojson }};
+    const playerHcps = {{ player_hcps|tojson }};
+    const playerGenders = {{ player_genders|tojson }};
+
+    function parseHandicap(value) {
+        const normalized = String(value || "").trim().replace(",", ".");
+        if (!normalized) {
+            return null;
+        }
+
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function roundHalfUp(value) {
+        return value >= 0 ? Math.floor(value + 0.5) : Math.ceil(value - 0.5);
+    }
+
+    function calculatePlayingHandicap(handicap, tee, gender) {
+        if (handicap === null || !tee || !tee.ratings) {
+            return null;
+        }
+
+        const rating = tee.ratings[gender] || tee.ratings.male || null;
+        if (!rating || !tee.total_par) {
+            return null;
+        }
+
+        return roundHalfUp(handicap * (rating.slope / 113) + (rating.course_rating - tee.total_par));
+    }
+
+    function findTee(teeId) {
+        const selectedCourseId = String(courseSelect.value || "");
+        const options = courseTeeOptions[selectedCourseId] || [];
+        return options.find((tee) => String(tee.id) === String(teeId)) || null;
+    }
+
+    function updateReceivedStrokes(slotEl) {
+        const displayEls = slotEl.querySelectorAll(".received-strokes-display");
+        const selectedPlayer = slotEl.querySelector(".player-select").value;
+        const isNewPlayer = selectedPlayer === "new";
+        const hcpInput = isNewPlayer
+            ? slotEl.querySelector(".new-player-hcp")
+            : slotEl.querySelector(".existing-player-hcp");
+        const teeSelect = isNewPlayer
+            ? slotEl.querySelector(".new-player-tee")
+            : slotEl.querySelector(".existing-player-tee");
+        const activeDisplay = isNewPlayer
+            ? slotEl.querySelector(".new-player-fields .received-strokes-display")
+            : slotEl.querySelector(".existing-player-fields .received-strokes-display");
+
+        displayEls.forEach((displayEl) => {
+            displayEl.textContent = "";
+        });
+
+        if (!activeDisplay || !hcpInput || !teeSelect || !selectedPlayer) {
+            return;
+        }
+
+        const handicap = parseHandicap(hcpInput.value);
+        const tee = findTee(teeSelect.value);
+        const gender = isNewPlayer ? "male" : (playerGenders[selectedPlayer] || "male");
+        const playingHandicap = calculatePlayingHandicap(handicap, tee, gender);
+
+        if (playingHandicap === null) {
+            return;
+        }
+
+        activeDisplay.textContent = `Mottatte slag: ${Math.max(playingHandicap, 0)}`;
+    }
+
+    function updateAllReceivedStrokes() {
+        document.querySelectorAll(".player-slot").forEach((slotEl) => {
+            updateReceivedStrokes(slotEl);
+        });
+    }
+
+    function populateTeeSelect(selectEl, options, selectedValue) {
+        const previousValue = selectedValue || selectEl.value || "";
+        selectEl.innerHTML = "";
+
+        const emptyOption = document.createElement("option");
+        emptyOption.value = "";
+        emptyOption.textContent = "Velg tee";
+        selectEl.appendChild(emptyOption);
+
+        options.forEach((tee) => {
+            const option = document.createElement("option");
+            option.value = String(tee.id);
+            option.textContent = tee.name;
+            if (String(tee.id) === String(previousValue)) {
+                option.selected = true;
+            }
+            selectEl.appendChild(option);
+        });
+    }
+
+    function refreshAllTeeSelects() {
+        const selectedCourseId = String(courseSelect.value || "");
+        const options = courseTeeOptions[selectedCourseId] || [];
+
+        teeSelects.forEach((selectEl) => {
+            const selectedValue = selectEl.dataset.selected || selectEl.value || "";
+            populateTeeSelect(selectEl, options, selectedValue);
+        });
+        updateAllReceivedStrokes();
+    }
+
+    function handlePlayerSelection(slotEl) {
+        const select = slotEl.querySelector(".player-select");
+        const newFields = slotEl.querySelector(".new-player-fields");
+        const existingFields = slotEl.querySelector(".existing-player-fields");
+        const value = select.value;
+
+        if (value === "new") {
+            newFields.style.display = "grid";
+            existingFields.style.display = "none";
+        } else if (value && value !== "") {
+            newFields.style.display = "none";
+            existingFields.style.display = "grid";
+            // Fill HCP for existing player
+            const hcpInput = slotEl.querySelector(".existing-player-hcp");
+            hcpInput.value = playerHcps[value] || "";
+        } else {
+            newFields.style.display = "none";
+            existingFields.style.display = "none";
+        }
+
+        updateReceivedStrokes(slotEl);
+    }
+
+    courseSelect.addEventListener("change", function () {
+        const hasCourse = courseSelect.value.trim() !== "";
+        playerSelects.forEach(select => {
+            select.disabled = !hasCourse;
+            if (!hasCourse) {
+                select.value = "";
+                const slotEl = select.closest(".player-slot");
+                handlePlayerSelection(slotEl);
+            }
+        });
+        teeSelects.forEach((selectEl) => {
+            selectEl.dataset.selected = "";
+        });
+        refreshAllTeeSelects();
+        updateAllReceivedStrokes();
+    });
+
+    playerSelects.forEach((select) => {
+        select.addEventListener("change", function () {
+            const slotEl = this.closest(".player-slot");
+            handlePlayerSelection(slotEl);
+        });
+    });
+
+    document.querySelectorAll(".new-player-hcp, .existing-player-hcp, .tee-select").forEach((field) => {
+        field.addEventListener("input", function () {
+            updateReceivedStrokes(this.closest(".player-slot"));
+        });
+        field.addEventListener("change", function () {
+            updateReceivedStrokes(this.closest(".player-slot"));
+        });
+    });
+
+    // Initialize on page load
+    const initialHasCourse = courseSelect.value.trim() !== "";
+    playerSelects.forEach(select => {
+        select.disabled = !initialHasCourse;
+    });
+    document.querySelectorAll(".player-slot").forEach((slotEl) => {
+        handlePlayerSelection(slotEl);
+    });
+
+    refreshAllTeeSelects();
+    updateAllReceivedStrokes();
+})();
+</script>
+{% endblock %}

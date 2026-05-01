@@ -1,0 +1,183 @@
+<div class="leaderboard-modal-content">
+    <div class="leaderboard-modal-summary">
+        <div><strong>{{ data.player_name }}</strong></div>
+        <div class="muted">{{ data.course_name }}</div>
+        <div class="muted">tee {{ data.tee_name }} · hcp {{ "%.1f"|format(data.hcp_for_round) }}</div>
+        <div class="muted">Runde {{ data.round_id }} · {{ data.round_started_at|datetime_local }}</div>
+    </div>
+
+    <div class="leaderboard-modal-totals">
+        <div><strong>Score:</strong> {{ data.to_par_display }}</div>
+        <div><strong>Totalt slag:</strong> {{ data.total_score }}</div>
+    </div>
+
+    <div class="table-wrap">
+        {% if data.hole_count > 9 %}
+        <h4>Første 9</h4>
+        <table class="leaderboard-hole-grid">
+            <tbody>
+                <tr>
+                    <th>Hull nr</th>
+                    {% for row in data.hole_rows[:9] %}
+                    <td>{{ row.hole_number }}</td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>Ut</strong></td>
+                </tr>
+
+                <tr>
+                    <th>Index</th>
+                    {% for row in data.hole_rows[:9] %}
+                    <td>{{ row.index }}</td>
+                    {% endfor %}
+                    <td class="summary-cell">—</td>
+                </tr>
+
+                <tr>
+                    <th>Par</th>
+                    {% for row in data.hole_rows[:9] %}
+                    <td>{{ row.par }}</td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>{{ data.out_par }}</strong></td>
+                </tr>
+
+                <tr>
+                    <th>Score</th>
+                    {% for row in data.hole_rows[:9] %}
+                    <td>
+                        {% if row.score is not none %}
+                        <span class="{{ row.shape_class }}">{{ row.score }}</span>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>{{ data.out_score }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>Siste 9</h4>
+        <table class="leaderboard-hole-grid">
+            <tbody>
+                <tr>
+                    <th>Hull nr</th>
+                    {% for row in data.hole_rows[9:] %}
+                    <td>{{ row.hole_number }}</td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>Inn</strong></td>
+                </tr>
+
+                <tr>
+                    <th>Index</th>
+                    {% for row in data.hole_rows[9:] %}
+                    <td>{{ row.index }}</td>
+                    {% endfor %}
+                    <td class="summary-cell">—</td>
+                </tr>
+
+                <tr>
+                    <th>Par</th>
+                    {% for row in data.hole_rows[9:] %}
+                    <td>{{ row.par }}</td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>{{ data.in_par }}</strong></td>
+                </tr>
+
+                <tr>
+                    <th>Score</th>
+                    {% for row in data.hole_rows[9:] %}
+                    <td>
+                        {% if row.score is not none %}
+                        <span class="{{ row.shape_class }}">{{ row.score }}</span>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>{{ data.in_score }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="leaderboard-summary-block">
+            <h4>Oppsummering</h4>
+            <table class="leaderboard-summary-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        {% if data.hole_count > 9 %}
+                        <th>Ut</th>
+                        <th>Inn</th>
+                        {% endif %}
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th>Par</th>
+                        {% if data.hole_count > 9 %}
+                        <td>{{ data.out_par }}</td>
+                        <td>{{ data.in_par }}</td>
+                        {% endif %}
+                        <td><strong>{{ data.total_par }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Score</th>
+                        {% if data.hole_count > 9 %}
+                        <td>{{ data.out_score }}</td>
+                        <td>{{ data.in_score }}</td>
+                        {% endif %}
+                        <td><strong>{{ data.total_score }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <table class="leaderboard-hole-grid">
+            <tbody>
+                <tr>
+                    <th>Hull nr</th>
+                    {% for row in data.hole_rows %}
+                    <td>{{ row.hole_number }}</td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>Tot</strong></td>
+                </tr>
+
+                <tr>
+                    <th>Index</th>
+                    {% for row in data.hole_rows %}
+                    <td>{{ row.index }}</td>
+                    {% endfor %}
+                    <td class="summary-cell">—</td>
+                </tr>
+
+                <tr>
+                    <th>Par</th>
+                    {% for row in data.hole_rows %}
+                    <td>{{ row.par }}</td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>{{ data.total_par }}</strong></td>
+                </tr>
+
+                <tr>
+                    <th>Score</th>
+                    {% for row in data.hole_rows %}
+                    <td>
+                        {% if row.score is not none %}
+                        <span class="{{ row.shape_class }}">{{ row.score }}</span>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    <td class="summary-cell"><strong>{{ data.total_score }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+
+    <div class="button-row">
+        <a class="button secondary" href="{{ url_for('rounds.round_score', round_id=data.round_id) }}">Åpne runden</a>
+    </div>
+</div>

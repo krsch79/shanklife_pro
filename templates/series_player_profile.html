@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }} - {{ series.name }}{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div class="profile-title">
+        {% if player.profile_image_filename %}
+        <img class="avatar-large" src="{{ url_for('main.uploaded_file', filename='profile-images/' ~ player.profile_image_filename) }}" alt="{{ player.name }}">
+        {% endif %}
+        <div>
+            <h2>{{ player.name }}</h2>
+            <p class="muted">{{ series.name }}</p>
+        </div>
+    </div>
+    <a class="button secondary" href="{{ url_for('series.overview', series_id=series.id) }}">Til leaderboard</a>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card"><strong>{{ summary.round_count }}</strong><span>Fullførte runder</span></div>
+    <div class="stat-card"><strong>{{ summary.avg_round or "-" }}</strong><span>Snittscore</span></div>
+    <div class="stat-card"><strong>{{ summary.best_round or "-" }}</strong><span>Beste runde</span></div>
+    <div class="stat-card"><strong>{{ summary.birdies }}</strong><span>Birdies</span></div>
+    <div class="stat-card"><strong>{{ summary.pars }}</strong><span>Par</span></div>
+    <div class="stat-card"><strong>{{ summary.bogeys }}</strong><span>Bogeys</span></div>
+</div>
+
+<h3>Runder</h3>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>Dato</th><th>Tee</th><th>Score</th><th>Mot par</th></tr></thead>
+        <tbody>
+            {% for row in completed %}
+            <tr>
+                <td>{{ row.round_player.round.started_at|datetime_local }}</td>
+                <td>{{ row.round_player.selected_tee.name if row.round_player.selected_tee else "-" }}</td>
+                <td>{{ row.total }}</td>
+                <td>{{ row.total - summary.course_par }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">Ingen fullførte runder.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if images %}
+<h3>Bilder</h3>
+<div class="gallery-grid">
+    {% for image in images %}
+    <figure>
+        <img src="{{ url_for('main.uploaded_file', filename='round-images/' ~ image.filename) }}" alt="Rundebilde">
+        <figcaption>
+            {{ image.round.course.name }}
+            {% if image.hole_number %} · hull {{ image.hole_number }}{% endif %}
+        </figcaption>
+    </figure>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

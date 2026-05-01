@@ -1,0 +1,89 @@
+{% if boards %}
+    {% for board in boards %}
+    <div class="form-card leaderboard-card">
+        <div class="page-header">
+            <div>
+                <h3>{{ board.course_name }}</h3>
+                <div class="muted">
+                    {{ board.round_count }} pågående runde{% if board.round_count != 1 %}r{% endif %}
+                    samlet på denne banen
+                </div>
+            </div>
+            <div class="muted">
+                {{ "Netto" if view_mode == "net" else "Brutto" }}
+            </div>
+        </div>
+
+        {% if board.entries %}
+        <div class="table-wrap">
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Plass</th>
+                        <th>Spiller</th>
+                        <th>{{ "Netto" if view_mode == "net" else "Brutto" }}</th>
+                        <th>Hull</th>
+                        <th>Slag</th>
+                        <th>Tee</th>
+                        <th>Runde</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in board.entries %}
+                    <tr>
+                        <td>{{ entry.position }}</td>
+                        <td>
+                            <a
+                                href="#"
+                                class="leaderboard-player-link"
+                                data-round-player-id="{{ entry.round_player_id }}"
+                            >
+                                <strong>{{ entry.player_name }}</strong>
+                            </a><br>
+                            <span class="muted">
+                                {{ "M" if entry.gender == "male" else "D" }}
+                                · hcp {{ "%.1f"|format(entry.hcp_for_round) }}
+                                {% if view_mode == "net" and entry.playing_handicap is not none %}
+                                · spillehcp {{ entry.playing_handicap }}
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>
+                                {% if view_mode == "net" %}
+                                    {{ entry.net_to_par_display }}
+                                {% else %}
+                                    {{ entry.gross_to_par_display }}
+                                {% endif %}
+                            </strong>
+                        </td>
+                        <td>{{ entry.through_display }}</td>
+                        <td>
+                            {% if entry.completed_holes > 0 %}
+                                {{ entry.gross_total_strokes }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.tee_name }}</td>
+                        <td>
+                            <a href="{{ url_for('rounds.round_score', round_id=entry.round_id) }}">
+                                Runde {{ entry.round_id }}
+                            </a><br>
+                            <span class="muted">{{ entry.round_started_at|datetime_local }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>Ingen aktive scorer i denne gruppen ennå.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+<div class="form-card">
+    <p>Ingen pågående runder akkurat nå.</p>
+</div>
+{% endif %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Admin - Shanklife scoring{% endblock %}
+
+{% block content %}
+<h2>Admin</h2>
+
+<div class="admin-grid">
+    <a class="card-link" href="{{ url_for('admin.ai_requests') }}">
+        <h3>AI-feilretting</h3>
+        <p>Legg inn prompt for feilretting og følg status på forespørsler.</p>
+    </a>
+
+    <form method="post" action="{{ url_for('admin.backup_database') }}" class="form-card">
+        <h3>Ta backup</h3>
+        <label for="backup_name">Navn på backup</label>
+        <input type="text" id="backup_name" name="backup_name" placeholder="F.eks. Før testdata" required>
+        <div class="button-row">
+            <button type="submit" class="button">Ta backup</button>
+        </div>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.restore_database') }}" class="form-card" onsubmit="return confirm('Restore erstatter nåværende database med valgt backup. Fortsette?');">
+        <h3>Restore backup</h3>
+        <label for="backup_filename">Velg backup</label>
+        <select id="backup_filename" name="backup_filename" required>
+            <option value="">Velg backup</option>
+            {% for backup in backups %}
+            <option value="{{ backup.filename }}">{{ backup.name }} - {{ backup.created_at }} ({{ backup.size_kb }} KB)</option>
+            {% endfor %}
+        </select>
+        <div class="button-row">
+            <button type="submit" class="button danger" {% if not backups %}disabled{% endif %}>Restore</button>
+        </div>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.make_testdata') }}" class="form-card" onsubmit="return confirm('Dette sletter eksisterende runder og lager 50 nye test-runder per bruker for Kristian og Erik. Baner og spillere beholdes. Fortsette?');">
+        <h3>Lag testdata</h3>
+        <p class="muted">Sletter kun runder, scorer og statistikk. Baner, spillere og brukere beholdes.</p>
+        <div class="button-row">
+            <button type="submit" class="button">Lag 50 test-runder per bruker</button>
+        </div>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.make_balletour_testdata') }}" class="form-card" onsubmit="return confirm('Dette erstatter eksisterende BalleTour-runder med 20 nye test-runder. Spillere, brukere, bane og serie beholdes. Fortsette?');">
+        <h3>Lag BalleTour-testdata</h3>
+        <p class="muted">Nullstiller BalleTour-runder og lager 20 nye runder med score, køller og greenstatistikk.</p>
+        <div class="button-row">
+            <button type="submit" class="button">Lag 20 BalleTour-runder</button>
+        </div>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.clear_round_data') }}" class="form-card" onsubmit="return confirm('Dette sletter alle runder, scorer og statistikk. Baner og spillere beholdes. Fortsette?');">
+        <h3>Nullstill runder</h3>
+        <p class="muted">Brukes for å starte med tom rundehistorikk uten å slette baner eller spillere.</p>
+        <div class="button-row">
+            <button type="submit" class="button danger">Slett alle runder</button>
+        </div>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.clear_balletour_round_data') }}" class="form-card" onsubmit="return confirm('Dette sletter alle BalleTour-runder med score, statistikk og bilder. Spillere, brukere, bane og serie beholdes. Fortsette?');">
+        <h3>Nullstill BalleTour-data</h3>
+        <p class="muted">Sletter bare BalleTour-runder med tilhørende score, statistikk og bilder.</p>
+        <div class="button-row">
+            <button type="submit" class="button danger">Slett BalleTour-runder</button>
+        </div>
+    </form>
+</div>
+
+<h3>Tilgjengelige backuper</h3>
+{% if backups %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Navn</th>
+                <th>Opprettet</th>
+                <th>Fil</th>
+                <th>Størrelse</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for backup in backups %}
+            <tr>
+                <td>{{ backup.name }}</td>
+                <td>{{ backup.created_at }}</td>
+                <td>{{ backup.filename }}</td>
+                <td>{{ backup.size_kb }} KB</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p>Ingen backuper ennå.</p>
+{% endif %}
+{% endblock %}

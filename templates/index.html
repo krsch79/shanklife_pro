@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Forside - Shanklife Pro{% endblock %}
+
+{% block content %}
+<h2>Forside</h2>
+
+<div class="card-grid">
+    {% if current_user %}
+    <a class="card-link" href="{{ url_for('profile.me') }}">
+        <h3>Min side</h3>
+        <p>Se dine runder og statistikk.</p>
+    </a>
+
+    <a class="card-link" href="{{ url_for('rounds.new_stats_round') }}">
+        <h3>Ny runde med statistikk</h3>
+        <p>Før score og detaljstatistikk for eget spill.</p>
+    </a>
+
+    {% if current_user_is_balletour_player %}
+    <a class="card-link" href="{{ url_for('balletour.index') }}">
+        <h3>BalleTour2026</h3>
+        <p>Start BalleTour-runde og se alle spilte runder.</p>
+    </a>
+    {% endif %}
+    {% endif %}
+
+    <a class="card-link" href="{{ url_for('rounds.new_round') }}">
+        <h3>Start ny runde</h3>
+        <p>Opprett ny runde med 1–4 spillere.</p>
+    </a>
+
+    <a class="card-link" href="{{ url_for('players.players') }}">
+        <h3>Spillere</h3>
+        <p>{{ player_count }} registrerte spillere</p>
+    </a>
+
+    <a class="card-link" href="{{ url_for('courses.courses') }}">
+        <h3>Baner</h3>
+        <p>{{ course_count }} registrerte baner</p>
+    </a>
+
+    <a class="card-link {% if ongoing_count == 0 %}disabled-card{% endif %}" href="{{ url_for('rounds.ongoing_rounds') }}">
+        <h3>Pågående runder</h3>
+        <p>{{ ongoing_count }} pågående</p>
+    </a>
+
+    <a class="card-link {% if finished_count == 0 %}disabled-card{% endif %}" href="{{ url_for('rounds.finished_rounds') }}">
+        <h3>Fullførte runder</h3>
+        <p>{{ finished_count }} fullførte</p>
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Hull {{ hole.hole_number }} - {{ round.course.name }}{% endblock %}
+
+{% block content %}
+<div class="hole-entry-page">
+    <div class="hole-entry-top">
+        <div>
+            <p class="muted">Hull {{ hole.hole_number }} av {{ course.hole_count }}</p>
+            <h2>{{ round.course.name }}</h2>
+        </div>
+        <a
+            class="button secondary compact-button"
+            href="{% if is_balletour_scoring_page %}{{ url_for('rounds.balletour_round_scorecard', round_id=round.id, hole=hole.hole_number) }}{% else %}{{ url_for('rounds.round_score', round_id=round.id) }}{% endif %}"
+        >
+            Scorekort
+        </a>
+    </div>
+
+    <div class="hole-info-strip">
+        <div><strong>{{ hole.hole_number }}</strong><span>Hull</span></div>
+        <div><strong>{{ hole.par }}</strong><span>Par</span></div>
+        <div><strong>{{ hole.stroke_index }}</strong><span>Index</span></div>
+    </div>
+
+    <form method="post" class="hole-entry-form" id="hole-entry-form">
+        <div class="hole-player-list">
+            {% for rp in round_players %}
+            {% set entry = score_entries.get(rp.id) %}
+            {% set detail = player_details.get(rp.id) %}
+            <div class="hole-player-row {% if stats_round_player_id == rp.id %}with-stats{% endif %} {% if club_tracking_enabled %}with-club{% endif %}">
+                <div class="hole-player-meta">
+                    <strong>{{ rp.player_name_snapshot }}</strong>
+                    <span>
+                        {{ detail.tee_name if detail else "—" }}
+                        {% if detail and detail.length %} · {{ detail.length }} m{% endif %}
+                    </span>
+                </div>
+                <label class="score-mini-field">
+                    <span>Score</span>
+                    <select
+                        name="score_{{ rp.id }}"
+                        {% if stats_round_player_id == rp.id %}class="stat-score-select"{% endif %}
+                        {% if round.status == 'finished' %}disabled{% endif %}
+                    >
+                        <option value="" {% if not entry or entry.strokes is none %}selected{% endif %}>—</option>
+                        {% for score_option in score_options %}
+                        <option value="{{ score_option }}" {% if entry and entry.strokes == score_option %}selected{% endif %}>{{ score_option }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                {% if club_tracking_enabled %}
+                <label class="club-mini-field">
+                    <span>Kølle</span>
+                    {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
+                    <select name="tee_club_{{ rp.id }}" {% if round.status == 'finished' %}disabled{% endif %}>
+                        <option value="" {% if not selected_club_id %}selected{% endif %}>—</option>
+                        {% for club in clubs %}
+                        <option value="{{ club.id }}" {% if selected_club_id == club.id %}selected{% endif %}>{{ club.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% endif %}
+
+                {% if stats_round_player_id == rp.id %}
+                <div class="hole-stat-grid">
+                    {% if hole.par == 3 %}
+                    <label>
+                        <span>Green</span>
+                        <select name="stat_green_status" {% if round.status == 'finished' %}disabled{% endif %}>
+                            <option value="hit" {% if stats_values.green_status == 'hit' %}selected{% endif %}>Greentreff</option>
+                            <option value="miss" {% if stats_values.green_status == 'miss' %}selected{% endif %}>Miss</option>
+                            <option value="bunker" {% if stats_values.green_status == 'bunker' %}selected{% endif %}>Bunker</option>
+                        </select>
+                    </label>
+                    <div class="green-direction-grid">
+                        <label class="green-pin-option"><input type="checkbox" name="stat_green_direction" value="pin" {% if 'pin' in stats_values.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> På flagget</label>
+                        <label><input type="checkbox" name="stat_green_direction" value="left" {% if 'left' in stats_values.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Venstre</label>
+                        <label><input type="checkbox" name="stat_green_direction" value="right" {% if 'right' in stats_values.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Høyre</label>
+                        <label><input type="checkbox" name="stat_green_direction" value="short" {% if 'short' in stats_values.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Kort</label>
+                        <label><input type="checkbox" name="stat_green_direction" value="long" {% if 'long' in stats_values.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Lang</label>
+                    </div>
+                    {% endif %}
+
+                    {% if hole.par in [4, 5] %}
+                    <label>
+                        <span>Utslag</span>
+                        <input
+                            type="number"
+                            min="1"
+                            max="500"
+                            name="stat_drive"
+                            value="{{ stats_values.drive_distance_m if stats_values.drive_distance_m is not none else '' }}"
+                            placeholder="m"
+                            {% if round.status == 'finished' %}disabled{% endif %}
+                        >
+                    </label>
+                    <label>
+                        <span>FW</span>
+                        <select name="stat_fairway" {% if round.status == 'finished' %}disabled{% endif %}>
+                            <option value="" {% if not stats_values.fairway_result %}selected{% endif %}>—</option>
+                            <option value="hit" {% if stats_values.fairway_result == 'hit' %}selected{% endif %}>Treff</option>
+                            <option value="left" {% if stats_values.fairway_result == 'left' %}selected{% endif %}>Venstre</option>
+                            <option value="right" {% if stats_values.fairway_result == 'right' %}selected{% endif %}>Høyre</option>
+                        </select>
+                    </label>
+                    {% endif %}
+                    <label>
+                        <span>Putter</span>
+                        <select name="stat_putts" class="stat-putts-select" {% if round.status == 'finished' %}disabled{% endif %}>
+                            <option value="" {% if stats_values.putts is none %}selected{% endif %}>—</option>
+                            {% for putt_option in range(0, 6) %}
+                            <option value="{{ putt_option }}" {% if stats_values.putts == putt_option %}selected{% endif %}>{{ putt_option }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Siste putt</span>
+                        <select name="stat_last_putt_distance" {% if round.status == 'finished' %}disabled{% endif %}>
+                            <option value="" {% if stats_values.last_putt_distance_m is none %}selected{% endif %}>—</option>
+                            {% for distance in last_putt_distance_options %}
+                            <option value="{{ distance }}" {% if stats_values.last_putt_distance_m == distance %}selected{% endif %}>
+                                {{ distance|string|replace(".0", "") }} m
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="hole-nav">
+            {% if previous_hole %}
+            <button type="submit" name="action" value="previous" class="button secondary">Forrige hull</button>
+            {% else %}
+            <button type="button" class="button secondary" disabled>Forrige hull</button>
+            {% endif %}
+
+            {% if round.status == 'ongoing' %}
+                {% if next_hole %}
+                <button type="submit" name="action" value="next" class="button">Neste hull</button>
+                {% else %}
+                <button
+                    type="submit"
+                    name="action"
+                    value="finish"
+                    class="button danger"
+                    id="finish-round-hole-button"
+                >
+                    Fullfør runde
+                </button>
+                {% endif %}
+            {% else %}
+            <a
+                class="button"
+                href="{% if is_balletour_scoring_page %}{{ url_for('rounds.balletour_round_scorecard', round_id=round.id, hole=hole.hole_number) }}{% else %}{{ url_for('rounds.round_score', round_id=round.id) }}{% endif %}"
+            >
+                Se scorekort
+            </a>
+            {% endif %}
+        </div>
+    </form>
+
+    <div class="hole-image-panel">
+        <form
+            method="post"
+            enctype="multipart/form-data"
+            action="{{ url_for('rounds.upload_round_hole_image', round_id=round.id, hole_number=hole.hole_number) }}"
+            class="hole-image-form"
+        >
+            <div>
+                <h3>Bilder</h3>
+                <p class="muted">{{ course.name }} · hull {{ hole.hole_number }}</p>
+            </div>
+            <label>
+                <span>Bilde</span>
+                <input type="file" name="round_image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
+            </label>
+            <label>
+                <span>Spiller-tag</span>
+                <select name="tagged_player_id">
+                    <option value="">Ingen spiller</option>
+                    {% for rp in round_players %}
+                    <option value="{{ rp.player_id }}">{{ rp.player_name_snapshot }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="button">Last opp bilde</button>
+        </form>
+
+        {% if hole_images %}
+        <div class="hole-image-grid">
+            {% for image in hole_images %}
+            <figure>
+                <img src="{{ url_for('main.uploaded_file', filename='round-images/' ~ image.filename) }}" alt="Bilde fra {{ course.name }}, hull {{ hole.hole_number }}">
+                <figcaption>
+                    Hull {{ image.hole_number }} · {{ course.name }}
+                    {% if image.tagged_player %} · {{ image.tagged_player.name }}{% endif %}
+                </figcaption>
+            </figure>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if round.status == 'ongoing' and not next_hole %}
+<script>
+(function () {
+    const finishButton = document.getElementById("finish-round-hole-button");
+    if (!finishButton) {
+        return;
+    }
+    finishButton.addEventListener("click", function (event) {
+        if (!window.confirm("Er du sikker på at runden er ferdig?")) {
+            event.preventDefault();
+        }
+    });
+})();
+</script>
+{% endif %}
+<script>
+(function () {
+    function syncPinOption(statusSelect) {
+        const container = statusSelect.closest(".hole-stat-grid, .score-stat-fields");
+        if (!container) return;
+        const pinInput = container.querySelector('.green-pin-option input[type="checkbox"]');
+        if (!pinInput) return;
+        const directionInputs = Array.from(container.querySelectorAll('input[name="stat_green_direction"]'));
+        const pinUnavailable = statusSelect.value !== "hit";
+        pinInput.disabled = pinUnavailable || statusSelect.disabled;
+        if (pinUnavailable) pinInput.checked = false;
+        if (pinInput.checked) {
+            directionInputs.forEach((input) => {
+                if (input !== pinInput) {
+                    input.checked = false;
+                    input.disabled = true;
+                }
+            });
+        } else {
+            directionInputs.forEach((input) => {
+                if (input !== pinInput) input.disabled = statusSelect.disabled;
+            });
+        }
+        const leftInput = container.querySelector('input[value="left"]');
+        const rightInput = container.querySelector('input[value="right"]');
+        const shortInput = container.querySelector('input[value="short"]');
+        const longInput = container.querySelector('input[value="long"]');
+        if (leftInput && rightInput) {
+            rightInput.disabled = rightInput.disabled || leftInput.checked;
+            leftInput.disabled = leftInput.disabled || rightInput.checked;
+        }
+        if (shortInput && longInput) {
+            longInput.disabled = longInput.disabled || shortInput.checked;
+            shortInput.disabled = shortInput.disabled || longInput.checked;
+        }
+    }
+
+    document.querySelectorAll('select[name="stat_green_status"]').forEach((select) => {
+        syncPinOption(select);
+        select.addEventListener("change", () => syncPinOption(select));
+    });
+    document.querySelectorAll('input[name="stat_green_direction"]').forEach((input) => {
+        input.addEventListener("change", () => {
+            const container = input.closest(".hole-stat-grid");
+            const select = container ? container.querySelector('select[name="stat_green_status"]') : null;
+            if (select) syncPinOption(select);
+        });
+    });
+
+    function syncPuttsOptions() {
+        const scoreSelect = document.querySelector(".stat-score-select");
+        const puttsSelect = document.querySelector(".stat-putts-select");
+        const greenStatusSelect = document.querySelector('select[name="stat_green_status"]');
+        if (!scoreSelect || !puttsSelect) return;
+        const score = parseInt(scoreSelect.value, 10);
+        const hasGreenMiss = greenStatusSelect && greenStatusSelect.value !== "hit";
+        Array.from(puttsSelect.options).forEach((option) => {
+            if (option.value === "") {
+                option.disabled = false;
+                return;
+            }
+            const putts = parseInt(option.value, 10);
+            const maxPutts = hasGreenMiss ? score - 2 : score - 1;
+            option.disabled = putts > 0 && (!Number.isInteger(score) || putts > maxPutts);
+        });
+        if (puttsSelect.selectedOptions[0] && puttsSelect.selectedOptions[0].disabled) {
+            puttsSelect.value = "";
+        }
+    }
+
+    document.querySelector(".stat-score-select")?.addEventListener("change", syncPuttsOptions);
+    document.querySelector('select[name="stat_green_status"]')?.addEventListener("change", syncPuttsOptions);
+    syncPuttsOptions();
+})();
+</script>
+{% endblock %}

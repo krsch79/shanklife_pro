@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Spillere - {{ series.name }}{% endblock %}
+
+{% block content %}
+<h2>{{ series.name }}: Spillere</h2>
+
+<div class="card-grid">
+    {% for membership in memberships %}
+    <a class="card-link player-card-link" href="{{ url_for('series.player_profile', series_id=series.id, player_id=membership.player.id) }}">
+        {% if membership.player.profile_image_filename %}
+        <img class="avatar-large" src="{{ url_for('main.uploaded_file', filename='profile-images/' ~ membership.player.profile_image_filename) }}" alt="{{ membership.player.name }}">
+        {% endif %}
+        <h3>{{ membership.player.name }}</h3>
+        <p>Se runder, score og bilder.</p>
+    </a>
+    {% else %}
+    <p>Ingen spillere er lagt til i serien.</p>
+    {% endfor %}
+</div>
+{% endblock %}
