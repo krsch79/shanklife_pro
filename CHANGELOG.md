@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.1.1] - 2026-05-01
+- Rettet beregning av mottatte slag pa 9-hullsbaner, slik at spillehandicap halveres og halve slag rundes opp.
+- Oppdaterte visningen av mottatte slag ved opprettelse av ordinare runder, statistikkrunder og BalleTour-runder.
+
 ## [1.1.0] - 2026-05-01
 - Viser versjonsnummer pa Shanklife Pro-forsiden og BalleTour-forsiden.
 - La til changelog-side som apnes fra versjonsnummeret.

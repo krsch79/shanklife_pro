@@ -94,6 +94,18 @@
         return roundHalfUp(handicap * (rating.slope / 113) + (rating.course_rating - tee.total_par));
     }
 
+    function calculateReceivedStrokes(playingHandicap, tee) {
+        if (playingHandicap === null || !tee) {
+            return null;
+        }
+        if (Number(tee.hole_count) === 9) {
+            return playingHandicap >= 0
+                ? Math.ceil(playingHandicap / 2)
+                : -Math.ceil(Math.abs(playingHandicap) / 2);
+        }
+        return playingHandicap;
+    }
+
     function findTee(teeId) {
         const selectedCourseId = String(courseSelect.value || "");
         const options = courseTeeOptions[selectedCourseId] || [];
@@ -131,7 +143,8 @@
             return;
         }
 
-        activeDisplay.textContent = `Mottatte slag: ${Math.max(playingHandicap, 0)}`;
+        const receivedStrokes = calculateReceivedStrokes(playingHandicap, tee);
+        activeDisplay.textContent = `Mottatte slag: ${Math.max(receivedStrokes, 0)}`;
     }
 
     function updateAllReceivedStrokes() {

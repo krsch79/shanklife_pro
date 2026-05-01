@@ -104,6 +104,16 @@
         return roundHalfUp(handicap * (rating.slope / 113) + (rating.course_rating - tee.total_par));
     }
 
+    function calculateReceivedStrokes(playingHandicap, tee) {
+        if (playingHandicap === null || !tee) return null;
+        if (Number(tee.hole_count) === 9) {
+            return playingHandicap >= 0
+                ? Math.ceil(playingHandicap / 2)
+                : -Math.ceil(Math.abs(playingHandicap) / 2);
+        }
+        return playingHandicap;
+    }
+
     function updateReceivedStrokes(slotEl) {
         const displays = slotEl.querySelectorAll(".received-strokes-display");
         displays.forEach((display) => { display.textContent = ""; });
@@ -119,9 +129,11 @@
 
         if (!activeDisplay || !hcpInput || !teeSelect || !selectedPlayer) return;
         const gender = isNewPlayer ? "male" : (playerGenders[selectedPlayer] || "male");
-        const playingHandicap = calculatePlayingHandicap(parseHandicap(hcpInput.value), findTee(teeSelect.value), gender);
+        const tee = findTee(teeSelect.value);
+        const playingHandicap = calculatePlayingHandicap(parseHandicap(hcpInput.value), tee, gender);
         if (playingHandicap === null) return;
-        activeDisplay.textContent = `Mottatte slag: ${Math.max(playingHandicap, 0)}`;
+        const receivedStrokes = calculateReceivedStrokes(playingHandicap, tee);
+        activeDisplay.textContent = `Mottatte slag: ${Math.max(receivedStrokes, 0)}`;
     }
 
     function populateTeeSelect(selectEl, options, selectedValue) {

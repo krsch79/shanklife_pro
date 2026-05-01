@@ -20,7 +20,7 @@ from models import (
     ScoreStat,
 )
 from routes.auth import login_required
-from services.handicap import calculate_playing_handicap, strokes_received_for_hole
+from services.handicap import calculate_playing_handicap, received_strokes_for_round, strokes_received_for_hole
 from services.balletour import get_balletour_series
 
 rounds_bp = Blueprint("rounds", __name__)
@@ -1356,7 +1356,7 @@ def round_score(round_id):
             rating,
             total_par,
         )
-        playing_handicap_map[rp.id] = playing_handicap
+        playing_handicap_map[rp.id] = received_strokes_for_round(playing_handicap, course.hole_count)
         received_strokes_map[rp.id] = {}
         for hole_obj in course.holes:
             received_strokes = 0
