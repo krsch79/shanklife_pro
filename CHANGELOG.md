@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.4.2] - 2026-05-01 17:51
+- Rettet retry av AI-fiks ved a oppdatere eksisterende issue-branch fra main.
+- Fjerner failed-label automatisk nar en AI-fiks startes pa nytt.
+- Ryddet Git-indeks pa Raspberryen etter at worktree feilaktig ble vist som skittent.
+
 ## [1.4.1] - 2026-05-01 17:35
 - Installerte og konfigurerte Codex CLI pa Raspberryen for AI-fiksing.
 - Oppdaterte AI worker til a bruke Codex-stien pa Raspberryen og markere failed ved feil.

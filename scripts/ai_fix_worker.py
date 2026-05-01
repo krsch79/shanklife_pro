@@ -132,6 +132,7 @@ def prepare_branch(issue):
     existing_branches = subprocess.check_output(["git", "branch", "--list", branch], cwd=ROOT, text=True).strip()
     if existing_branches:
         run(["git", "checkout", branch])
+        run(["git", "merge", "--ff-only", "main"])
     else:
         run(["git", "checkout", "-b", branch])
 
@@ -194,6 +195,7 @@ def main():
 
         branch, prompt_path = prepare_branch(issue)
         remove_label(client, repo, issue["number"], WORKFLOW_LABELS["triage"])
+        remove_label(client, repo, issue["number"], WORKFLOW_LABELS["failed"])
         add_labels(client, repo, issue["number"], [WORKFLOW_LABELS["progress"]])
         add_comment(
             client,
