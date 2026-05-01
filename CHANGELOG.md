@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.0] - 2026-05-01 19:24
+- Gjorde AI worker mer robust ved a reparere Git-indeksen for den sjekker rent worktree.
+- Bygget om AI-feilretting til en kompakt GitHub-saksliste med filtre.
+- Synker GitHub-saker automatisk ved sidevisning og viser kommentarer fra GitHub i utvidbare paneler.
+
 ## [1.4.2] - 2026-05-01 17:51
 - Rettet retry av AI-fiks ved a oppdatere eksisterende issue-branch fra main.
 - Fjerner failed-label automatisk nar en AI-fiks startes pa nytt.

@@ -97,9 +97,13 @@ def create_pull_request(client, repo, issue, branch):
 
 
 def ensure_clean_worktree():
+    run(["git", "reset", "--mixed", "HEAD"])
     status = subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip()
     if status:
-        raise RuntimeError("Arbeidstreet er ikke rent. Commit/stash endringer før AI worker kjøres.")
+        raise RuntimeError(
+            "Arbeidstreet er ikke rent. Commit/stash endringer før AI worker kjøres.\n\n"
+            f"{status}"
+        )
 
 
 def make_askpass(token):

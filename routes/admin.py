@@ -21,6 +21,7 @@ from services.github_issues import (
     GitHubIssueError,
     apply_issue_snapshot,
     create_issue_for_ai_request,
+    fetch_issue_comments_for_ai_request,
     fetch_issue_for_ai_request,
     merge_ready_pull_request_for_ai_request,
 )
@@ -39,6 +40,61 @@ def admin_required(view):
 
     wrapped_view.__name__ = view.__name__
     return wrapped_view
+
+
+AI_REQUEST_FILTERS = {
+    "open": "Åpne",
+    "new_open": "Åpne og nye",
+    "ready": "Klar for deploy",
+    "running": "Pågår",
+    "failed": "Feilet",
+    "deployed": "Deployet",
+    "all": "Alle",
+}
+
+
+def _labels_for_request(fix_request):
+    return {
+        label.strip()
+        for label in (fix_request.github_issue_labels or "").split(",")
+        if label.strip()
+    }
+
+
+def _matches_ai_request_filter(fix_request, selected_filter):
+    labels = _labels_for_request(fix_request)
+    github_state = fix_request.github_issue_state or "open"
+    if selected_filter == "all":
+        return True
+    if selected_filter == "new_open":
+        return github_state == "open" and ("needs-triage" in labels or fix_request.status == "new")
+    if selected_filter == "ready":
+        return "ready-to-deploy" in labels
+    if selected_filter == "running":
+        return "in-progress" in labels or fix_request.status == "in_progress"
+    if selected_filter == "failed":
+        return "failed" in labels
+    if selected_filter == "deployed":
+        return "deployed" in labels or fix_request.status == "done"
+    return github_state == "open"
+
+
+def _sync_ai_requests_from_github(fix_requests):
+    comments_by_request_id = {}
+    errors = []
+    for fix_request in fix_requests:
+        if not fix_request.github_issue_number:
+            continue
+        try:
+            issue = fetch_issue_for_ai_request(fix_request)
+            apply_issue_snapshot(fix_request, issue)
+            comments_by_request_id[fix_request.id] = fetch_issue_comments_for_ai_request(fix_request)
+        except GitHubIssueError as exc:
+            fix_request.github_sync_error = str(exc)
+            errors.append(f"#{fix_request.id}: {exc}")
+    if fix_requests:
+        db.session.commit()
+    return comments_by_request_id, errors
 
 
 @admin_bp.route("/admin")
@@ -74,8 +130,24 @@ def ai_requests():
             flash("Forespørselen er lagret lokalt, men GitHub-synk feilet.", "error")
         return redirect(url_for("admin.ai_requests"))
 
-    requests = AiFixRequest.query.order_by(AiFixRequest.created_at.desc()).all()
-    return render_template("admin_ai_requests.html", requests=requests)
+    selected_filter = request.args.get("filter", "open")
+    if selected_filter not in AI_REQUEST_FILTERS:
+        selected_filter = "open"
+
+    all_requests = AiFixRequest.query.order_by(AiFixRequest.created_at.desc()).all()
+    comments_by_request_id, sync_errors = _sync_ai_requests_from_github(all_requests)
+    requests = [
+        item for item in all_requests
+        if _matches_ai_request_filter(item, selected_filter)
+    ]
+    return render_template(
+        "admin_ai_requests.html",
+        requests=requests,
+        selected_filter=selected_filter,
+        filters=AI_REQUEST_FILTERS,
+        comments_by_request_id=comments_by_request_id,
+        sync_errors=sync_errors,
+    )
 
 
 @admin_bp.route("/admin/ai-requests/<int:request_id>/status", methods=["POST"])

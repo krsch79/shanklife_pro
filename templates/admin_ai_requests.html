@@ -5,7 +5,7 @@
 <div class="page-title-row">
     <div>
         <h2>AI-feilretting</h2>
-        <p class="muted">Opprett og spor kodeforespørsler via GitHub issues.</p>
+        <p class="muted">Opprett og spor kodeforespørsler via GitHub issues. Listen synkes automatisk når siden åpnes.</p>
     </div>
     <a class="button secondary" href="{{ url_for('admin.admin_home') }}">Til admin</a>
 </div>
@@ -25,41 +25,63 @@
     </div>
 </form>
 
-<h3>Forespørsler</h3>
+<div class="page-title-row ai-list-heading">
+    <div>
+        <h3>GitHub-saker</h3>
+        <p class="muted">{{ requests|length }} saker vises</p>
+    </div>
+    <div class="filter-tabs">
+        {% for key, label in filters.items() %}
+        <a href="{{ url_for('admin.ai_requests', filter=key) }}" class="{% if selected_filter == key %}active{% endif %}">
+            {{ label }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+{% if sync_errors %}
+<div class="flash flash-error">
+    GitHub-sync feilet for noen saker. Se feilmelding på hver sak.
+</div>
+{% endif %}
+
 {% if requests %}
-<div class="ai-request-list">
+<div class="ai-issue-list">
     {% for item in requests %}
-    <section class="form-card ai-request-card">
-        <div class="compact-round-card-header">
-            <div>
-                <h3>#{{ item.id }} · {{ item.status }}</h3>
-                <p class="muted">
-                    {{ item.created_at|datetime_local }}
-                    {% if item.created_by_user %} · {{ item.created_by_user.username }}{% endif %}
-                </p>
-            </div>
-        </div>
         {% if item.github_issue_url %}
         {% set github_labels = item.github_issue_labels or "" %}
         {% set fix_is_ready = "ready-to-deploy" in github_labels %}
         {% set fix_is_running = "in-progress" in github_labels %}
         {% set fix_is_deployed = "deployed" in github_labels %}
         {% set fix_has_failed = "failed" in github_labels %}
-        <div class="github-status-box">
-            <p>
+        {% set comments = comments_by_request_id.get(item.id, []) %}
+    <section class="ai-issue-card">
+        <div class="ai-issue-main">
+            <div class="ai-issue-title">
                 <a href="{{ item.github_issue_url }}" target="_blank" rel="noopener">
-                    GitHub issue #{{ item.github_issue_number }}
+                    #{{ item.github_issue_number }}
                 </a>
-            </p>
-            <p class="muted">
-                State: {{ item.github_issue_state or "ukjent" }}
-                {% if item.github_issue_labels %} · Labels: {{ item.github_issue_labels }}{% endif %}
-                {% if item.github_issue_updated_at %} · Sist oppdatert: {{ item.github_issue_updated_at|datetime_local }}{% endif %}
-            </p>
+                <span>{{ item.prompt|truncate(92, true) }}</span>
+            </div>
+            <div class="ai-issue-meta">
+                <span class="status-pill">{{ item.github_issue_state or "ukjent" }}</span>
+                {% for label in github_labels.split(",") if label.strip() %}
+                <span class="label-pill">{{ label.strip() }}</span>
+                {% endfor %}
+                {% if item.github_issue_updated_at %}
+                <span class="muted">Oppdatert {{ item.github_issue_updated_at|datetime_local }}</span>
+                {% endif %}
+                {% if item.created_by_user %}
+                <span class="muted">{{ item.created_by_user.username }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ai-issue-actions">
             <form method="post" action="{{ url_for('admin.sync_ai_request_github_status', request_id=item.id) }}">
-                <button type="submit" class="button secondary compact-button">Synk status</button>
+                <button type="submit" class="button secondary compact-button">Synk</button>
             </form>
-            <div class="button-row compact ai-action-row">
+            {% if item.github_issue_url %}
                 <form method="post" action="{{ url_for('admin.generate_ai_request_fix', request_id=item.id) }}">
                     <button
                         type="submit"
@@ -78,41 +100,82 @@
                         Deploy fiks
                     </button>
                 </form>
+            {% endif %}
+        </div>
+
+        <details class="ai-issue-details">
+            <summary>Prompt og kommentarer ({{ comments|length }})</summary>
+            <div class="ai-detail-grid">
+                <div>
+                    <h4>Prompt</h4>
+                    <pre class="prompt-preview compact">{{ item.prompt }}</pre>
+                </div>
+                <div>
+                    <h4>Kommentarer fra GitHub</h4>
+                    {% if comments %}
+                    <div class="github-comment-list">
+                        {% for comment in comments %}
+                        <details class="github-comment">
+                            <summary>
+                                <strong>{{ comment.author }}</strong>
+                                {% if comment.updated_at %}<span class="muted">{{ comment.updated_at|datetime_local }}</span>{% endif %}
+                                <span>{{ comment.body|truncate(120, true) }}</span>
+                            </summary>
+                            <pre class="prompt-preview compact">{{ comment.body }}</pre>
+                            {% if comment.url %}
+                            <a href="{{ comment.url }}" target="_blank" rel="noopener">Åpne kommentar</a>
+                            {% endif %}
+                        </details>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="muted">Ingen kommentarer ennå.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </details>
+
+        {% if item.github_sync_error %}
+        <p class="muted ai-error-line">GitHub-feil: {{ item.github_sync_error }}</p>
+        {% endif %}
+    </section>
+        {% elif item.github_sync_error %}
+    <section class="ai-issue-card">
+        <div class="ai-issue-main">
+            <div class="ai-issue-title">Lokal sak #{{ item.id }}</div>
+            <div class="ai-issue-meta">
+                <span class="status-pill">ikke synket</span>
+                <span class="muted">{{ item.created_at|datetime_local }}</span>
             </div>
         </div>
-        {% elif item.github_sync_error %}
+        <div class="ai-issue-actions">
+            <form method="post" action="{{ url_for('admin.sync_ai_request_to_github', request_id=item.id) }}">
+                <button type="submit" class="button secondary compact-button">Send til GitHub igjen</button>
+            </form>
+        </div>
         <p class="muted">GitHub-feil: {{ item.github_sync_error }}</p>
-        <form method="post" action="{{ url_for('admin.sync_ai_request_to_github', request_id=item.id) }}">
-            <button type="submit" class="button secondary compact-button">Send til GitHub igjen</button>
-        </form>
+        <pre class="prompt-preview compact">{{ item.prompt }}</pre>
+    </section>
         {% else %}
+    <section class="ai-issue-card">
+        <div class="ai-issue-main">
+            <div class="ai-issue-title">Lokal sak #{{ item.id }}</div>
+            <div class="ai-issue-meta">
+                <span class="status-pill">ny</span>
+                <span class="muted">{{ item.created_at|datetime_local }}</span>
+            </div>
+        </div>
+        <div class="ai-issue-actions">
         <form method="post" action="{{ url_for('admin.sync_ai_request_to_github', request_id=item.id) }}">
             <button type="submit" class="button secondary compact-button">Send til GitHub</button>
         </form>
-        {% endif %}
-        <pre class="prompt-preview">{{ item.prompt }}</pre>
-        <form method="post" action="{{ url_for('admin.update_ai_request_status', request_id=item.id) }}">
-            <label>
-                <span>Status</span>
-                <select name="status">
-                    <option value="new" {% if item.status == "new" %}selected{% endif %}>Ny</option>
-                    <option value="in_progress" {% if item.status == "in_progress" %}selected{% endif %}>Pågår</option>
-                    <option value="done" {% if item.status == "done" %}selected{% endif %}>Ferdig</option>
-                    <option value="rejected" {% if item.status == "rejected" %}selected{% endif %}>Avvist</option>
-                </select>
-            </label>
-            <label>
-                <span>Notat</span>
-                <textarea name="admin_note" rows="3">{{ item.admin_note or "" }}</textarea>
-            </label>
-            <div class="button-row">
-                <button type="submit" class="button secondary">Oppdater</button>
-            </div>
-        </form>
+        </div>
+        <pre class="prompt-preview compact">{{ item.prompt }}</pre>
     </section>
+        {% endif %}
     {% endfor %}
 </div>
 {% else %}
-<p>Ingen forespørsler ennå.</p>
+<p>Ingen saker matcher filteret.</p>
 {% endif %}
 {% endblock %}

@@ -85,10 +85,13 @@ def _issue_snapshot(data):
     labels = [label["name"] for label in data.get("labels", [])]
     return {
         "number": data["number"],
+        "title": data.get("title"),
+        "body": data.get("body") or "",
         "url": data["html_url"],
         "state": data.get("state"),
         "labels": labels,
         "updated_at": _parse_github_datetime(data.get("updated_at")),
+        "comments_count": data.get("comments", 0),
     }
 
 
@@ -163,6 +166,33 @@ def fetch_issue_for_ai_request(fix_request):
         raise GitHubIssueError(f"Kunne ikke hente GitHub issue: {response.status_code} {message}")
 
     return _issue_snapshot(response.json())
+
+
+def fetch_issue_comments_for_ai_request(fix_request):
+    if not fix_request.github_issue_number:
+        return []
+
+    token, repo = _github_config()
+    with httpx.Client(headers=_headers(token), timeout=15) as client:
+        response = client.get(
+            f"https://api.github.com/repos/{repo}/issues/{fix_request.github_issue_number}/comments",
+            params={"per_page": 20},
+        )
+
+    if response.status_code != 200:
+        message = response.text[:300]
+        raise GitHubIssueError(f"Kunne ikke hente GitHub-kommentarer: {response.status_code} {message}")
+
+    return [
+        {
+            "author": item.get("user", {}).get("login", "ukjent"),
+            "body": item.get("body") or "",
+            "url": item.get("html_url"),
+            "created_at": _parse_github_datetime(item.get("created_at")),
+            "updated_at": _parse_github_datetime(item.get("updated_at")),
+        }
+        for item in response.json()
+    ]
 
 
 def _remove_issue_label(client, repo, issue_number, label):

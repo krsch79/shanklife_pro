@@ -212,6 +212,138 @@ nav a {
     margin: 0;
 }
 
+.ai-list-heading {
+    margin-top: 18px;
+}
+
+.filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.filter-tabs a {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--primary);
+    padding: 7px 9px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.86rem;
+}
+
+.filter-tabs a.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.ai-issue-list {
+    display: grid;
+    gap: 8px;
+}
+
+.ai-issue-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    padding: 10px;
+}
+
+.ai-issue-main {
+    min-width: 0;
+}
+
+.ai-issue-title {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    font-weight: 800;
+    min-width: 0;
+}
+
+.ai-issue-title span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-issue-meta,
+.ai-issue-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.ai-issue-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+}
+
+.ai-issue-details {
+    grid-column: 1 / -1;
+}
+
+.ai-issue-details summary,
+.github-comment summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.status-pill,
+.label-pill {
+    border-radius: 999px;
+    padding: 2px 7px;
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.status-pill {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.label-pill {
+    background: #ecfdf5;
+    color: #166534;
+}
+
+.ai-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.prompt-preview.compact {
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
+.github-comment-list {
+    display: grid;
+    gap: 8px;
+}
+
+.github-comment {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+
+.github-comment summary {
+    display: grid;
+    gap: 3px;
+}
+
+.ai-error-line {
+    grid-column: 1 / -1;
+}
+
 .tee-tabs {
     display: flex;
     flex-wrap: wrap;
