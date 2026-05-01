@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.2] - 2026-05-01 20:03
+- Laster .env eksplisitt i AI worker for Codex-kjoring.
+- Legger inn tydelig preflight-feil dersom OpenAI-autentisering mangler for AI worker.
+- Dokumenterer at OPENAI_API_KEY ma settes pa Raspberryen for automatisk AI-fiks.
+
 ## [1.5.1] - 2026-05-01 19:46
 - Gjorde GitHub til fasit for AI-feilretting slik at dashboardet kun viser saker som faktisk finnes i GitHub med Shanklife-labels.
 - Hindrer at nye AI-forespørsler lagres lokalt dersom GitHub issue ikke kan opprettes.

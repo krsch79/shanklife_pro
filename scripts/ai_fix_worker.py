@@ -30,6 +30,18 @@ def run(command, *, cwd=ROOT, check=True, env=None, shell=False):
     return subprocess.run(command, cwd=cwd, check=check, env=env, shell=shell)
 
 
+def load_env_file():
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 def github_client():
     token, repo = _github_config()
     return token, repo, httpx.Client(headers=_headers(token), timeout=30)
@@ -154,6 +166,7 @@ def prepare_branch(issue):
 
 
 def run_codex(issue, prompt_path):
+    ensure_codex_auth()
     prompt = (
         f"Du jobber i Shanklife Pro-repoet med GitHub issue #{issue['number']}.\n"
         f"Les arbeidsbeskrivelsen i {prompt_path}.\n"
@@ -165,6 +178,16 @@ def run_codex(issue, prompt_path):
     if not shutil.which(codex_bin) and not Path(codex_bin).exists():
         raise RuntimeError(f"Fant ikke Codex CLI: {codex_bin}")
     run([codex_bin, "exec", "--full-auto", "-C", str(ROOT), prompt])
+
+
+def ensure_codex_auth():
+    if os.environ.get("OPENAI_API_KEY") or os.environ.get("CODEX_API_KEY"):
+        return
+    raise RuntimeError(
+        "OPENAI_API_KEY mangler i miljøet for AI worker. "
+        "Legg OPENAI_API_KEY i /home/kristian/shanklife_pro/.env på Raspberryen, "
+        "eller konfigurer Codex CLI med en gyldig headless autentisering."
+    )
 
 
 def has_changes():
@@ -189,6 +212,7 @@ def main():
     parser.add_argument("--create-pr", action="store_true", help="Opprett pull request etter push.")
     args = parser.parse_args()
 
+    load_env_file()
     ensure_clean_worktree()
     token, repo, client = github_client()
     with client:
@@ -196,6 +220,9 @@ def main():
         if not issue:
             print("Fant ingen åpne AI-issues med needs-triage.")
             return 0
+
+        if args.run_codex:
+            ensure_codex_auth()
 
         branch, prompt_path = prepare_branch(issue)
         remove_label(client, repo, issue["number"], WORKFLOW_LABELS["triage"])
