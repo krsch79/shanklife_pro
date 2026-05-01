@@ -10,6 +10,14 @@
         <p>Legg inn prompt for feilretting og følg status på forespørsler.</p>
     </a>
 
+    <form method="post" action="{{ url_for('admin.deploy_from_github') }}" class="form-card" onsubmit="return confirm('Dette henter siste kode fra GitHub, tar backup og restarter appen. Fortsette?');">
+        <h3>Deploy fra GitHub</h3>
+        <p class="muted">Henter siste main, tar backup, sjekker syntaks og restarter appen.</p>
+        <div class="button-row">
+            <button type="submit" class="button">Start deploy</button>
+        </div>
+    </form>
+
     <form method="post" action="{{ url_for('admin.backup_database') }}" class="form-card">
         <h3>Ta backup</h3>
         <label for="backup_name">Navn på backup</label>

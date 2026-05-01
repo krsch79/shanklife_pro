@@ -1,3 +1,6 @@
+import subprocess
+from pathlib import Path
+
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -22,6 +25,7 @@ from services.github_issues import (
 )
 
 admin_bp = Blueprint("admin", __name__)
+APP_ROOT = Path(__file__).resolve().parents[1]
 
 
 def admin_required(view):
@@ -124,6 +128,15 @@ def sync_ai_request_github_status(request_id):
         db.session.commit()
         flash("Kunne ikke oppdatere GitHub-status.", "error")
     return redirect(url_for("admin.ai_requests"))
+
+
+@admin_bp.route("/admin/deploy", methods=["POST"])
+@admin_required
+def deploy_from_github():
+    command = "cd /home/kristian/shanklife_pro && nohup ./scripts/deploy.sh >> /tmp/shanklife_pro_admin_deploy.log 2>&1 &"
+    subprocess.Popen(["bash", "-lc", command], cwd=APP_ROOT)
+    flash("Deploy fra GitHub er startet i bakgrunnen.", "success")
+    return redirect(url_for("admin.admin_home"))
 
 
 @admin_bp.route("/admin/backup", methods=["POST"])
