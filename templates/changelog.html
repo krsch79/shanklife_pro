@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Changelog - Shanklife Pro{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>Changelog</h2>
+        <p class="muted">Endringer i Shanklife Pro og BalleTour.</p>
+    </div>
+</div>
+
+<div class="changelog-list">
+    {% for entry in changelog_entries %}
+    <section class="changelog-entry">
+        <h3>Versjon {{ entry.version }}</h3>
+        <p class="muted">{{ entry.date }}</p>
+        <ul>
+            {% for change in entry.changes %}
+            <li>{{ change }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% else %}
+    <p class="muted">Ingen endringer er loggfort enna.</p>
+    {% endfor %}
+</div>
+{% endblock %}

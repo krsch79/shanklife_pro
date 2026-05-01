@@ -269,7 +269,7 @@ REGLER:
 
 
 def analyze_slope_table_with_openai(image_path: str):
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     with open(image_path, "rb") as f:
         image = base64.b64encode(f.read()).decode()

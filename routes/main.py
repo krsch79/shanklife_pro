@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, render_template, send_from_directory
 
 from models import Round, Player, Course
+from services.version import APP_VERSION, get_changelog_entries
 
 main_bp = Blueprint("main", __name__)
 
@@ -18,6 +19,16 @@ def index():
         finished_count=finished_count,
         player_count=player_count,
         course_count=course_count,
+        app_version=APP_VERSION,
+    )
+
+
+@main_bp.route("/changelog")
+def changelog():
+    return render_template(
+        "changelog.html",
+        app_version=APP_VERSION,
+        changelog_entries=get_changelog_entries(),
     )
 
 

@@ -151,6 +151,47 @@ nav a {
     margin: 0;
 }
 
+.page-title-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.version-link {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.version-link:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.changelog-list {
+    display: grid;
+    gap: 12px;
+}
+
+.changelog-entry {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    padding: 14px;
+}
+
+.changelog-entry h3,
+.changelog-entry p {
+    margin: 0 0 8px;
+}
+
+.changelog-entry ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
 .tee-tabs {
     display: flex;
     flex-wrap: wrap;

@@ -2,7 +2,10 @@
 {% block title %}Forside - Shanklife Pro{% endblock %}
 
 {% block content %}
-<h2>Forside</h2>
+<div class="page-title-row">
+    <h2>Forside</h2>
+    <a class="version-link" href="{{ url_for('main.changelog') }}">v{{ app_version }}</a>
+</div>
 
 <div class="card-grid">
     {% if current_user %}

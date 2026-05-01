@@ -6,6 +6,7 @@ from models import Club, CourseTee, Player, Round, RoundPlayer, ScoreEntry, Scor
 from routes.auth import login_required
 from routes.rounds import _create_round, _parse_hcp, _parse_tee, build_course_tee_options
 from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
+from services.version import APP_VERSION
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
 
@@ -557,6 +558,7 @@ def index():
         best_hole_score_table=best_hole_score_table,
         leaderboard_rows=leaderboard_rows,
         display_name=_player_display_name,
+        app_version=APP_VERSION,
     )
 
 
