@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.3] - 2026-05-01 20:10
+- Gjenopprettet execute-bit pa deploy-scriptet slik at deploy kan startes direkte igjen.
+
 ## [1.5.2] - 2026-05-01 20:03
 - Laster .env eksplisitt i AI worker for Codex-kjoring.
 - Legger inn tydelig preflight-feil dersom OpenAI-autentisering mangler for AI worker.
