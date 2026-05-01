@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -8,7 +9,33 @@ class GitHubIssueError(RuntimeError):
     pass
 
 
-LABELS = ("from-shanklife-admin", "ai-request", "needs-triage")
+LABELS = {
+    "from-shanklife-admin": {
+        "color": "0f766e",
+        "description": "Opprettet fra Shanklife Pro admin.",
+    },
+    "ai-request": {
+        "color": "2563eb",
+        "description": "Forespørsel som skal behandles av AI/Codex.",
+    },
+    "needs-triage": {
+        "color": "f59e0b",
+        "description": "Må vurderes før arbeid starter.",
+    },
+    "in-progress": {
+        "color": "7c3aed",
+        "description": "Arbeid er startet.",
+    },
+    "ready-to-deploy": {
+        "color": "16a34a",
+        "description": "Endringen er klar for deploy.",
+    },
+    "deployed": {
+        "color": "0f766e",
+        "description": "Endringen er deployet.",
+    },
+}
+DEFAULT_LABELS = ("from-shanklife-admin", "ai-request", "needs-triage")
 
 
 def _load_env_file():
@@ -44,10 +71,37 @@ def _headers(token):
     }
 
 
+def _parse_github_datetime(value):
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+
+
+def _issue_snapshot(data):
+    labels = [label["name"] for label in data.get("labels", [])]
+    return {
+        "number": data["number"],
+        "url": data["html_url"],
+        "state": data.get("state"),
+        "labels": labels,
+        "updated_at": _parse_github_datetime(data.get("updated_at")),
+    }
+
+
+def apply_issue_snapshot(fix_request, issue):
+    fix_request.github_issue_number = issue["number"]
+    fix_request.github_issue_url = issue["url"]
+    fix_request.github_issue_state = issue.get("state")
+    fix_request.github_issue_labels = ", ".join(issue.get("labels", [])) or None
+    fix_request.github_issue_updated_at = issue.get("updated_at")
+    fix_request.github_sync_error = None
+
+
 def _ensure_label(client, repo, label):
+    config = LABELS[label]
     response = client.post(
         f"https://api.github.com/repos/{repo}/labels",
-        json={"name": label, "color": "0f766e"},
+        json={"name": label, "color": config["color"], "description": config["description"]},
     )
     if response.status_code in (201, 422):
         return
@@ -58,11 +112,17 @@ def create_issue_for_ai_request(fix_request):
     token, repo = _github_config()
     creator = fix_request.created_by_user.username if fix_request.created_by_user else "ukjent"
     body = (
+        "## Kilde\n"
         "Opprettet fra Shanklife Pro admin.\n\n"
-        f"Intern forespørsel: #{fix_request.id}\n"
-        f"Opprettet av: {creator}\n\n"
-        "Prompt:\n"
-        f"{fix_request.prompt}\n"
+        f"- Intern forespørsel: #{fix_request.id}\n"
+        f"- Opprettet av: {creator}\n\n"
+        "## Prompt\n"
+        f"{fix_request.prompt}\n\n"
+        "## Arbeidsflyt\n"
+        "- Vurder feilen/endringen.\n"
+        "- Lag branch/commit med kort, sporbar beskrivelse.\n"
+        "- Oppdater versjon og changelog ved kodeendring.\n"
+        "- Deploy først etter verifisering.\n"
     )
 
     with httpx.Client(headers=_headers(token), timeout=15) as client:
@@ -73,7 +133,7 @@ def create_issue_for_ai_request(fix_request):
             json={
                 "title": f"AI request #{fix_request.id}",
                 "body": body,
-                "labels": list(LABELS),
+                "labels": list(DEFAULT_LABELS),
             },
         )
 
@@ -81,8 +141,21 @@ def create_issue_for_ai_request(fix_request):
         message = response.text[:300]
         raise GitHubIssueError(f"GitHub issue kunne ikke opprettes: {response.status_code} {message}")
 
-    data = response.json()
-    return {
-        "number": data["number"],
-        "url": data["html_url"],
-    }
+    return _issue_snapshot(response.json())
+
+
+def fetch_issue_for_ai_request(fix_request):
+    if not fix_request.github_issue_number:
+        raise GitHubIssueError("Forespørselen har ikke GitHub issue ennå.")
+
+    token, repo = _github_config()
+    with httpx.Client(headers=_headers(token), timeout=15) as client:
+        response = client.get(
+            f"https://api.github.com/repos/{repo}/issues/{fix_request.github_issue_number}"
+        )
+
+    if response.status_code != 200:
+        message = response.text[:300]
+        raise GitHubIssueError(f"Kunne ikke hente GitHub issue: {response.status_code} {message}")
+
+    return _issue_snapshot(response.json())

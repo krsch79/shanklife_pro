@@ -5,7 +5,7 @@
 <div class="page-title-row">
     <div>
         <h2>AI-feilretting</h2>
-        <p class="muted">Første versjon: lagre prompter som kan behandles manuelt.</p>
+        <p class="muted">Opprett og spor kodeforespørsler via GitHub issues.</p>
     </div>
     <a class="button secondary" href="{{ url_for('admin.admin_home') }}">Til admin</a>
 </div>
@@ -40,7 +40,21 @@
             </div>
         </div>
         {% if item.github_issue_url %}
-        <p><a href="{{ item.github_issue_url }}" target="_blank" rel="noopener">GitHub issue #{{ item.github_issue_number }}</a></p>
+        <div class="github-status-box">
+            <p>
+                <a href="{{ item.github_issue_url }}" target="_blank" rel="noopener">
+                    GitHub issue #{{ item.github_issue_number }}
+                </a>
+            </p>
+            <p class="muted">
+                State: {{ item.github_issue_state or "ukjent" }}
+                {% if item.github_issue_labels %} · Labels: {{ item.github_issue_labels }}{% endif %}
+                {% if item.github_issue_updated_at %} · Sist oppdatert: {{ item.github_issue_updated_at|datetime_local }}{% endif %}
+            </p>
+            <form method="post" action="{{ url_for('admin.sync_ai_request_github_status', request_id=item.id) }}">
+                <button type="submit" class="button secondary compact-button">Synk status</button>
+            </form>
+        </div>
         {% elif item.github_sync_error %}
         <p class="muted">GitHub-feil: {{ item.github_sync_error }}</p>
         <form method="post" action="{{ url_for('admin.sync_ai_request_to_github', request_id=item.id) }}">

@@ -14,7 +14,12 @@ from services.admin_tools import (
     clear_balletour_rounds,
     clear_rounds,
 )
-from services.github_issues import GitHubIssueError, create_issue_for_ai_request
+from services.github_issues import (
+    GitHubIssueError,
+    apply_issue_snapshot,
+    create_issue_for_ai_request,
+    fetch_issue_for_ai_request,
+)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -55,9 +60,7 @@ def ai_requests():
 
         try:
             issue = create_issue_for_ai_request(fix_request)
-            fix_request.github_issue_number = issue["number"]
-            fix_request.github_issue_url = issue["url"]
-            fix_request.github_sync_error = None
+            apply_issue_snapshot(fix_request, issue)
             db.session.commit()
             flash("Forespørselen er lagret og sendt til GitHub.", "success")
         except GitHubIssueError as exc:
@@ -97,15 +100,29 @@ def sync_ai_request_to_github(request_id):
 
     try:
         issue = create_issue_for_ai_request(fix_request)
-        fix_request.github_issue_number = issue["number"]
-        fix_request.github_issue_url = issue["url"]
-        fix_request.github_sync_error = None
+        apply_issue_snapshot(fix_request, issue)
         db.session.commit()
         flash("Forespørselen er sendt til GitHub.", "success")
     except GitHubIssueError as exc:
         fix_request.github_sync_error = str(exc)
         db.session.commit()
         flash("GitHub-synk feilet.", "error")
+    return redirect(url_for("admin.ai_requests"))
+
+
+@admin_bp.route("/admin/ai-requests/<int:request_id>/github-status", methods=["POST"])
+@admin_required
+def sync_ai_request_github_status(request_id):
+    fix_request = AiFixRequest.query.get_or_404(request_id)
+    try:
+        issue = fetch_issue_for_ai_request(fix_request)
+        apply_issue_snapshot(fix_request, issue)
+        db.session.commit()
+        flash("GitHub-status er oppdatert.", "success")
+    except GitHubIssueError as exc:
+        fix_request.github_sync_error = str(exc)
+        db.session.commit()
+        flash("Kunne ikke oppdatere GitHub-status.", "error")
     return redirect(url_for("admin.ai_requests"))
 
 

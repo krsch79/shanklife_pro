@@ -67,6 +67,9 @@ def ensure_schema_updates(app):
         if "ai_fix_requests" in table_names:
             add_column_if_missing("ai_fix_requests", "github_issue_number", "github_issue_number INTEGER")
             add_column_if_missing("ai_fix_requests", "github_issue_url", "github_issue_url VARCHAR(255)")
+            add_column_if_missing("ai_fix_requests", "github_issue_state", "github_issue_state VARCHAR(30)")
+            add_column_if_missing("ai_fix_requests", "github_issue_labels", "github_issue_labels TEXT")
+            add_column_if_missing("ai_fix_requests", "github_issue_updated_at", "github_issue_updated_at DATETIME")
             add_column_if_missing("ai_fix_requests", "github_sync_error", "github_sync_error TEXT")
 
         if "users" in table_names:

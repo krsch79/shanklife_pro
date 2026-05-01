@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.2.0] - 2026-05-01
+- Utvidet AI-feilretting i admin med GitHub issue-state, labels og manuell status-synk.
+- Standardiserte GitHub issue-formatet og labels for videre AI-arbeidsflyt.
+- La til deploy-script som tar databasebackup, henter kode fra GitHub, sjekker syntaks og restarter appen.
+
 ## [1.1.1] - 2026-05-01
 - Rettet beregning av mottatte slag pa 9-hullsbaner, slik at spillehandicap halveres og halve slag rundes opp.
 - Oppdaterte visningen av mottatte slag ved opprettelse av ordinare runder, statistikkrunder og BalleTour-runder.

@@ -192,6 +192,18 @@ nav a {
     padding-left: 20px;
 }
 
+.github-status-box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f8fafc;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.github-status-box p {
+    margin: 0 0 8px;
+}
+
 .tee-tabs {
     display: flex;
     flex-wrap: wrap;
