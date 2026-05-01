@@ -33,6 +33,7 @@
             <nav>
                 {% if is_balletour_page %}
                 <a href="{{ url_for('main.index') }}">Shanklife Pro</a>
+                <a href="{{ url_for('leaderboard.live_leaderboard') }}">Live leaderboard</a>
                 <a href="{{ url_for('balletour.stats') }}">Statistikk</a>
                 {% if series is defined %}
                 <a href="{{ url_for('series.club_stats', series_id=series.id) }}">Køllestatistikk</a>
