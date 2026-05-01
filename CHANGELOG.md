@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.6] - 2026-05-01 22:05
+- Endret AI-feilretting-overskriften i admin til rod.
+
 ## [1.5.5] - 2026-05-01 21:21
 - La til Live leaderboard i BalleTour-menyen.
 
