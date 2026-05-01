@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.5] - 2026-05-01 21:21
+- La til Live leaderboard i BalleTour-menyen.
+
 ## [1.5.4] - 2026-05-01 21:14
 - Sender OpenAI-autentisering eksplisitt videre til Codex CLI fra AI worker.
 - Setter CODEX_API_KEY fra OPENAI_API_KEY ved Codex-kjoring for headless worker.
