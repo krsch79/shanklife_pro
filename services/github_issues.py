@@ -115,16 +115,15 @@ def _ensure_label(client, repo, label):
     raise GitHubIssueError(f"Kunne ikke opprette label {label}: {response.status_code}")
 
 
-def create_issue_for_ai_request(fix_request):
-    token, repo = _github_config()
-    creator = fix_request.created_by_user.username if fix_request.created_by_user else "ukjent"
-    body = (
+def _build_issue_body(prompt, creator, internal_id=None):
+    internal_line = f"- Intern forespørsel: #{internal_id}\n" if internal_id else ""
+    return (
         "## Kilde\n"
         "Opprettet fra Shanklife Pro admin.\n\n"
-        f"- Intern forespørsel: #{fix_request.id}\n"
+        f"{internal_line}"
         f"- Opprettet av: {creator}\n\n"
         "## Prompt\n"
-        f"{fix_request.prompt}\n\n"
+        f"{prompt}\n\n"
         "## Arbeidsflyt\n"
         "- Vurder feilen/endringen.\n"
         "- Lag branch/commit med kort, sporbar beskrivelse.\n"
@@ -132,13 +131,21 @@ def create_issue_for_ai_request(fix_request):
         "- Deploy først etter verifisering.\n"
     )
 
+
+def create_ai_issue(prompt, creator, internal_id=None):
+    token, repo = _github_config()
+    title = prompt.splitlines()[0].strip()
+    if len(title) > 96:
+        title = f"{title[:93]}..."
+    body = _build_issue_body(prompt, creator, internal_id=internal_id)
+
     with httpx.Client(headers=_headers(token), timeout=15) as client:
         for label in LABELS:
             _ensure_label(client, repo, label)
         response = client.post(
             f"https://api.github.com/repos/{repo}/issues",
             json={
-                "title": f"AI request #{fix_request.id}",
+                "title": title or "AI request",
                 "body": body,
                 "labels": list(DEFAULT_LABELS),
             },
@@ -151,14 +158,16 @@ def create_issue_for_ai_request(fix_request):
     return _issue_snapshot(response.json())
 
 
-def fetch_issue_for_ai_request(fix_request):
-    if not fix_request.github_issue_number:
-        raise GitHubIssueError("Forespørselen har ikke GitHub issue ennå.")
+def create_issue_for_ai_request(fix_request):
+    creator = fix_request.created_by_user.username if fix_request.created_by_user else "ukjent"
+    return create_ai_issue(fix_request.prompt, creator, internal_id=fix_request.id)
 
+
+def fetch_issue(issue_number):
     token, repo = _github_config()
     with httpx.Client(headers=_headers(token), timeout=15) as client:
         response = client.get(
-            f"https://api.github.com/repos/{repo}/issues/{fix_request.github_issue_number}"
+            f"https://api.github.com/repos/{repo}/issues/{issue_number}"
         )
 
     if response.status_code != 200:
@@ -168,14 +177,42 @@ def fetch_issue_for_ai_request(fix_request):
     return _issue_snapshot(response.json())
 
 
-def fetch_issue_comments_for_ai_request(fix_request):
+def fetch_issue_for_ai_request(fix_request):
     if not fix_request.github_issue_number:
-        return []
+        raise GitHubIssueError("Forespørselen har ikke GitHub issue ennå.")
+    return fetch_issue(fix_request.github_issue_number)
 
+
+def list_ai_issues(state="all"):
     token, repo = _github_config()
     with httpx.Client(headers=_headers(token), timeout=15) as client:
         response = client.get(
-            f"https://api.github.com/repos/{repo}/issues/{fix_request.github_issue_number}/comments",
+            f"https://api.github.com/repos/{repo}/issues",
+            params={
+                "state": state,
+                "labels": ",".join(("from-shanklife-admin", "ai-request")),
+                "per_page": 100,
+                "sort": "updated",
+                "direction": "desc",
+            },
+        )
+
+    if response.status_code != 200:
+        message = response.text[:300]
+        raise GitHubIssueError(f"Kunne ikke hente GitHub-saker: {response.status_code} {message}")
+
+    return [
+        _issue_snapshot(item)
+        for item in response.json()
+        if "pull_request" not in item
+    ]
+
+
+def fetch_issue_comments(issue_number):
+    token, repo = _github_config()
+    with httpx.Client(headers=_headers(token), timeout=15) as client:
+        response = client.get(
+            f"https://api.github.com/repos/{repo}/issues/{issue_number}/comments",
             params={"per_page": 20},
         )
 
@@ -193,6 +230,12 @@ def fetch_issue_comments_for_ai_request(fix_request):
         }
         for item in response.json()
     ]
+
+
+def fetch_issue_comments_for_ai_request(fix_request):
+    if not fix_request.github_issue_number:
+        return []
+    return fetch_issue_comments(fix_request.github_issue_number)
 
 
 def _remove_issue_label(client, repo, issue_number, label):

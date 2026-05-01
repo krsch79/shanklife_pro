@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.1] - 2026-05-01 19:46
+- Gjorde GitHub til fasit for AI-feilretting slik at dashboardet kun viser saker som faktisk finnes i GitHub med Shanklife-labels.
+- Hindrer at nye AI-forespørsler lagres lokalt dersom GitHub issue ikke kan opprettes.
+- Rydder bort lokale AI-kopier som peker til slettede eller irrelevante GitHub-saker.
+
 ## [1.5.0] - 2026-05-01 19:24
 - Gjorde AI worker mer robust ved a reparere Git-indeksen for den sjekker rent worktree.
 - Bygget om AI-feilretting til en kompakt GitHub-saksliste med filtre.

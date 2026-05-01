@@ -20,9 +20,12 @@ from services.admin_tools import (
 from services.github_issues import (
     GitHubIssueError,
     apply_issue_snapshot,
-    create_issue_for_ai_request,
+    create_ai_issue,
+    fetch_issue,
+    fetch_issue_comments,
     fetch_issue_comments_for_ai_request,
     fetch_issue_for_ai_request,
+    list_ai_issues,
     merge_ready_pull_request_for_ai_request,
 )
 
@@ -79,21 +82,64 @@ def _matches_ai_request_filter(fix_request, selected_filter):
     return github_state == "open"
 
 
-def _sync_ai_requests_from_github(fix_requests):
+def _prompt_from_issue(issue):
+    body = issue.get("body") or ""
+    marker = "## Prompt"
+    if marker in body:
+        prompt = body.split(marker, 1)[1].strip()
+        if "\n## " in prompt:
+            prompt = prompt.split("\n## ", 1)[0].strip()
+        if prompt:
+            return prompt
+    return issue.get("title") or body or "GitHub issue"
+
+
+def _upsert_ai_request_from_issue(issue, fallback_user_id):
+    fix_request = AiFixRequest.query.filter_by(github_issue_number=issue["number"]).first()
+    if not fix_request:
+        fix_request = AiFixRequest(
+            prompt=_prompt_from_issue(issue),
+            created_by_user_id=fallback_user_id,
+        )
+        db.session.add(fix_request)
+    else:
+        fix_request.prompt = _prompt_from_issue(issue)
+
+    apply_issue_snapshot(fix_request, issue)
+    fix_request.github_title = issue.get("title") or fix_request.prompt
+    return fix_request
+
+
+def _sync_ai_requests_from_github(fallback_user_id):
     comments_by_request_id = {}
     errors = []
+    issues = list_ai_issues(state="all")
+    github_issue_numbers = {issue["number"] for issue in issues}
+
+    if github_issue_numbers:
+        stale_requests = AiFixRequest.query.filter(
+            (AiFixRequest.github_issue_number.is_(None))
+            | (~AiFixRequest.github_issue_number.in_(github_issue_numbers))
+        ).all()
+    else:
+        stale_requests = AiFixRequest.query.all()
+    for stale_request in stale_requests:
+        db.session.delete(stale_request)
+
+    fix_requests = []
+    for issue in issues:
+        fix_request = _upsert_ai_request_from_issue(issue, fallback_user_id)
+        fix_requests.append(fix_request)
+    db.session.flush()
+
     for fix_request in fix_requests:
-        if not fix_request.github_issue_number:
-            continue
         try:
-            issue = fetch_issue_for_ai_request(fix_request)
-            apply_issue_snapshot(fix_request, issue)
             comments_by_request_id[fix_request.id] = fetch_issue_comments_for_ai_request(fix_request)
         except GitHubIssueError as exc:
             fix_request.github_sync_error = str(exc)
-            errors.append(f"#{fix_request.id}: {exc}")
-    if fix_requests:
-        db.session.commit()
+            errors.append(f"#{fix_request.github_issue_number}: {exc}")
+
+    db.session.commit()
     return comments_by_request_id, errors
 
 
@@ -112,30 +158,36 @@ def ai_requests():
             flash("Prompt kan ikke være tom.", "error")
             return redirect(url_for("admin.ai_requests"))
 
-        fix_request = AiFixRequest(
-            prompt=prompt,
-            created_by_user_id=g.current_user.id,
-        )
-        db.session.add(fix_request)
-        db.session.commit()
-
         try:
-            issue = create_issue_for_ai_request(fix_request)
+            fix_request = AiFixRequest(
+                prompt=prompt,
+                created_by_user_id=g.current_user.id,
+            )
+            db.session.add(fix_request)
+            db.session.flush()
+            issue = create_ai_issue(prompt, g.current_user.username, internal_id=fix_request.id)
             apply_issue_snapshot(fix_request, issue)
             db.session.commit()
             flash("Forespørselen er lagret og sendt til GitHub.", "success")
         except GitHubIssueError as exc:
-            fix_request.github_sync_error = str(exc)
-            db.session.commit()
-            flash("Forespørselen er lagret lokalt, men GitHub-synk feilet.", "error")
+            db.session.rollback()
+            flash(f"GitHub-synk feilet. Ingen lokal sak ble opprettet. {exc}", "error")
         return redirect(url_for("admin.ai_requests"))
 
     selected_filter = request.args.get("filter", "open")
     if selected_filter not in AI_REQUEST_FILTERS:
         selected_filter = "open"
 
-    all_requests = AiFixRequest.query.order_by(AiFixRequest.created_at.desc()).all()
-    comments_by_request_id, sync_errors = _sync_ai_requests_from_github(all_requests)
+    try:
+        comments_by_request_id, sync_errors = _sync_ai_requests_from_github(g.current_user.id)
+        all_requests = AiFixRequest.query.filter(
+            AiFixRequest.github_issue_number.isnot(None)
+        ).order_by(AiFixRequest.github_issue_updated_at.desc()).all()
+    except GitHubIssueError as exc:
+        comments_by_request_id = {}
+        sync_errors = [str(exc)]
+        all_requests = []
+
     requests = [
         item for item in all_requests
         if _matches_ai_request_filter(item, selected_filter)
@@ -167,37 +219,18 @@ def update_ai_request_status(request_id):
     return redirect(url_for("admin.ai_requests"))
 
 
-@admin_bp.route("/admin/ai-requests/<int:request_id>/github-sync", methods=["POST"])
-@admin_required
-def sync_ai_request_to_github(request_id):
-    fix_request = AiFixRequest.query.get_or_404(request_id)
-    if fix_request.github_issue_url:
-        flash("Forespørselen har allerede et GitHub issue.", "success")
-        return redirect(url_for("admin.ai_requests"))
-
-    try:
-        issue = create_issue_for_ai_request(fix_request)
-        apply_issue_snapshot(fix_request, issue)
-        db.session.commit()
-        flash("Forespørselen er sendt til GitHub.", "success")
-    except GitHubIssueError as exc:
-        fix_request.github_sync_error = str(exc)
-        db.session.commit()
-        flash("GitHub-synk feilet.", "error")
-    return redirect(url_for("admin.ai_requests"))
-
-
 @admin_bp.route("/admin/ai-requests/<int:request_id>/github-status", methods=["POST"])
 @admin_required
 def sync_ai_request_github_status(request_id):
     fix_request = AiFixRequest.query.get_or_404(request_id)
     try:
-        issue = fetch_issue_for_ai_request(fix_request)
+        issue = fetch_issue(fix_request.github_issue_number)
         apply_issue_snapshot(fix_request, issue)
+        fetch_issue_comments(fix_request.github_issue_number)
         db.session.commit()
         flash("GitHub-status er oppdatert.", "success")
-    except GitHubIssueError as exc:
-        fix_request.github_sync_error = str(exc)
+    except GitHubIssueError:
+        db.session.delete(fix_request)
         db.session.commit()
         flash("Kunne ikke oppdatere GitHub-status.", "error")
     return redirect(url_for("admin.ai_requests"))

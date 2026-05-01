@@ -5,7 +5,7 @@
 <div class="page-title-row">
     <div>
         <h2>AI-feilretting</h2>
-        <p class="muted">Opprett og spor kodeforespørsler via GitHub issues. Listen synkes automatisk når siden åpnes.</p>
+        <p class="muted">Opprett og spor kodeforespørsler via GitHub issues. GitHub er fasit, og listen synkes når siden åpnes.</p>
     </div>
     <a class="button secondary" href="{{ url_for('admin.admin_home') }}">Til admin</a>
 </div>
@@ -41,14 +41,13 @@
 
 {% if sync_errors %}
 <div class="flash flash-error">
-    GitHub-sync feilet for noen saker. Se feilmelding på hver sak.
+    GitHub-sync feilet: {{ sync_errors[0] }}
 </div>
 {% endif %}
 
 {% if requests %}
 <div class="ai-issue-list">
     {% for item in requests %}
-        {% if item.github_issue_url %}
         {% set github_labels = item.github_issue_labels or "" %}
         {% set fix_is_ready = "ready-to-deploy" in github_labels %}
         {% set fix_is_running = "in-progress" in github_labels %}
@@ -139,40 +138,6 @@
         <p class="muted ai-error-line">GitHub-feil: {{ item.github_sync_error }}</p>
         {% endif %}
     </section>
-        {% elif item.github_sync_error %}
-    <section class="ai-issue-card">
-        <div class="ai-issue-main">
-            <div class="ai-issue-title">Lokal sak #{{ item.id }}</div>
-            <div class="ai-issue-meta">
-                <span class="status-pill">ikke synket</span>
-                <span class="muted">{{ item.created_at|datetime_local }}</span>
-            </div>
-        </div>
-        <div class="ai-issue-actions">
-            <form method="post" action="{{ url_for('admin.sync_ai_request_to_github', request_id=item.id) }}">
-                <button type="submit" class="button secondary compact-button">Send til GitHub igjen</button>
-            </form>
-        </div>
-        <p class="muted">GitHub-feil: {{ item.github_sync_error }}</p>
-        <pre class="prompt-preview compact">{{ item.prompt }}</pre>
-    </section>
-        {% else %}
-    <section class="ai-issue-card">
-        <div class="ai-issue-main">
-            <div class="ai-issue-title">Lokal sak #{{ item.id }}</div>
-            <div class="ai-issue-meta">
-                <span class="status-pill">ny</span>
-                <span class="muted">{{ item.created_at|datetime_local }}</span>
-            </div>
-        </div>
-        <div class="ai-issue-actions">
-        <form method="post" action="{{ url_for('admin.sync_ai_request_to_github', request_id=item.id) }}">
-            <button type="submit" class="button secondary compact-button">Send til GitHub</button>
-        </form>
-        </div>
-        <pre class="prompt-preview compact">{{ item.prompt }}</pre>
-    </section>
-        {% endif %}
     {% endfor %}
 </div>
 {% else %}
