@@ -20,6 +20,7 @@ echo "Tar databasebackup før deploy..."
 
 echo "Henter siste kode fra GitHub..."
 git fetch origin "$BRANCH"
+git checkout "$BRANCH"
 git merge --ff-only "origin/$BRANCH"
 
 echo "Installerer avhengigheter..."

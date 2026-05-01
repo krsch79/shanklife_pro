@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import shutil
 from pathlib import Path
 
 import httpx
@@ -18,7 +19,10 @@ WORKFLOW_LABELS = {
     "triage": "needs-triage",
     "progress": "in-progress",
     "ready": "ready-to-deploy",
+    "failed": "failed",
 }
+
+DEFAULT_CODEX_BIN = "/home/kristian/.npm-global/bin/codex"
 
 
 def run(command, *, cwd=ROOT, check=True, env=None, shell=False):
@@ -152,7 +156,10 @@ def run_codex(issue, prompt_path):
         "Hvis du endrer kode, bump versjon etter SemVer og oppdater CHANGELOG.md med dato og klokkeslett.\n"
         "Kjør relevante kontroller før du avslutter.\n"
     )
-    run(["codex", "exec", "--full-auto", "-C", str(ROOT), prompt])
+    codex_bin = os.environ.get("CODEX_BIN") or (DEFAULT_CODEX_BIN if Path(DEFAULT_CODEX_BIN).exists() else "codex")
+    if not shutil.which(codex_bin) and not Path(codex_bin).exists():
+        raise RuntimeError(f"Fant ikke Codex CLI: {codex_bin}")
+    run([codex_bin, "exec", "--full-auto", "-C", str(ROOT), prompt])
 
 
 def has_changes():
@@ -196,29 +203,37 @@ def main():
         )
 
         if args.run_codex:
-            run_codex(issue, prompt_path)
-            run_checks()
-            if not has_changes():
-                add_comment(client, repo, issue["number"], "Codex-kjøring fullført, men ga ingen kodeendringer.")
-                return 0
-            commit_changes(issue)
-
-            if args.push or args.create_pr:
-                git_push_with_token(token, branch)
-
-            if args.create_pr:
-                pull_request = create_pull_request(client, repo, issue, branch)
-                if pull_request:
+            try:
+                run_codex(issue, prompt_path)
+                run_checks()
+                if not has_changes():
                     remove_label(client, repo, issue["number"], WORKFLOW_LABELS["progress"])
-                    add_labels(client, repo, issue["number"], [WORKFLOW_LABELS["ready"]])
-                    add_comment(
-                        client,
-                        repo,
-                        issue["number"],
-                        f"Pull request er opprettet: {pull_request['html_url']}",
-                    )
-                else:
-                    add_comment(client, repo, issue["number"], "Pull request finnes trolig allerede for denne branchen.")
+                    add_labels(client, repo, issue["number"], [WORKFLOW_LABELS["failed"]])
+                    add_comment(client, repo, issue["number"], "Codex-kjøring fullført, men ga ingen kodeendringer.")
+                    return 0
+                commit_changes(issue)
+
+                if args.push or args.create_pr:
+                    git_push_with_token(token, branch)
+
+                if args.create_pr:
+                    pull_request = create_pull_request(client, repo, issue, branch)
+                    if pull_request:
+                        remove_label(client, repo, issue["number"], WORKFLOW_LABELS["progress"])
+                        add_labels(client, repo, issue["number"], [WORKFLOW_LABELS["ready"]])
+                        add_comment(
+                            client,
+                            repo,
+                            issue["number"],
+                            f"Pull request er opprettet: {pull_request['html_url']}",
+                        )
+                    else:
+                        add_comment(client, repo, issue["number"], "Pull request finnes trolig allerede for denne branchen.")
+            except Exception as exc:
+                remove_label(client, repo, issue["number"], WORKFLOW_LABELS["progress"])
+                add_labels(client, repo, issue["number"], [WORKFLOW_LABELS["failed"]])
+                add_comment(client, repo, issue["number"], f"AI worker feilet:\n\n```text\n{exc}\n```")
+                raise
 
         print(f"Klar: issue #{issue['number']} på branch {branch}")
     return 0

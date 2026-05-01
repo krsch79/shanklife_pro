@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.4.1] - 2026-05-01 17:35
+- Installerte og konfigurerte Codex CLI pa Raspberryen for AI-fiksing.
+- Oppdaterte AI worker til a bruke Codex-stien pa Raspberryen og markere failed ved feil.
+- Gjorde deploy-scriptet tryggere ved a sjekke ut main for pull/deploy.
+
 ## [1.4.0] - 2026-05-01 15:49
 - La til knappene Generer fiks og Deploy fiks pa hvert AI-issue i admin.
 - Deploy fiks er deaktivert frem til GitHub-issuet er markert ready-to-deploy.

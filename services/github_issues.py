@@ -34,6 +34,10 @@ LABELS = {
         "color": "0f766e",
         "description": "Endringen er deployet.",
     },
+    "failed": {
+        "color": "dc2626",
+        "description": "Automatisk AI-jobb feilet.",
+    },
 }
 DEFAULT_LABELS = ("from-shanklife-admin", "ai-request", "needs-triage")
 

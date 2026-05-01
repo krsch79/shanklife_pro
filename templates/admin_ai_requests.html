@@ -44,6 +44,7 @@
         {% set fix_is_ready = "ready-to-deploy" in github_labels %}
         {% set fix_is_running = "in-progress" in github_labels %}
         {% set fix_is_deployed = "deployed" in github_labels %}
+        {% set fix_has_failed = "failed" in github_labels %}
         <div class="github-status-box">
             <p>
                 <a href="{{ item.github_issue_url }}" target="_blank" rel="noopener">
@@ -65,7 +66,7 @@
                         class="button compact-button"
                         {% if fix_is_running or fix_is_ready or fix_is_deployed %}disabled{% endif %}
                     >
-                        Generer fiks
+                        {{ "Generer fiks på nytt" if fix_has_failed else "Generer fiks" }}
                     </button>
                 </form>
                 <form method="post" action="{{ url_for('admin.deploy_ai_request_fix', request_id=item.id) }}" onsubmit="return confirm('Dette merger PR for denne fiksen, henter kode fra GitHub og restarter appen. Fortsette?');">
