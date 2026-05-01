@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.4.0] - 2026-05-01 15:49
+- La til knappene Generer fiks og Deploy fiks pa hvert AI-issue i admin.
+- Deploy fiks er deaktivert frem til GitHub-issuet er markert ready-to-deploy.
+- Deploy fiks merger tilhorende PR, markerer issuet som deployed og starter deploy fra GitHub.
+
 ## [1.3.0] - 2026-05-01 15:16
 - La til AI worker-script som kan hente GitHub issues, lage branch, markere status og valgfritt kjore Codex CLI.
 - La til admin-knapp for a starte deploy fra GitHub i bakgrunnen.

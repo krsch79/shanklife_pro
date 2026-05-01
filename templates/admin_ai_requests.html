@@ -40,6 +40,10 @@
             </div>
         </div>
         {% if item.github_issue_url %}
+        {% set github_labels = item.github_issue_labels or "" %}
+        {% set fix_is_ready = "ready-to-deploy" in github_labels %}
+        {% set fix_is_running = "in-progress" in github_labels %}
+        {% set fix_is_deployed = "deployed" in github_labels %}
         <div class="github-status-box">
             <p>
                 <a href="{{ item.github_issue_url }}" target="_blank" rel="noopener">
@@ -54,6 +58,26 @@
             <form method="post" action="{{ url_for('admin.sync_ai_request_github_status', request_id=item.id) }}">
                 <button type="submit" class="button secondary compact-button">Synk status</button>
             </form>
+            <div class="button-row compact ai-action-row">
+                <form method="post" action="{{ url_for('admin.generate_ai_request_fix', request_id=item.id) }}">
+                    <button
+                        type="submit"
+                        class="button compact-button"
+                        {% if fix_is_running or fix_is_ready or fix_is_deployed %}disabled{% endif %}
+                    >
+                        Generer fiks
+                    </button>
+                </form>
+                <form method="post" action="{{ url_for('admin.deploy_ai_request_fix', request_id=item.id) }}" onsubmit="return confirm('Dette merger PR for denne fiksen, henter kode fra GitHub og restarter appen. Fortsette?');">
+                    <button
+                        type="submit"
+                        class="button compact-button"
+                        {% if not fix_is_ready %}disabled{% endif %}
+                    >
+                        Deploy fiks
+                    </button>
+                </form>
+            </div>
         </div>
         {% elif item.github_sync_error %}
         <p class="muted">GitHub-feil: {{ item.github_sync_error }}</p>

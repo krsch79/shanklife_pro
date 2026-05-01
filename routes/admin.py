@@ -22,6 +22,7 @@ from services.github_issues import (
     apply_issue_snapshot,
     create_issue_for_ai_request,
     fetch_issue_for_ai_request,
+    merge_ready_pull_request_for_ai_request,
 )
 
 admin_bp = Blueprint("admin", __name__)
@@ -127,6 +128,56 @@ def sync_ai_request_github_status(request_id):
         fix_request.github_sync_error = str(exc)
         db.session.commit()
         flash("Kunne ikke oppdatere GitHub-status.", "error")
+    return redirect(url_for("admin.ai_requests"))
+
+
+@admin_bp.route("/admin/ai-requests/<int:request_id>/generate-fix", methods=["POST"])
+@admin_required
+def generate_ai_request_fix(request_id):
+    fix_request = AiFixRequest.query.get_or_404(request_id)
+    if not fix_request.github_issue_number:
+        flash("Forespørselen må først være sendt til GitHub.", "error")
+        return redirect(url_for("admin.ai_requests"))
+
+    command = (
+        "cd /home/kristian/shanklife_pro && "
+        f"nohup /tmp/shanklife_pro_venv/bin/python scripts/ai_fix_worker.py --issue {fix_request.github_issue_number} "
+        "--run-codex --push --create-pr >> /tmp/shanklife_pro_ai_worker.log 2>&1 &"
+    )
+    subprocess.Popen(["bash", "-lc", command], cwd=APP_ROOT)
+    fix_request.status = "in_progress"
+    db.session.commit()
+    flash("Generering av fiks er startet. Synk status om litt for å se når den er klar.", "success")
+    return redirect(url_for("admin.ai_requests"))
+
+
+@admin_bp.route("/admin/ai-requests/<int:request_id>/deploy-fix", methods=["POST"])
+@admin_required
+def deploy_ai_request_fix(request_id):
+    fix_request = AiFixRequest.query.get_or_404(request_id)
+    try:
+        issue = fetch_issue_for_ai_request(fix_request)
+        apply_issue_snapshot(fix_request, issue)
+        labels = set(issue.get("labels", []))
+        if "ready-to-deploy" not in labels:
+            db.session.commit()
+            flash("Fiksen er ikke klar for deploy ennå.", "error")
+            return redirect(url_for("admin.ai_requests"))
+
+        merge_ready_pull_request_for_ai_request(fix_request)
+        fix_request.status = "done"
+        refreshed_issue = fetch_issue_for_ai_request(fix_request)
+        apply_issue_snapshot(fix_request, refreshed_issue)
+        db.session.commit()
+    except GitHubIssueError as exc:
+        fix_request.github_sync_error = str(exc)
+        db.session.commit()
+        flash("Kunne ikke deploye fiksen.", "error")
+        return redirect(url_for("admin.ai_requests"))
+
+    command = "cd /home/kristian/shanklife_pro && nohup ./scripts/deploy.sh >> /tmp/shanklife_pro_admin_deploy.log 2>&1 &"
+    subprocess.Popen(["bash", "-lc", command], cwd=APP_ROOT)
+    flash("Fiksen er merget, og deploy er startet i bakgrunnen.", "success")
     return redirect(url_for("admin.ai_requests"))
 
 

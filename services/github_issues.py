@@ -159,3 +159,72 @@ def fetch_issue_for_ai_request(fix_request):
         raise GitHubIssueError(f"Kunne ikke hente GitHub issue: {response.status_code} {message}")
 
     return _issue_snapshot(response.json())
+
+
+def _remove_issue_label(client, repo, issue_number, label):
+    response = client.delete(f"https://api.github.com/repos/{repo}/issues/{issue_number}/labels/{label}")
+    if response.status_code not in (200, 404):
+        response.raise_for_status()
+
+
+def _add_issue_labels(client, repo, issue_number, labels):
+    response = client.post(
+        f"https://api.github.com/repos/{repo}/issues/{issue_number}/labels",
+        json={"labels": list(labels)},
+    )
+    response.raise_for_status()
+
+
+def _add_issue_comment(client, repo, issue_number, body):
+    response = client.post(
+        f"https://api.github.com/repos/{repo}/issues/{issue_number}/comments",
+        json={"body": body},
+    )
+    response.raise_for_status()
+
+
+def merge_ready_pull_request_for_ai_request(fix_request):
+    if not fix_request.github_issue_number:
+        raise GitHubIssueError("Forespørselen har ikke GitHub issue ennå.")
+
+    token, repo = _github_config()
+    owner = repo.split("/", 1)[0]
+    branch = f"ai/issue-{fix_request.github_issue_number}"
+
+    with httpx.Client(headers=_headers(token), timeout=30) as client:
+        response = client.get(
+            f"https://api.github.com/repos/{repo}/pulls",
+            params={"state": "open", "head": f"{owner}:{branch}", "base": "main"},
+        )
+        if response.status_code != 200:
+            message = response.text[:300]
+            raise GitHubIssueError(f"Kunne ikke hente pull request: {response.status_code} {message}")
+
+        pull_requests = response.json()
+        if not pull_requests:
+            raise GitHubIssueError("Fant ingen åpen pull request for denne fiksen.")
+
+        pull_request = pull_requests[0]
+        merge_response = client.put(
+            f"https://api.github.com/repos/{repo}/pulls/{pull_request['number']}/merge",
+            json={
+                "merge_method": "squash",
+                "commit_title": f"Deploy AI request #{fix_request.github_issue_number}",
+            },
+        )
+        if merge_response.status_code != 200:
+            message = merge_response.text[:300]
+            raise GitHubIssueError(f"Kunne ikke merge pull request: {merge_response.status_code} {message}")
+
+        _remove_issue_label(client, repo, fix_request.github_issue_number, "ready-to-deploy")
+        _add_issue_labels(client, repo, fix_request.github_issue_number, ["deployed"])
+        _add_issue_comment(
+            client,
+            repo,
+            fix_request.github_issue_number,
+            f"Deploy er startet fra Shanklife Pro admin etter merge av PR #{pull_request['number']}.",
+        )
+        return {
+            "pull_request_number": pull_request["number"],
+            "pull_request_url": pull_request["html_url"],
+        }
