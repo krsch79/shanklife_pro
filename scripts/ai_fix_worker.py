@@ -147,10 +147,8 @@ def prepare_branch(issue):
     run(["git", "pull", "--ff-only", "origin", "main"])
     existing_branches = subprocess.check_output(["git", "branch", "--list", branch], cwd=ROOT, text=True).strip()
     if existing_branches:
-        run(["git", "checkout", branch])
-        run(["git", "merge", "--ff-only", "main"])
-    else:
-        run(["git", "checkout", "-b", branch])
+        run(["git", "branch", "-D", branch])
+    run(["git", "checkout", "-b", branch])
 
     job_dir = ROOT / "instance" / "ai_jobs"
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -166,7 +164,7 @@ def prepare_branch(issue):
 
 
 def run_codex(issue, prompt_path):
-    ensure_codex_auth()
+    codex_env = codex_environment()
     prompt = (
         f"Du jobber i Shanklife Pro-repoet med GitHub issue #{issue['number']}.\n"
         f"Les arbeidsbeskrivelsen i {prompt_path}.\n"
@@ -177,12 +175,19 @@ def run_codex(issue, prompt_path):
     codex_bin = os.environ.get("CODEX_BIN") or (DEFAULT_CODEX_BIN if Path(DEFAULT_CODEX_BIN).exists() else "codex")
     if not shutil.which(codex_bin) and not Path(codex_bin).exists():
         raise RuntimeError(f"Fant ikke Codex CLI: {codex_bin}")
-    run([codex_bin, "exec", "--full-auto", "-C", str(ROOT), prompt])
+    run([codex_bin, "exec", "--sandbox", "workspace-write", "-C", str(ROOT), prompt], env=codex_env)
 
 
-def ensure_codex_auth():
-    if os.environ.get("OPENAI_API_KEY") or os.environ.get("CODEX_API_KEY"):
-        return
+def codex_environment():
+    env = os.environ.copy()
+    openai_key = env.get("OPENAI_API_KEY", "").strip()
+    codex_key = env.get("CODEX_API_KEY", "").strip()
+    if openai_key and not codex_key:
+        env["CODEX_API_KEY"] = openai_key
+    if codex_key and not openai_key:
+        env["OPENAI_API_KEY"] = codex_key
+    if env.get("OPENAI_API_KEY") or env.get("CODEX_API_KEY"):
+        return env
     raise RuntimeError(
         "OPENAI_API_KEY mangler i miljøet for AI worker. "
         "Legg OPENAI_API_KEY i /home/kristian/shanklife_pro/.env på Raspberryen, "
@@ -222,7 +227,7 @@ def main():
             return 0
 
         if args.run_codex:
-            ensure_codex_auth()
+            codex_environment()
 
         branch, prompt_path = prepare_branch(issue)
         remove_label(client, repo, issue["number"], WORKFLOW_LABELS["triage"])

@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.4] - 2026-05-01 21:14
+- Sender OpenAI-autentisering eksplisitt videre til Codex CLI fra AI worker.
+- Setter CODEX_API_KEY fra OPENAI_API_KEY ved Codex-kjoring for headless worker.
+- Reoppretter AI issue-branch fra fersk main ved nytt forsok for a unnga fast-forward-feil.
+
 ## [1.5.3] - 2026-05-01 20:10
 - Gjenopprettet execute-bit pa deploy-scriptet slik at deploy kan startes direkte igjen.
 
