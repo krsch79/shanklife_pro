@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.6.1] - 2026-05-02 21:46
+- Flytter BalleTour-knappen for a bytte mellom prod- og testdatabase fra BalleTour-forsiden til admin-siden.
+
 ## [1.6.0] - 2026-05-02 20:09
 - Legger til separat BalleTour-testdatabase ved siden av prod-databasen.
 - Lar admin opprette, slette og bytte BalleTour-visning mellom prod- og testdatabase uten at ekte runder lagres i test.
