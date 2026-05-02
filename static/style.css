@@ -216,6 +216,10 @@ nav a {
     margin-top: 18px;
 }
 
+.ai-fix-heading {
+    color: var(--danger);
+}
+
 .filter-tabs {
     display: flex;
     flex-wrap: wrap;
