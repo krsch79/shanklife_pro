@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from services.github_issues import _github_config, _headers  # noqa: E402
+from services.mailer import send_mail  # noqa: E402
 
 
 WORKFLOW_LABELS = {
@@ -327,6 +328,16 @@ def main():
                             repo,
                             issue["number"],
                             f"Pull request er opprettet: {pull_request['html_url']}\n\n{documentation}",
+                        )
+                        send_mail(
+                            f"AI-fiks klar for deploy: issue #{issue['number']}",
+                            (
+                                f"En AI-fiks er ferdig utviklet og klar for vurdering.\n\n"
+                                f"Issue: #{issue['number']} {issue.get('title', '')}\n"
+                                f"PR: {pull_request['html_url']}\n"
+                                f"Status: ready-to-deploy\n\n"
+                                f"{documentation}"
+                            ),
                         )
                     else:
                         add_comment(client, repo, issue["number"], "Pull request finnes trolig allerede for denne branchen.")

@@ -28,6 +28,7 @@ from services.github_issues import (
     list_ai_issues,
     merge_ready_pull_request_for_ai_request,
 )
+from services.mailer import send_mail
 
 admin_bp = Blueprint("admin", __name__)
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -168,6 +169,17 @@ def ai_requests():
             issue = create_ai_issue(prompt, g.current_user.username, internal_id=fix_request.id)
             apply_issue_snapshot(fix_request, issue)
             db.session.commit()
+            send_mail(
+                f"Ny GitHub-sak #{issue['number']} opprettet",
+                (
+                    f"Ny AI-sak er opprettet fra Shanklife admin.\n\n"
+                    f"Sak: #{issue['number']} {issue.get('title') or ''}\n"
+                    f"Opprettet av: {g.current_user.username}\n"
+                    f"Status: needs-triage\n"
+                    f"Lenke: {issue['url']}\n\n"
+                    f"Prompt:\n{prompt[:500]}"
+                ),
+            )
             flash("Forespørselen er lagret og sendt til GitHub.", "success")
         except GitHubIssueError as exc:
             db.session.rollback()
@@ -280,7 +292,11 @@ def deploy_ai_request_fix(request_id):
         flash("Kunne ikke deploye fiksen.", "error")
         return redirect(url_for("admin.ai_requests"))
 
-    command = "cd /home/kristian/shanklife_pro && nohup ./scripts/deploy.sh >> /tmp/shanklife_pro_admin_deploy.log 2>&1 &"
+    command = (
+        "cd /home/kristian/shanklife_pro && "
+        f"nohup /tmp/shanklife_pro_venv/bin/python scripts/deploy_and_notify.py --issue {fix_request.github_issue_number} "
+        ">> /tmp/shanklife_pro_admin_deploy.log 2>&1 &"
+    )
     subprocess.Popen(["bash", "-lc", command], cwd=APP_ROOT)
     flash("Fiksen er merget, og deploy er startet i bakgrunnen.", "success")
     return redirect(url_for("admin.ai_requests"))

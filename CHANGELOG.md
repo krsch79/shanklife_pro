@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.9] - 2026-05-02 10:22
+- Legger til SMTP/sendmail-basert e-postvarsling med logging ved feil.
+- Sender e-post ved ny GitHub-sak fra admin, AI-fiks klar for deploy og fullfort admin-deploy.
+- Legger til script for e-postvarsel nar en Codex-oppgave er ferdig.
+
 ## [1.5.8] - 2026-05-02 10:03
 - Lar automatisk daglig backup bare lage backup kl. 01:00 serverstid og maks én gang per dato.
 - Samler appens klokkeslettbruk rundt serverens lokale tid for lagring, filnavn og visning.

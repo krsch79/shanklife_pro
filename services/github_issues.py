@@ -296,12 +296,12 @@ def merge_ready_pull_request_for_ai_request(fix_request):
             raise GitHubIssueError(f"Kunne ikke merge pull request: {merge_response.status_code} {message}")
 
         _remove_issue_label(client, repo, fix_request.github_issue_number, "ready-to-deploy")
-        _add_issue_labels(client, repo, fix_request.github_issue_number, ["deployed"])
+        _add_issue_labels(client, repo, fix_request.github_issue_number, ["in-progress"])
         _add_issue_comment(
             client,
             repo,
             fix_request.github_issue_number,
-            f"Deploy er startet fra Shanklife Pro admin etter merge av PR #{pull_request['number']}.",
+            f"PR #{pull_request['number']} er merget fra Shanklife Pro admin. Deploy starter.",
         )
         return {
             "pull_request_number": pull_request["number"],
