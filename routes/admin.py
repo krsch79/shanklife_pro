@@ -10,12 +10,17 @@ from routes.auth import login_required
 from services.admin_tools import (
     DatabaseWriteError,
     create_backup,
-    generate_balletour_test_rounds,
     generate_test_rounds,
     list_backups,
     restore_backup,
     clear_balletour_rounds,
     clear_rounds,
+)
+from services.balletour_test_db import (
+    delete_balletour_test_database,
+    reset_balletour_test_database,
+    test_database_exists,
+    test_database_path,
 )
 from services.github_issues import (
     GitHubIssueError,
@@ -147,7 +152,12 @@ def _sync_ai_requests_from_github(fallback_user_id):
 @admin_bp.route("/admin")
 @admin_required
 def admin_home():
-    return render_template("admin.html", backups=list_backups())
+    return render_template(
+        "admin.html",
+        backups=list_backups(),
+        balletour_test_database_exists=test_database_exists(),
+        balletour_test_database_path=test_database_path(),
+    )
 
 
 @admin_bp.route("/admin/ai-requests", methods=["GET", "POST"])
@@ -374,10 +384,27 @@ def make_testdata():
 @admin_required
 def make_balletour_testdata():
     try:
-        count = generate_balletour_test_rounds(count=20)
+        result = reset_balletour_test_database(rounds_per_player=25)
     except (ValueError, DatabaseWriteError, SQLAlchemyError) as exc:
         flash(str(exc), "error")
         return redirect(url_for("admin.admin_home"))
 
-    flash(f"{count} nye BalleTour-test-runder er laget. Eksisterende BalleTour-runder ble erstattet.", "success")
+    flash(
+        (
+            f"BalleTour-testdatabasen er oppdatert med {result['rounds']} runder "
+            f"for hver av {result['players']} spillere. Prod-databasen er ikke endret."
+        ),
+        "success",
+    )
     return redirect(url_for("balletour.index"))
+
+
+@admin_bp.route("/admin/balletour-testdata/delete", methods=["POST"])
+@admin_required
+def delete_balletour_testdata():
+    deleted = delete_balletour_test_database()
+    if deleted:
+        flash("BalleTour-testdatabasen er slettet. Prod-databasen er ikke endret.", "success")
+    else:
+        flash("Det fantes ingen BalleTour-testdatabase å slette.", "error")
+    return redirect(url_for("admin.admin_home"))

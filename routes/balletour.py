@@ -6,6 +6,14 @@ from models import Club, CourseTee, Player, Round, RoundPlayer, ScoreEntry, Scor
 from routes.auth import login_required
 from routes.rounds import _create_round, _parse_hcp, _parse_tee, build_course_tee_options
 from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
+from services.balletour_test_db import (
+    PROD_DATABASE_VIEW,
+    TEST_DATABASE_VIEW,
+    balletour_data_context,
+    current_balletour_database_view,
+    set_balletour_database_view,
+    test_database_exists,
+)
 from services.version import APP_VERSION
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
@@ -21,6 +29,13 @@ def _balletour_or_404():
 def _require_balletour_player():
     if not is_balletour_player(g.get("current_user")):
         abort(403)
+
+
+def _balletour_database_context():
+    return {
+        "balletour_database_view": current_balletour_database_view(),
+        "balletour_test_database_available": test_database_exists(),
+    }
 
 
 def _player_display_name(player):
@@ -752,26 +767,46 @@ def _round_score_card(round_obj):
 @login_required
 def index():
     _require_balletour_player()
-    series = _balletour_or_404()
-    memberships = get_balletour_memberships()
-    round_count = Round.query.filter_by(course_id=series.course_id).count()
-    finished_round_count = Round.query.filter_by(
-        course_id=series.course_id,
-        status="finished",
-    ).count()
-    best_hole_score_table = _best_hole_score_table(series, memberships)
-    leaderboard_rows = _balletour_leaderboard_rows(series, memberships)
-    return render_template(
-        "balletour_index.html",
-        series=series,
-        memberships=memberships,
-        round_count=round_count,
-        finished_round_count=finished_round_count,
-        best_hole_score_table=best_hole_score_table,
-        leaderboard_rows=leaderboard_rows,
-        display_name=_player_display_name,
-        app_version=APP_VERSION,
-    )
+    with balletour_data_context():
+        series = _balletour_or_404()
+        memberships = get_balletour_memberships()
+        round_count = Round.query.filter_by(course_id=series.course_id).count()
+        finished_round_count = Round.query.filter_by(
+            course_id=series.course_id,
+            status="finished",
+        ).count()
+        best_hole_score_table = _best_hole_score_table(series, memberships)
+        leaderboard_rows = _balletour_leaderboard_rows(series, memberships)
+        return render_template(
+            "balletour_index.html",
+            series=series,
+            memberships=memberships,
+            round_count=round_count,
+            finished_round_count=finished_round_count,
+            best_hole_score_table=best_hole_score_table,
+            leaderboard_rows=leaderboard_rows,
+            display_name=_player_display_name,
+            app_version=APP_VERSION,
+            **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/database-view", methods=["POST"])
+@login_required
+def database_view():
+    if not g.current_user.is_admin:
+        abort(403)
+    selected_view = request.form.get("database_view", PROD_DATABASE_VIEW).strip()
+    if selected_view == TEST_DATABASE_VIEW and not test_database_exists():
+        flash("Testdatabasen finnes ikke ennå. Lag den fra admin-siden først.", "error")
+        set_balletour_database_view(PROD_DATABASE_VIEW)
+    elif selected_view == TEST_DATABASE_VIEW:
+        set_balletour_database_view(TEST_DATABASE_VIEW)
+        flash("BalleTour-visning bruker testdatabasen for admin-brukeren din.", "success")
+    else:
+        set_balletour_database_view(PROD_DATABASE_VIEW)
+        flash("BalleTour-visning bruker prod-databasen.", "success")
+    return redirect(request.referrer or url_for("balletour.index"))
 
 
 @balletour_bp.route("/new-round", methods=["GET", "POST"])
@@ -874,110 +909,120 @@ def rounds():
 @login_required
 def ongoing_rounds():
     _require_balletour_player()
-    series = _balletour_or_404()
-    rows = (
-        Round.query.filter_by(course_id=series.course_id, status="ongoing")
-        .order_by(Round.started_at.desc())
-        .all()
-    )
-    return render_template(
-        "balletour_ongoing_rounds.html",
-        series=series,
-        rounds=rows,
-    )
+    with balletour_data_context():
+        series = _balletour_or_404()
+        rows = (
+            Round.query.filter_by(course_id=series.course_id, status="ongoing")
+            .order_by(Round.started_at.desc())
+            .all()
+        )
+        return render_template(
+            "balletour_ongoing_rounds.html",
+            series=series,
+            rounds=rows,
+            **_balletour_database_context(),
+        )
 
 
 @balletour_bp.route("/rounds/finished")
 @login_required
 def finished_rounds():
     _require_balletour_player()
-    series = _balletour_or_404()
-    rows = (
-        Round.query.filter_by(course_id=series.course_id, status="finished")
-        .order_by(Round.started_at.desc())
-        .all()
-    )
-    score_cards = [_round_score_card(round_obj) for round_obj in rows]
-    return render_template(
-        "balletour_rounds.html",
-        series=series,
-        score_cards=score_cards,
-    )
+    with balletour_data_context():
+        series = _balletour_or_404()
+        rows = (
+            Round.query.filter_by(course_id=series.course_id, status="finished")
+            .order_by(Round.started_at.desc())
+            .all()
+        )
+        score_cards = [_round_score_card(round_obj) for round_obj in rows]
+        return render_template(
+            "balletour_rounds.html",
+            series=series,
+            score_cards=score_cards,
+            **_balletour_database_context(),
+        )
 
 
 @balletour_bp.route("/stats")
 @login_required
 def stats():
     _require_balletour_player()
-    series = _balletour_or_404()
-    memberships = get_balletour_memberships()
-    players = [membership.player for membership in memberships]
-    player_by_id = {player.id: player for player in players}
+    with balletour_data_context():
+        series = _balletour_or_404()
+        memberships = get_balletour_memberships()
+        players = [membership.player for membership in memberships]
+        player_by_id = {player.id: player for player in players}
 
-    selected_player = None
-    player_id_raw = request.args.get("player_id", "").strip()
-    if player_id_raw:
-        try:
-            selected_player = player_by_id.get(int(player_id_raw))
-        except ValueError:
-            selected_player = None
-    if not selected_player:
-        selected_player = player_by_id.get(g.current_user.player_id)
-    if not selected_player and players:
-        selected_player = players[0]
+        selected_player = None
+        player_id_raw = request.args.get("player_id", "").strip()
+        if player_id_raw:
+            try:
+                selected_player = player_by_id.get(int(player_id_raw))
+            except ValueError:
+                selected_player = None
+        if not selected_player:
+            selected_player = player_by_id.get(g.current_user.player_id)
+        if not selected_player and players:
+            selected_player = players[0]
 
-    selected_hole_number = None
-    hole_raw = request.args.get("hole", "").strip()
-    if hole_raw:
-        try:
-            candidate_hole = int(hole_raw)
-        except ValueError:
-            candidate_hole = None
-        if candidate_hole and any(hole.hole_number == candidate_hole for hole in series.course.holes):
-            selected_hole_number = candidate_hole
+        selected_hole_number = None
+        hole_raw = request.args.get("hole", "").strip()
+        if hole_raw:
+            try:
+                candidate_hole = int(hole_raw)
+            except ValueError:
+                candidate_hole = None
+            if candidate_hole and any(hole.hole_number == candidate_hole for hole in series.course.holes):
+                selected_hole_number = candidate_hole
 
-    player_stats = _balletour_player_stats(series, memberships, selected_player, selected_hole_number)
-    return render_template(
-        "balletour_stats.html",
-        series=series,
-        memberships=memberships,
-        players=players,
-        selected_player=selected_player,
-        selected_hole_number=selected_hole_number,
-        stats=player_stats,
-        display_name=_player_display_name,
-    )
+        player_stats = _balletour_player_stats(series, memberships, selected_player, selected_hole_number)
+        return render_template(
+            "balletour_stats.html",
+            series=series,
+            memberships=memberships,
+            players=players,
+            selected_player=selected_player,
+            selected_hole_number=selected_hole_number,
+            stats=player_stats,
+            display_name=_player_display_name,
+            **_balletour_database_context(),
+        )
 
 
 @balletour_bp.route("/stats/all")
 @login_required
 def all_stats():
     _require_balletour_player()
-    series = _balletour_or_404()
-    memberships = get_balletour_memberships()
-    rows = _balletour_all_player_stats(series, memberships)
-    return render_template(
-        "balletour_all_stats.html",
-        series=series,
-        rows=rows,
-        display_name=_player_display_name,
-    )
+    with balletour_data_context():
+        series = _balletour_or_404()
+        memberships = get_balletour_memberships()
+        rows = _balletour_all_player_stats(series, memberships)
+        return render_template(
+            "balletour_all_stats.html",
+            series=series,
+            rows=rows,
+            display_name=_player_display_name,
+            **_balletour_database_context(),
+        )
 
 
 @balletour_bp.route("/players")
 @login_required
 def players():
     _require_balletour_player()
-    series = _balletour_or_404()
-    memberships = get_balletour_memberships()
-    users_by_player_id = {}
-    for user in User.query.join(Player).order_by(func.lower(User.username)).all():
-        users_by_player_id.setdefault(user.player_id, []).append(user)
+    with balletour_data_context():
+        series = _balletour_or_404()
+        memberships = get_balletour_memberships()
+        users_by_player_id = {}
+        for user in User.query.join(Player).order_by(func.lower(User.username)).all():
+            users_by_player_id.setdefault(user.player_id, []).append(user)
 
-    return render_template(
-        "balletour_players.html",
-        series=series,
-        memberships=memberships,
-        users_by_player_id=users_by_player_id,
-        display_name=_player_display_name,
-    )
+        return render_template(
+            "balletour_players.html",
+            series=series,
+            memberships=memberships,
+            users_by_player_id=users_by_player_id,
+            display_name=_player_display_name,
+            **_balletour_database_context(),
+        )

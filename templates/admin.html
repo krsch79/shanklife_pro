@@ -41,11 +41,20 @@
         </div>
     </form>
 
-    <form method="post" action="{{ url_for('admin.make_balletour_testdata') }}" class="form-card" onsubmit="return confirm('Dette erstatter eksisterende BalleTour-runder med 20 nye test-runder. Spillere, brukere, bane og serie beholdes. Fortsette?');">
-        <h3>Lag BalleTour-testdata</h3>
-        <p class="muted">Nullstiller BalleTour-runder og lager 20 nye runder med score, køller og greenstatistikk.</p>
+    <form method="post" action="{{ url_for('admin.make_balletour_testdata') }}" class="form-card" onsubmit="return confirm('Dette lager en separat BalleTour-testdatabase med 25 runder per spiller. Prod-databasen endres ikke. Fortsette?');">
+        <h3>Lag BalleTour-testdatabase</h3>
+        <p class="muted">Kopierer spillere, baner og serie fra prod, og fyller egen testdatabase med 25 BalleTour-runder per spiller.</p>
+        <p class="muted">Status: {{ "finnes" if balletour_test_database_exists else "ikke opprettet" }}</p>
         <div class="button-row">
-            <button type="submit" class="button">Lag 20 BalleTour-runder</button>
+            <button type="submit" class="button">Opprett testdatabase</button>
+        </div>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.delete_balletour_testdata') }}" class="form-card" onsubmit="return confirm('Dette sletter kun den separate BalleTour-testdatabasen. Prod-databasen endres ikke. Fortsette?');">
+        <h3>Slett BalleTour-testdatabase</h3>
+        <p class="muted">Fjerner bare testdatabasen. Alle ekte runder i prod blir liggende urørt.</p>
+        <div class="button-row">
+            <button type="submit" class="button danger" {% if not balletour_test_database_exists %}disabled{% endif %}>Slett testdatabase</button>
         </div>
     </form>
 

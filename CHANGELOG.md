@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.6.0] - 2026-05-02 20:09
+- Legger til separat BalleTour-testdatabase ved siden av prod-databasen.
+- Lar admin opprette, slette og bytte BalleTour-visning mellom prod- og testdatabase uten at ekte runder lagres i test.
+- Fyller BalleTour-testdatabasen med 25 fullforte runder per spiller basert pa prod-spillere, baner og serie.
+
 ## [1.5.12] - 2026-05-02 19:46
 - Legger til intern BalleTour strokes gained for total, for putting, for slag for putting og for greenresultat.
 - Viser strokes gained pa spillerstatistikk og samlet statistikk basert pa fullforte runder.
