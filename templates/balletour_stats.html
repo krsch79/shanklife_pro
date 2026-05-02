@@ -7,6 +7,9 @@
         <h2>BalleTour-statistikk</h2>
         <p class="muted">{{ series.course.name }}</p>
     </div>
+    <div class="page-title-actions">
+        <a class="button secondary" href="{{ url_for('balletour.all_stats') }}">Samlet statistikk</a>
+    </div>
 </div>
 
 <div class="tee-tabs player-tabs">
@@ -37,6 +40,7 @@
     <div class="stat-card"><strong>{{ stats.sand_save_percent if stats.sand_save_percent is not none else "-" }}{% if stats.sand_save_percent is not none %}%{% endif %}</strong><span>Sand saves</span></div>
     <div class="stat-card"><strong>{{ stats.avg_putts if stats.avg_putts is not none else "-" }}</strong><span>Putter</span></div>
     <div class="stat-card"><strong>{{ stats.avg_last_putt_distance if stats.avg_last_putt_distance is not none else "-" }}{% if stats.avg_last_putt_distance is not none %} m{% endif %}</strong><span>Gjennomsnittelig lengde på siste putt</span></div>
+    <div class="stat-card"><strong>{{ stats.avg_putt_meters_per_round if stats.avg_putt_meters_per_round is not none else "-" }}{% if stats.avg_putt_meters_per_round is not none %} m{% endif %}</strong><span>Meter siste putter pr runde</span></div>
 </div>
 
 <div class="tee-tabs">

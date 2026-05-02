@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Samlet statistikk - BalleTour2026{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>Samlet BalleTour-statistikk</h2>
+        <p class="muted">{{ series.course.name }} · fullførte runder</p>
+    </div>
+    <div class="page-title-actions">
+        <a class="button secondary" href="{{ url_for('balletour.stats') }}">Spillerstatistikk</a>
+    </div>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Spiller</th>
+                <th>Runder</th>
+                <th>Snittrunde</th>
+                <th>Beste</th>
+                <th>Greentreff</th>
+                <th>Bunker</th>
+                <th>Sand saves</th>
+                <th>Putter</th>
+                <th>Siste putt</th>
+                <th>Meter putter pr runde</th>
+                <th>Birdie+</th>
+                <th>Par</th>
+                <th>Bogey+</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ display_name(row.player) }}</td>
+                <td>{{ row.completed_round_count }}</td>
+                <td>{{ row.avg_round if row.avg_round is not none else "-" }}</td>
+                <td>{{ row.best_round if row.best_round is not none else "-" }}</td>
+                <td>{{ row.green_hit_percent if row.green_hit_percent is not none else "-" }}{% if row.green_hit_percent is not none %}%{% endif %}</td>
+                <td>{{ row.bunker_percent if row.bunker_percent is not none else "-" }}{% if row.bunker_percent is not none %}%{% endif %}</td>
+                <td>{{ row.sand_save_percent if row.sand_save_percent is not none else "-" }}{% if row.sand_save_percent is not none %}%{% endif %}</td>
+                <td>{{ row.avg_putts if row.avg_putts is not none else "-" }}</td>
+                <td>{{ row.avg_last_putt_distance if row.avg_last_putt_distance is not none else "-" }}{% if row.avg_last_putt_distance is not none %} m{% endif %}</td>
+                <td>{{ row.avg_putt_meters_per_round if row.avg_putt_meters_per_round is not none else "-" }}{% if row.avg_putt_meters_per_round is not none %} m{% endif %}</td>
+                <td>{{ row.birdies_or_better }}</td>
+                <td>{{ row.pars }}</td>
+                <td>{{ row.bogeys_or_worse }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="13">Ingen BalleTour-spillere funnet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

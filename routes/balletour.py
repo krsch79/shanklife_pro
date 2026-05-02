@@ -373,6 +373,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
     )
 
     completed_totals = []
+    completed_round_ids = set()
     entries_by_round = {}
     for entry in entries:
         entries_by_round.setdefault(entry.round_id, []).append(entry)
@@ -381,6 +382,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         scored_entries = [entry for entry in round_entries if entry.strokes is not None]
         if len(scored_entries) == series.course.hole_count:
             completed_totals.append(sum(entry.strokes for entry in scored_entries))
+            completed_round_ids.add(round_player.round_id)
 
     scored_entries = [entry for entry in entries if entry.strokes is not None]
     score_diffs = [
@@ -455,6 +457,26 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         .all()
         if round_player_ids else []
     )
+    completed_round_player_ids = [
+        round_player.id
+        for round_player in round_players
+        if round_player.round_id in completed_round_ids
+    ]
+    completed_stats_rows = (
+        db.session.query(ScoreStat, ScoreEntry)
+        .join(ScoreEntry, ScoreStat.score_entry_id == ScoreEntry.id)
+        .filter(ScoreEntry.round_player_id.in_(completed_round_player_ids))
+        .all()
+        if completed_round_player_ids else []
+    )
+    putt_distance_by_round = {round_id: 0 for round_id in completed_round_ids}
+    for stat, entry in completed_stats_rows:
+        if stat.last_putt_distance_m is not None:
+            putt_distance_by_round[entry.round_id] += stat.last_putt_distance_m
+    avg_putt_meters_per_round = (
+        round(sum(putt_distance_by_round.values()) / len(putt_distance_by_round), 2)
+        if putt_distance_by_round else None
+    )
 
     green_attempts = len(stats_rows)
     green_distribution = [
@@ -490,6 +512,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         "sand_save_percent": _percent(sand_saves, sand_save_attempts),
         "avg_putts": _avg([stat.putts for stat, entry in stats_rows if stat.putts is not None]),
         "avg_last_putt_distance": _avg([stat.last_putt_distance_m for stat, entry in stats_rows if stat.last_putt_distance_m is not None]),
+        "avg_putt_meters_per_round": avg_putt_meters_per_round,
         "green_points": green_points[-160:],
         "green_distribution": green_distribution,
         "best_by_hole": best_by_hole,
@@ -499,6 +522,34 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         ],
         "player_ids": player_ids,
     }
+
+
+def _balletour_all_player_stats(series, memberships):
+    rows = []
+    for membership in memberships:
+        player = membership.player
+        stats = _balletour_player_stats(series, memberships, player)
+        rows.append({
+            "player": player,
+            "completed_round_count": stats.get("completed_round_count"),
+            "avg_round": stats.get("avg_round"),
+            "best_round": stats.get("best_round"),
+            "green_hit_percent": stats.get("green_hit_percent"),
+            "bunker_percent": stats.get("bunker_percent"),
+            "sand_save_percent": stats.get("sand_save_percent"),
+            "avg_putts": stats.get("avg_putts"),
+            "avg_last_putt_distance": stats.get("avg_last_putt_distance"),
+            "avg_putt_meters_per_round": stats.get("avg_putt_meters_per_round"),
+            "birdies_or_better": stats.get("birdies_or_better"),
+            "pars": stats.get("pars"),
+            "bogeys_or_worse": stats.get("bogeys_or_worse"),
+        })
+    rows.sort(key=lambda row: (
+        row["avg_round"] is None,
+        row["avg_round"] if row["avg_round"] is not None else 9999,
+        row["player"].name,
+    ))
+    return rows
 
 
 def _round_score_card(round_obj):
@@ -733,6 +784,21 @@ def stats():
         selected_player=selected_player,
         selected_hole_number=selected_hole_number,
         stats=player_stats,
+        display_name=_player_display_name,
+    )
+
+
+@balletour_bp.route("/stats/all")
+@login_required
+def all_stats():
+    _require_balletour_player()
+    series = _balletour_or_404()
+    memberships = get_balletour_memberships()
+    rows = _balletour_all_player_stats(series, memberships)
+    return render_template(
+        "balletour_all_stats.html",
+        series=series,
+        rows=rows,
         display_name=_player_display_name,
     )
 

@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.11] - 2026-05-02 19:29
+- Viser meter siste putter per runde pa BalleTour-statistikk for hver spiller.
+- Legger til samlet BalleTour-statistikkside som sammenligner alle spillerne i tabellformat.
+
 ## [1.5.10] - 2026-05-02 11:55
 - Sender e-post nar en BalleTour-runde fullfores, med bane, runde-id og score per spiller.
 
