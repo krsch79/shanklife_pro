@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.8] - 2026-05-02 10:03
+- Lar automatisk daglig backup bare lage backup kl. 01:00 serverstid og maks én gang per dato.
+- Samler appens klokkeslettbruk rundt serverens lokale tid for lagring, filnavn og visning.
+- Beholder deploy-backup som eksplisitt tvungen backup utenfor den daglige tidsplanen.
+
 ## [1.5.7] - 2026-05-02 09:06
 - Hindrer at AI-fiks deployes ved generering ved a kjore worker i separat Git worktree.
 - Skrur av Flask debug/reloader som standard slik at filendringer ikke auto-reloader produksjon.

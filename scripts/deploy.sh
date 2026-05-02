@@ -16,7 +16,7 @@ if [ ! -d .git ]; then
 fi
 
 echo "Tar databasebackup før deploy..."
-"$PYTHON_BIN" scripts/daily_backup.py
+"$PYTHON_BIN" scripts/daily_backup.py --force --name "Backup før deploy"
 
 echo "Henter siste kode fra GitHub..."
 git fetch origin "$BRANCH"

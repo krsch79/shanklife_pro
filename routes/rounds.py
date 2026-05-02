@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 from secrets import token_hex
 
@@ -22,6 +21,7 @@ from models import (
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
 from services.balletour import get_balletour_series
+from services.time import server_now
 
 rounds_bp = Blueprint("rounds", __name__)
 
@@ -109,7 +109,7 @@ def _create_round(course, round_players_payload, stats_user_id=None):
     round_obj = Round(
         course_id=course.id,
         status="ongoing",
-        started_at=datetime.utcnow(),
+        started_at=server_now(),
         stats_user_id=stats_user_id,
     )
     db.session.add(round_obj)
@@ -569,7 +569,7 @@ def _save_round_image_file(file_storage, round_id):
 
     original_name = secure_filename(file_storage.filename or "round-image")
     stem = Path(original_name).stem or "round-image"
-    filename = f"round-{round_id}-{datetime.utcnow():%Y%m%d%H%M%S}-{token_hex(4)}-{stem}.{extension}"
+    filename = f"round-{round_id}-{server_now():%Y%m%d%H%M%S}-{token_hex(4)}-{stem}.{extension}"
     file_storage.save(upload_root / filename)
     return filename
 
@@ -964,7 +964,7 @@ def round_hole(round_id, hole_number):
 
         if action == "finish":
             round_obj.status = "finished"
-            round_obj.finished_at = datetime.utcnow()
+            round_obj.finished_at = server_now()
             db.session.commit()
             flash("Runden er fullført.", "success")
             return redirect(url_for("rounds.round_score", round_id=round_obj.id))
@@ -1254,7 +1254,7 @@ def round_score(round_id):
 
         if action == "finish":
             round_obj.status = "finished"
-            round_obj.finished_at = datetime.utcnow()
+            round_obj.finished_at = server_now()
             flash("Runden er fullført.", "success")
         else:
             flash("Score lagret.", "success")
