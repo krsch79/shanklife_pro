@@ -7,11 +7,8 @@ from routes.auth import login_required
 from routes.rounds import _create_round, _parse_hcp, _parse_tee, build_course_tee_options
 from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
 from services.balletour_test_db import (
-    PROD_DATABASE_VIEW,
-    TEST_DATABASE_VIEW,
     balletour_data_context,
     current_balletour_database_view,
-    set_balletour_database_view,
     test_database_exists,
 )
 from services.version import APP_VERSION
@@ -789,24 +786,6 @@ def index():
             app_version=APP_VERSION,
             **_balletour_database_context(),
         )
-
-
-@balletour_bp.route("/database-view", methods=["POST"])
-@login_required
-def database_view():
-    if not g.current_user.is_admin:
-        abort(403)
-    selected_view = request.form.get("database_view", PROD_DATABASE_VIEW).strip()
-    if selected_view == TEST_DATABASE_VIEW and not test_database_exists():
-        flash("Testdatabasen finnes ikke ennå. Lag den fra admin-siden først.", "error")
-        set_balletour_database_view(PROD_DATABASE_VIEW)
-    elif selected_view == TEST_DATABASE_VIEW:
-        set_balletour_database_view(TEST_DATABASE_VIEW)
-        flash("BalleTour-visning bruker testdatabasen for admin-brukeren din.", "success")
-    else:
-        set_balletour_database_view(PROD_DATABASE_VIEW)
-        flash("BalleTour-visning bruker prod-databasen.", "success")
-    return redirect(request.referrer or url_for("balletour.index"))
 
 
 @balletour_bp.route("/new-round", methods=["GET", "POST"])

@@ -9,15 +9,6 @@
     </div>
     <div class="page-title-actions">
         <a class="version-link" href="{{ url_for('main.changelog') }}">v{{ app_version }}</a>
-        {% if current_user and current_user.is_admin %}
-        <form method="post" action="{{ url_for('balletour.database_view') }}" class="database-switch-form">
-            <span class="database-switch-label">Database: {{ "Test" if balletour_database_view == "test" else "Prod" }}</span>
-            <input type="hidden" name="database_view" value="{{ 'prod' if balletour_database_view == 'test' else 'test' }}">
-            <button type="submit" class="button {% if balletour_database_view == 'test' %}warning{% else %}secondary{% endif %}" {% if not balletour_test_database_available and balletour_database_view != "test" %}disabled{% endif %}>
-                {{ "Bytt til prod" if balletour_database_view == "test" else "Bytt til test" }}
-            </button>
-        </form>
-        {% endif %}
         <div class="button-row compact">
         <a class="button" href="{{ url_for('balletour.new_round') }}">Start ny BalleTour-runde</a>
         <a class="button secondary" href="{{ url_for('balletour.ongoing_rounds') }}">Pågående runder</a>

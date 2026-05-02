@@ -17,8 +17,12 @@ from services.admin_tools import (
     clear_rounds,
 )
 from services.balletour_test_db import (
+    PROD_DATABASE_VIEW,
+    TEST_DATABASE_VIEW,
+    current_balletour_database_view,
     delete_balletour_test_database,
     reset_balletour_test_database,
+    set_balletour_database_view,
     test_database_exists,
     test_database_path,
 )
@@ -155,6 +159,7 @@ def admin_home():
     return render_template(
         "admin.html",
         backups=list_backups(),
+        balletour_database_view=current_balletour_database_view(),
         balletour_test_database_exists=test_database_exists(),
         balletour_test_database_path=test_database_path(),
     )
@@ -338,6 +343,22 @@ def restore_database():
     session.clear()
     flash("Backup er gjenopprettet. Last siden på nytt hvis noe ser gammelt ut.", "success")
     return redirect(url_for("auth.login"))
+
+
+@admin_bp.route("/admin/balletour-database-view", methods=["POST"])
+@admin_required
+def balletour_database_view():
+    selected_view = request.form.get("database_view", PROD_DATABASE_VIEW).strip()
+    if selected_view == TEST_DATABASE_VIEW and not test_database_exists():
+        flash("Testdatabasen finnes ikke ennå. Lag den fra admin-siden først.", "error")
+        set_balletour_database_view(PROD_DATABASE_VIEW)
+    elif selected_view == TEST_DATABASE_VIEW:
+        set_balletour_database_view(TEST_DATABASE_VIEW)
+        flash("BalleTour-visning bruker testdatabasen for admin-brukeren din.", "success")
+    else:
+        set_balletour_database_view(PROD_DATABASE_VIEW)
+        flash("BalleTour-visning bruker prod-databasen.", "success")
+    return redirect(url_for("admin.admin_home"))
 
 
 @admin_bp.route("/admin/clear-rounds", methods=["POST"])
