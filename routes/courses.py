@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from sqlalchemy import func
@@ -22,6 +21,7 @@ from services.course_importer import (
     analyze_scorecard_with_openai,
     analyze_slope_table_with_openai,
 )
+from services.time import server_now
 
 courses_bp = Blueprint("courses", __name__)
 
@@ -56,7 +56,7 @@ def import_course():
 
         os.makedirs(current_app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        timestamp = server_now().strftime("%Y%m%d%H%M%S")
         scorecard_path = os.path.join(
             current_app.config["UPLOAD_FOLDER"],
             f"{timestamp}_score_{secure_filename(scorecard_file.filename)}",

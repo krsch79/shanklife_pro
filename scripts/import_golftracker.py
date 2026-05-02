@@ -33,6 +33,7 @@ from models import (  # noqa: E402
     SeriesPlayer,
     User,
 )
+from services.time import server_now  # noqa: E402
 
 LEGACY_SOURCE = "golftracker"
 SERIES_NAME = "Balletour"
@@ -309,7 +310,7 @@ def import_data():
             if not round_obj:
                 continue
             tagged_player = player_map.get(old_image["tagged_player_id"]) if old_image["tagged_player_id"] else None
-            uploaded_at = datetime.fromisoformat(old_image["uploaded_at"]) if old_image["uploaded_at"] else datetime.utcnow()
+            uploaded_at = datetime.fromisoformat(old_image["uploaded_at"]) if old_image["uploaded_at"] else server_now()
             db.session.add(
                 RoundImage(
                     round_id=round_obj.id,

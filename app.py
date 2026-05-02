@@ -20,6 +20,7 @@ from routes.admin import admin_bp
 from routes.series import series_bp
 from routes.balletour import balletour_bp
 from services.balletour import is_balletour_player
+from services.time import format_server_datetime
 
 
 def ensure_schema_updates(app):
@@ -143,9 +144,7 @@ def create_app():
 
     @app.template_filter("datetime_local")
     def datetime_local(value):
-        if not value:
-            return "-"
-        return value.strftime("%d.%m.%Y %H:%M")
+        return format_server_datetime(value)
 
     @app.before_request
     def load_current_user():

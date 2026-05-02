@@ -4,6 +4,8 @@ from pathlib import Path
 
 import httpx
 
+from services.time import to_server_time
+
 
 class GitHubIssueError(RuntimeError):
     pass
@@ -78,7 +80,7 @@ def _headers(token):
 def _parse_github_datetime(value):
     if not value:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    return to_server_time(datetime.fromisoformat(value.replace("Z", "+00:00")))
 
 
 def _issue_snapshot(data):

@@ -11,10 +11,16 @@ from flask import current_app
 
 from extensions import db
 from models import Club, Course, Player, Round, RoundImage, RoundPlayer, ScoreEntry, ScoreStat, User
+from services.time import server_now
 
 
 class DatabaseWriteError(RuntimeError):
     pass
+
+
+DAILY_BACKUP_NAME = "Automatisk daglig backup"
+DAILY_BACKUP_HOUR = 1
+DAILY_BACKUP_MINUTE = 0
 
 
 def _instance_dir():
@@ -98,7 +104,8 @@ def list_backups():
 def create_backup(name):
     ensure_database_writable()
     clean_name = name.strip() or "Backup"
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    now = server_now()
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{_slugify(clean_name)}.db"
     target = backup_dir() / filename
 
@@ -111,10 +118,41 @@ def create_backup(name):
     manifest = _load_manifest()
     manifest[filename] = {
         "name": clean_name,
-        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "created_at": now.isoformat(timespec="seconds"),
     }
     _save_manifest(manifest)
     return filename
+
+
+def _manifest_datetime(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def automatic_daily_backup_exists(for_date):
+    manifest = _load_manifest()
+    for filename, item in manifest.items():
+        if item.get("name") != DAILY_BACKUP_NAME:
+            continue
+        if not (backup_dir() / filename).exists():
+            continue
+        created_at = _manifest_datetime(item.get("created_at"))
+        if created_at and created_at.date() == for_date:
+            return True
+    return False
+
+
+def create_daily_backup_if_due(now=None):
+    now = now or server_now()
+    if now.hour != DAILY_BACKUP_HOUR or now.minute != DAILY_BACKUP_MINUTE:
+        return None, "Daglig backup kjøres bare kl. 01:00 serverstid."
+    if automatic_daily_backup_exists(now.date()):
+        return None, "Daglig backup finnes allerede for i dag."
+    return create_backup(DAILY_BACKUP_NAME), None
 
 
 def restore_backup(filename):
@@ -449,7 +487,7 @@ def generate_test_rounds(user_id=None, count=50):
         _delete_round_rows()
 
         rng = random.Random()
-        now = datetime.utcnow()
+        now = server_now()
 
         for user in users:
             _create_test_rounds_for_user(user, courses, rng, now, count)
@@ -491,7 +529,7 @@ def generate_balletour_test_rounds(count=20):
         clear_balletour_rounds(reset_connection=False, commit=False)
 
         rng = random.Random()
-        now = datetime.utcnow()
+        now = server_now()
         holes = list(series.course.holes)
 
         for index in range(count):

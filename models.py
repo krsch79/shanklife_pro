@@ -2,6 +2,7 @@
 # Version: 1.0.0
 
 from extensions import db
+from services.time import server_now
 
 
 class Player(db.Model):
@@ -14,7 +15,7 @@ class Player(db.Model):
     profile_image_filename = db.Column(db.String(255), nullable=True)
     legacy_source = db.Column(db.String(50), nullable=True)
     legacy_id = db.Column(db.Integer, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
     round_players = db.relationship("RoundPlayer", back_populates="player")
     user_accounts = db.relationship("User", back_populates="player")
@@ -30,7 +31,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     player_id = db.Column(db.Integer, db.ForeignKey("players.id"), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
     player = db.relationship("Player", back_populates="user_accounts")
     stats_rounds = db.relationship("Round", back_populates="stats_user")
@@ -51,8 +52,14 @@ class AiFixRequest(db.Model):
     github_issue_updated_at = db.Column(db.DateTime, nullable=True)
     github_sync_error = db.Column(db.Text, nullable=True)
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=server_now,
+        server_default=db.func.now(),
+        onupdate=server_now,
+    )
 
     created_by_user = db.relationship("User", back_populates="ai_fix_requests")
 
@@ -65,7 +72,7 @@ class Course(db.Model):
     hole_count = db.Column(db.Integer, nullable=False, default=18)
     legacy_source = db.Column(db.String(50), nullable=True)
     legacy_id = db.Column(db.Integer, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
     holes = db.relationship(
         "CourseHole",
@@ -113,7 +120,7 @@ class CourseTee(db.Model):
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
     name = db.Column(db.String(50), nullable=False)
     display_order = db.Column(db.Integer, nullable=False, default=1)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
     course = db.relationship("Course", back_populates="tees")
     lengths = db.relationship(
@@ -176,7 +183,7 @@ class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
     status = db.Column(db.String(20), nullable=False, default="ongoing")
-    started_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    started_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
     finished_at = db.Column(db.DateTime, nullable=True)
     stats_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     weather_json = db.Column(db.Text, nullable=True)
@@ -311,7 +318,7 @@ class Series(db.Model):
     name = db.Column(db.String(120), nullable=False, unique=True)
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
     min_qualifying_rounds = db.Column(db.Integer, nullable=False, default=20)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
     course = db.relationship("Course", back_populates="series")
     players = db.relationship(
@@ -346,7 +353,7 @@ class RoundImage(db.Model):
     filename = db.Column(db.String(255), nullable=False)
     hole_number = db.Column(db.Integer, nullable=True)
     tagged_player_id = db.Column(db.Integer, db.ForeignKey("players.id"), nullable=True)
-    uploaded_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
     legacy_source = db.Column(db.String(50), nullable=True)
     legacy_id = db.Column(db.Integer, nullable=True)
 
