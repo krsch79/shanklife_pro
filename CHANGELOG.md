@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.10] - 2026-05-02 11:55
+- Sender e-post nar en BalleTour-runde fullfores, med bane, runde-id og score per spiller.
+
 ## [1.5.9] - 2026-05-02 10:22
 - Legger til SMTP/sendmail-basert e-postvarsling med logging ved feil.
 - Sender e-post ved ny GitHub-sak fra admin, AI-fiks klar for deploy og fullfort admin-deploy.

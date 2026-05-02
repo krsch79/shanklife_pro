@@ -21,6 +21,7 @@ from models import (
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
 from services.balletour import get_balletour_series
+from services.mailer import send_mail
 from services.time import server_now
 
 rounds_bp = Blueprint("rounds", __name__)
@@ -377,6 +378,39 @@ def _round_uses_club_tracking(round_obj):
 def _is_balletour_round(round_obj):
     balletour_series = get_balletour_series()
     return bool(balletour_series and round_obj.course_id == balletour_series.course_id)
+
+
+def _balletour_round_summary(round_obj):
+    rows = []
+    course_par = sum(hole.par for hole in round_obj.course.holes)
+    for round_player in sorted(round_obj.round_players, key=lambda rp: rp.id):
+        entries = [
+            entry for entry in round_player.score_entries
+            if entry.strokes is not None
+        ]
+        total = sum(entry.strokes for entry in entries) if entries else None
+        if total is None:
+            score_text = "ikke fullført"
+        else:
+            score_text = f"{total} ({total - course_par:+d})"
+        rows.append(f"- {round_player.player_name_snapshot}: {score_text}")
+    return "\n".join(rows)
+
+
+def _send_balletour_round_finished_mail(round_obj):
+    if not _is_balletour_round(round_obj):
+        return
+    send_mail(
+        f"BalleTour-runde fullført: {round_obj.course.name}",
+        (
+            "En BalleTour-runde er fullført.\n\n"
+            f"Runde: #{round_obj.id}\n"
+            f"Bane: {round_obj.course.name}\n"
+            f"Fullført: {round_obj.finished_at.strftime('%d.%m.%Y %H:%M') if round_obj.finished_at else '-'}\n\n"
+            "Score:\n"
+            f"{_balletour_round_summary(round_obj)}"
+        ),
+    )
 
 
 def _score_shape_class(score, par):
@@ -966,6 +1000,7 @@ def round_hole(round_id, hole_number):
             round_obj.status = "finished"
             round_obj.finished_at = server_now()
             db.session.commit()
+            _send_balletour_round_finished_mail(round_obj)
             flash("Runden er fullført.", "success")
             return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
@@ -1252,6 +1287,7 @@ def round_score(round_id):
 
         action = request.form.get("action", "save")
 
+        was_ongoing = round_obj.status == "ongoing"
         if action == "finish":
             round_obj.status = "finished"
             round_obj.finished_at = server_now()
@@ -1260,6 +1296,8 @@ def round_score(round_id):
             flash("Score lagret.", "success")
 
         db.session.commit()
+        if action == "finish" and was_ongoing:
+            _send_balletour_round_finished_mail(round_obj)
         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
     score_map = {}

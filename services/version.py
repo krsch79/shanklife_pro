@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-APP_VERSION = "1.5.9"
+APP_VERSION = "1.5.10"
 
 
 def get_changelog_entries():
