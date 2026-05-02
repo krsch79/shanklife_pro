@@ -286,15 +286,6 @@ def deploy_ai_request_fix(request_id):
     return redirect(url_for("admin.ai_requests"))
 
 
-@admin_bp.route("/admin/deploy", methods=["POST"])
-@admin_required
-def deploy_from_github():
-    command = "cd /home/kristian/shanklife_pro && nohup ./scripts/deploy.sh >> /tmp/shanklife_pro_admin_deploy.log 2>&1 &"
-    subprocess.Popen(["bash", "-lc", command], cwd=APP_ROOT)
-    flash("Deploy fra GitHub er startet i bakgrunnen.", "success")
-    return redirect(url_for("admin.admin_home"))
-
-
 @admin_bp.route("/admin/backup", methods=["POST"])
 @admin_required
 def backup_database():

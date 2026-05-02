@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from models import CourseTeeLength, Round, RoundPlayer, ScoreEntry
-from services.handicap import calculate_playing_handicap, strokes_received_for_hole
+from services.handicap import calculate_playing_handicap_for_course, strokes_received_for_hole
 
 
 def _to_par_display(value):
@@ -123,10 +123,11 @@ def build_live_leaderboards(view_mode="gross"):
 
                 playing_handicap = None
                 if rating:
-                    playing_handicap = calculate_playing_handicap(
+                    playing_handicap = calculate_playing_handicap_for_course(
                         round_player.hcp_for_round,
                         rating,
                         total_par_for_course,
+                        hole_count,
                     )
 
                 net_total_strokes = 0

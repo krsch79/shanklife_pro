@@ -16,6 +16,22 @@ def calculate_playing_handicap(handicap_index, rating, total_par):
     )
 
 
+def effective_handicap_par(rating, total_par, hole_count):
+    if rating is None:
+        return total_par
+    if hole_count == 9 and rating.course_rating > total_par * 1.5:
+        return total_par * 2
+    return total_par
+
+
+def calculate_playing_handicap_for_course(handicap_index, rating, total_par, hole_count):
+    return calculate_playing_handicap(
+        handicap_index,
+        rating,
+        effective_handicap_par(rating, total_par, hole_count),
+    )
+
+
 def received_strokes_for_round(playing_handicap, hole_count):
     if playing_handicap is None:
         return None

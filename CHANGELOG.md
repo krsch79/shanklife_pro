@@ -2,6 +2,13 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.5.7] - 2026-05-02 09:06
+- Hindrer at AI-fiks deployes ved generering ved a kjore worker i separat Git worktree.
+- Skrur av Flask debug/reloader som standard slik at filendringer ikke auto-reloader produksjon.
+- Dokumenterer endringer og automatisk risikovurdering i GitHub nar en AI-fiks er klar.
+- Fjerner manuell Deploy fra GitHub fra admin.
+- Retter mottatte slag for 9-hullsbaner med 18-hulls course rating, blant annet Ballerud.
+
 ## [1.5.6] - 2026-05-01 22:05
 - Endret AI-feilretting-overskriften i admin til rod.
 

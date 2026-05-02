@@ -177,4 +177,5 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5055, debug=True)
+    debug_enabled = os.environ.get("SHANKLIFE_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host="0.0.0.0", port=5055, debug=debug_enabled, use_reloader=debug_enabled)

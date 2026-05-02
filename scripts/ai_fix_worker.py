@@ -23,6 +23,7 @@ WORKFLOW_LABELS = {
 }
 
 DEFAULT_CODEX_BIN = "/home/kristian/.npm-global/bin/codex"
+WORKTREE_ROOT = Path(os.environ.get("AI_WORKTREE_ROOT", "/home/kristian/shanklife_pro_ai_worktrees"))
 
 
 def run(command, *, cwd=ROOT, check=True, env=None, shell=False):
@@ -92,14 +93,14 @@ def add_comment(client, repo, number, body):
     response.raise_for_status()
 
 
-def create_pull_request(client, repo, issue, branch):
+def create_pull_request(client, repo, issue, branch, body):
     response = client.post(
         f"https://api.github.com/repos/{repo}/pulls",
         json={
             "title": f"AI request #{issue['number']}",
             "head": branch,
             "base": "main",
-            "body": f"Løser #{issue['number']}.\n\nOpprettet av Shanklife AI worker.",
+            "body": body,
         },
     )
     if response.status_code == 422:
@@ -116,6 +117,35 @@ def ensure_clean_worktree():
             "Arbeidstreet er ikke rent. Commit/stash endringer før AI worker kjøres.\n\n"
             f"{status}"
         )
+
+
+def run_in_isolated_worktree(args):
+    if not args.run_codex or os.environ.get("AI_WORKER_IN_WORKTREE") == "1":
+        return None
+    if not args.issue:
+        return None
+
+    branch = f"ai/issue-{args.issue}"
+    worktree_path = WORKTREE_ROOT / f"issue-{args.issue}"
+    run(["git", "fetch", "origin", "main"])
+    run(["git", "worktree", "remove", "--force", str(worktree_path)], check=False)
+    run(["git", "worktree", "prune"])
+    run(["git", "branch", "-D", branch], check=False)
+    worktree_path.parent.mkdir(parents=True, exist_ok=True)
+    run(["git", "worktree", "add", "-B", branch, str(worktree_path), "origin/main"])
+
+    env = os.environ.copy()
+    env["AI_WORKER_IN_WORKTREE"] = "1"
+    command = [sys.executable, str(worktree_path / "scripts" / "ai_fix_worker.py")]
+    if args.issue:
+        command.extend(["--issue", str(args.issue)])
+    if args.run_codex:
+        command.append("--run-codex")
+    if args.push:
+        command.append("--push")
+    if args.create_pr:
+        command.append("--create-pr")
+    return run(command, cwd=worktree_path, env=env).returncode
 
 
 def make_askpass(token):
@@ -143,12 +173,13 @@ def git_push_with_token(token, branch):
 
 def prepare_branch(issue):
     branch = f"ai/issue-{issue['number']}"
-    run(["git", "checkout", "main"])
-    run(["git", "pull", "--ff-only", "origin", "main"])
-    existing_branches = subprocess.check_output(["git", "branch", "--list", branch], cwd=ROOT, text=True).strip()
-    if existing_branches:
-        run(["git", "branch", "-D", branch])
-    run(["git", "checkout", "-b", branch])
+    if os.environ.get("AI_WORKER_IN_WORKTREE") != "1":
+        run(["git", "checkout", "main"])
+        run(["git", "pull", "--ff-only", "origin", "main"])
+        existing_branches = subprocess.check_output(["git", "branch", "--list", branch], cwd=ROOT, text=True).strip()
+        if existing_branches:
+            run(["git", "branch", "-D", branch])
+        run(["git", "checkout", "-b", branch])
 
     job_dir = ROOT / "instance" / "ai_jobs"
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -201,12 +232,39 @@ def has_changes():
 
 
 def commit_changes(issue):
+    run(["git", "config", "user.name", "Shanklife AI Worker"])
+    run(["git", "config", "user.email", "ai-worker@shanklife.local"])
     run(["git", "add", "-A"])
     run(["git", "commit", "-m", f"Fix AI request #{issue['number']}"])
 
 
 def run_checks():
     run("python3 -m py_compile $(git ls-files '*.py')", shell=True)
+
+
+def change_documentation(issue):
+    stat = subprocess.check_output(["git", "diff", "--stat", "main..HEAD"], cwd=ROOT, text=True).strip()
+    files = subprocess.check_output(["git", "diff", "--name-only", "main..HEAD"], cwd=ROOT, text=True).splitlines()
+    risky_prefixes = ("app.py", "models.py", "routes/", "services/", "scripts/")
+    risk = "Lav"
+    if any(path.startswith(risky_prefixes) for path in files):
+        risk = "Middels"
+    if any(path in ("app.py", "models.py", "scripts/deploy.sh") for path in files):
+        risk = "Høy"
+
+    file_list = "\n".join(f"- `{path}`" for path in files) or "- Ingen filendringer"
+    stat_block = stat or "Ingen diff-statistikk"
+    return (
+        f"Løser #{issue['number']}.\n\n"
+        "## Endringer\n"
+        f"{file_list}\n\n"
+        "## Diff\n"
+        f"```text\n{stat_block}\n```\n\n"
+        "## Risikovurdering\n"
+        f"Automatisk vurdert risiko: **{risk}**.\n\n"
+        "- Se gjennom filene over før deploy.\n"
+        "- Deploy skjer først når `Deploy fiks` trykkes i Shanklife admin.\n"
+    )
 
 
 def main():
@@ -218,6 +276,10 @@ def main():
     args = parser.parse_args()
 
     load_env_file()
+    isolated_result = run_in_isolated_worktree(args)
+    if isolated_result is not None:
+        return isolated_result
+
     ensure_clean_worktree()
     token, repo, client = github_client()
     with client:
@@ -255,7 +317,8 @@ def main():
                     git_push_with_token(token, branch)
 
                 if args.create_pr:
-                    pull_request = create_pull_request(client, repo, issue, branch)
+                    documentation = change_documentation(issue)
+                    pull_request = create_pull_request(client, repo, issue, branch, documentation)
                     if pull_request:
                         remove_label(client, repo, issue["number"], WORKFLOW_LABELS["progress"])
                         add_labels(client, repo, issue["number"], [WORKFLOW_LABELS["ready"]])
@@ -263,7 +326,7 @@ def main():
                             client,
                             repo,
                             issue["number"],
-                            f"Pull request er opprettet: {pull_request['html_url']}",
+                            f"Pull request er opprettet: {pull_request['html_url']}\n\n{documentation}",
                         )
                     else:
                         add_comment(client, repo, issue["number"], "Pull request finnes trolig allerede for denne branchen.")

@@ -91,7 +91,10 @@
             return null;
         }
 
-        return roundHalfUp(handicap * (rating.slope / 113) + (rating.course_rating - tee.total_par));
+        const handicapPar = Number(tee.hole_count) === 9 && rating.course_rating > tee.total_par * 1.5
+            ? tee.total_par * 2
+            : tee.total_par;
+        return roundHalfUp(handicap * (rating.slope / 113) + (rating.course_rating - handicapPar));
     }
 
     function calculateReceivedStrokes(playingHandicap, tee) {
