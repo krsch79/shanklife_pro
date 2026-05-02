@@ -348,6 +348,161 @@ def _green_bucket(status, directions):
     return "miss"
 
 
+def _completed_balletour_round_players(series, player_ids=None):
+    query = (
+        RoundPlayer.query.join(Round)
+        .filter(Round.course_id == series.course_id)
+        .filter(Round.status == "finished")
+    )
+    if player_ids:
+        query = query.filter(RoundPlayer.player_id.in_(player_ids))
+
+    round_players = query.all()
+    round_player_ids = [round_player.id for round_player in round_players]
+    entries = (
+        ScoreEntry.query.filter(ScoreEntry.round_player_id.in_(round_player_ids)).all()
+        if round_player_ids else []
+    )
+    entries_by_round_player = {}
+    for entry in entries:
+        entries_by_round_player.setdefault(entry.round_player_id, []).append(entry)
+
+    completed = []
+    for round_player in round_players:
+        scored_entries = [
+            entry for entry in entries_by_round_player.get(round_player.id, [])
+            if entry.strokes is not None
+        ]
+        if len(scored_entries) == series.course.hole_count:
+            completed.append(round_player)
+    return completed
+
+
+def _avg_by_key(rows):
+    totals = {}
+    counts = {}
+    for key, value in rows:
+        if value is None:
+            continue
+        totals[key] = totals.get(key, 0) + value
+        counts[key] = counts.get(key, 0) + 1
+    return {
+        key: totals[key] / counts[key]
+        for key in totals
+        if counts[key]
+    }
+
+
+def _balletour_sg_baselines(series, memberships):
+    player_ids = [membership.player_id for membership in memberships]
+    completed_round_players = _completed_balletour_round_players(series, player_ids)
+    round_player_ids = [round_player.id for round_player in completed_round_players]
+    rows = (
+        db.session.query(ScoreEntry, ScoreStat)
+        .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
+        .filter(ScoreEntry.round_player_id.in_(round_player_ids))
+        .filter(ScoreEntry.strokes.isnot(None))
+        .all()
+        if round_player_ids else []
+    )
+
+    strokes_by_hole = []
+    putts_by_hole = []
+    non_putts_by_hole = []
+    strokes_by_green_result = []
+    for entry, stat in rows:
+        strokes_by_hole.append((entry.hole_number, entry.strokes))
+        if stat and stat.putts is not None:
+            putts_by_hole.append((entry.hole_number, stat.putts))
+            non_putts_by_hole.append((entry.hole_number, entry.strokes - stat.putts))
+        if stat and stat.fairway_result:
+            status, directions = _green_parts(stat.fairway_result)
+            strokes_by_green_result.append(((entry.hole_number, _green_bucket(status, directions)), entry.strokes))
+
+    return {
+        "strokes_by_hole": _avg_by_key(strokes_by_hole),
+        "putts_by_hole": _avg_by_key(putts_by_hole),
+        "non_putts_by_hole": _avg_by_key(non_putts_by_hole),
+        "strokes_by_green_result": _avg_by_key(strokes_by_green_result),
+    }
+
+
+def _strokes_gained_stats(series, memberships, selected_player, selected_hole_number=None, baselines=None):
+    if not selected_player:
+        return {}
+
+    baselines = baselines or _balletour_sg_baselines(series, memberships)
+    completed_round_players = _completed_balletour_round_players(series, [selected_player.id])
+    round_player_ids = [round_player.id for round_player in completed_round_players]
+    stats_rows = (
+        db.session.query(ScoreEntry, ScoreStat)
+        .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
+        .filter(ScoreEntry.round_player_id.in_(round_player_ids))
+        .filter(ScoreEntry.strokes.isnot(None))
+        .all()
+        if round_player_ids else []
+    )
+    if selected_hole_number:
+        stats_rows = [
+            (entry, stat) for entry, stat in stats_rows
+            if entry.hole_number == selected_hole_number
+        ]
+
+    totals = {
+        "total": 0,
+        "putting": 0,
+        "tee_to_green": 0,
+        "green_result": 0,
+    }
+    counts = {
+        "total": 0,
+        "putting": 0,
+        "tee_to_green": 0,
+        "green_result": 0,
+    }
+
+    for entry, stat in stats_rows:
+        hole_avg = baselines["strokes_by_hole"].get(entry.hole_number)
+        if hole_avg is not None:
+            totals["total"] += hole_avg - entry.strokes
+            counts["total"] += 1
+
+        if stat and stat.putts is not None:
+            putt_avg = baselines["putts_by_hole"].get(entry.hole_number)
+            if putt_avg is not None:
+                totals["putting"] += putt_avg - stat.putts
+                counts["putting"] += 1
+            non_putt_avg = baselines["non_putts_by_hole"].get(entry.hole_number)
+            if non_putt_avg is not None:
+                totals["tee_to_green"] += non_putt_avg - (entry.strokes - stat.putts)
+                counts["tee_to_green"] += 1
+
+        if stat and stat.fairway_result and hole_avg is not None:
+            status, directions = _green_parts(stat.fairway_result)
+            bucket = _green_bucket(status, directions)
+            result_avg = baselines["strokes_by_green_result"].get((entry.hole_number, bucket))
+            if result_avg is not None:
+                totals["green_result"] += hole_avg - result_avg
+                counts["green_result"] += 1
+
+    divisor = len({entry.round_id for entry, stat in stats_rows}) if not selected_hole_number else counts["total"]
+    if not divisor:
+        divisor = None
+
+    def per_unit(key):
+        if not divisor or not counts[key]:
+            return None
+        return round(totals[key] / divisor, 2)
+
+    return {
+        "unit_label": "per hull" if selected_hole_number else "per runde",
+        "total": per_unit("total"),
+        "tee_to_green": per_unit("tee_to_green"),
+        "putting": per_unit("putting"),
+        "green_result": per_unit("green_result"),
+    }
+
+
 def _balletour_player_stats(series, memberships, selected_player, selected_hole_number=None):
     holes = list(series.course.holes)
     course_par = sum(hole.par for hole in holes)
@@ -490,6 +645,8 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         if green_bucket_counts.get(key, 0) or key in ("hit", "bunker")
     ]
 
+    strokes_gained = _strokes_gained_stats(series, memberships, selected_player, selected_hole_number)
+
     return {
         "selected_player": selected_player,
         "selected_hole_number": selected_hole_number,
@@ -513,6 +670,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         "avg_putts": _avg([stat.putts for stat, entry in stats_rows if stat.putts is not None]),
         "avg_last_putt_distance": _avg([stat.last_putt_distance_m for stat, entry in stats_rows if stat.last_putt_distance_m is not None]),
         "avg_putt_meters_per_round": avg_putt_meters_per_round,
+        "strokes_gained": strokes_gained,
         "green_points": green_points[-160:],
         "green_distribution": green_distribution,
         "best_by_hole": best_by_hole,
@@ -525,10 +683,12 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
 
 
 def _balletour_all_player_stats(series, memberships):
+    baselines = _balletour_sg_baselines(series, memberships)
     rows = []
     for membership in memberships:
         player = membership.player
         stats = _balletour_player_stats(series, memberships, player)
+        strokes_gained = _strokes_gained_stats(series, memberships, player, baselines=baselines)
         rows.append({
             "player": player,
             "completed_round_count": stats.get("completed_round_count"),
@@ -543,6 +703,7 @@ def _balletour_all_player_stats(series, memberships):
             "birdies_or_better": stats.get("birdies_or_better"),
             "pars": stats.get("pars"),
             "bogeys_or_worse": stats.get("bogeys_or_worse"),
+            "strokes_gained": strokes_gained,
         })
     rows.sort(key=lambda row: (
         row["avg_round"] is None,

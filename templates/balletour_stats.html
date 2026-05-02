@@ -43,6 +43,22 @@
     <div class="stat-card"><strong>{{ stats.avg_putt_meters_per_round if stats.avg_putt_meters_per_round is not none else "-" }}{% if stats.avg_putt_meters_per_round is not none %} m{% endif %}</strong><span>Meter siste putter pr runde</span></div>
 </div>
 
+<section>
+    <div class="page-title-row">
+        <div>
+            <h3>Strokes gained</h3>
+            <p class="muted">Intern BalleTour-SG mot historisk snitt per hull, {{ stats.strokes_gained.unit_label }}. Positive tall er bedre enn feltet.</p>
+        </div>
+    </div>
+    <div class="stat-grid">
+        {% set sg = stats.strokes_gained %}
+        <div class="stat-card"><strong>{% if sg.total is not none %}{% if sg.total > 0 %}+{% endif %}{{ sg.total }}{% else %}-{% endif %}</strong><span>SG total</span></div>
+        <div class="stat-card"><strong>{% if sg.tee_to_green is not none %}{% if sg.tee_to_green > 0 %}+{% endif %}{{ sg.tee_to_green }}{% else %}-{% endif %}</strong><span>SG før putting</span></div>
+        <div class="stat-card"><strong>{% if sg.putting is not none %}{% if sg.putting > 0 %}+{% endif %}{{ sg.putting }}{% else %}-{% endif %}</strong><span>SG putting</span></div>
+        <div class="stat-card"><strong>{% if sg.green_result is not none %}{% if sg.green_result > 0 %}+{% endif %}{{ sg.green_result }}{% else %}-{% endif %}</strong><span>SG greenresultat</span></div>
+    </div>
+</section>
+
 <div class="tee-tabs">
     <a class="{% if not selected_hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', player_id=selected_player.id) }}">Alle hull</a>
     {% for hole in stats.holes %}

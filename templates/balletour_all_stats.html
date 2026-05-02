@@ -26,6 +26,10 @@
                 <th>Putter</th>
                 <th>Siste putt</th>
                 <th>Meter putter pr runde</th>
+                <th>SG total</th>
+                <th>SG før putting</th>
+                <th>SG putting</th>
+                <th>SG greenresultat</th>
                 <th>Birdie+</th>
                 <th>Par</th>
                 <th>Bogey+</th>
@@ -44,14 +48,20 @@
                 <td>{{ row.avg_putts if row.avg_putts is not none else "-" }}</td>
                 <td>{{ row.avg_last_putt_distance if row.avg_last_putt_distance is not none else "-" }}{% if row.avg_last_putt_distance is not none %} m{% endif %}</td>
                 <td>{{ row.avg_putt_meters_per_round if row.avg_putt_meters_per_round is not none else "-" }}{% if row.avg_putt_meters_per_round is not none %} m{% endif %}</td>
+                {% set sg = row.strokes_gained %}
+                <td>{% if sg.total is not none %}{% if sg.total > 0 %}+{% endif %}{{ sg.total }}{% else %}-{% endif %}</td>
+                <td>{% if sg.tee_to_green is not none %}{% if sg.tee_to_green > 0 %}+{% endif %}{{ sg.tee_to_green }}{% else %}-{% endif %}</td>
+                <td>{% if sg.putting is not none %}{% if sg.putting > 0 %}+{% endif %}{{ sg.putting }}{% else %}-{% endif %}</td>
+                <td>{% if sg.green_result is not none %}{% if sg.green_result > 0 %}+{% endif %}{{ sg.green_result }}{% else %}-{% endif %}</td>
                 <td>{{ row.birdies_or_better }}</td>
                 <td>{{ row.pars }}</td>
                 <td>{{ row.bogeys_or_worse }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="13">Ingen BalleTour-spillere funnet.</td></tr>
+            <tr><td colspan="17">Ingen BalleTour-spillere funnet.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+<p class="muted">Strokes gained er beregnet mot BalleTour-snitt per hull fra fullførte runder. SG før putting bruker slag minus putter. SG greenresultat bruker registrert greentreff, miss eller bunker med retning som forventet utslagsresultat.</p>
 {% endblock %}
