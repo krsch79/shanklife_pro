@@ -596,6 +596,12 @@ nav a {
     font-size: 0.9rem;
 }
 
+.last-putt-selects {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px;
+}
+
 .hole-nav {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1449,6 +1455,14 @@ th {
 
 .score-stat-fields .stat-select {
     grid-column: 1 / -1;
+}
+
+.score-stat-fields .score-last-putt-selects {
+    grid-column: 1 / -1;
+}
+
+.score-stat-fields .score-last-putt-selects .stat-select {
+    grid-column: auto;
 }
 
 .score-green-directions {

@@ -151,18 +151,34 @@
                                 <option value="{{ putt_option }}" {% if stat.putts == putt_option %}selected{% endif %}>{{ putt_option }}</option>
                                 {% endfor %}
                             </select>
-                            <select
-                                name="stat_last_putt_distance_{{ hole.hole_number }}"
-                                class="autosave-stat stat-select"
-                                data-hole-number="{{ hole.hole_number }}"
-                                data-stat-field="last_putt_distance"
-                                {% if round.status == 'finished' %}disabled{% endif %}
-                            >
-                                <option value="" {% if stat.last_putt_distance_m is none %}selected{% endif %}>Siste</option>
-                                {% for distance in last_putt_distance_options %}
-                                <option value="{{ distance }}" {% if stat.last_putt_distance_m == distance %}selected{% endif %}>{{ distance|string|replace(".0", "") }}m</option>
-                                {% endfor %}
-                            </select>
+                            <div class="last-putt-selects score-last-putt-selects">
+                                <select
+                                    name="stat_last_putt_meters_{{ hole.hole_number }}"
+                                    class="autosave-stat stat-select"
+                                    data-hole-number="{{ hole.hole_number }}"
+                                    data-stat-field="last_putt_meters"
+                                    aria-label="Meter siste putt hull {{ hole.hole_number }}"
+                                    {% if round.status == 'finished' %}disabled{% endif %}
+                                >
+                                    <option value="" {% if stat.last_putt_meters is none %}selected{% endif %}>m</option>
+                                    {% for meters in last_putt_meter_options %}
+                                    <option value="{{ meters }}" {% if stat.last_putt_meters == meters %}selected{% endif %}>{{ meters }}m</option>
+                                    {% endfor %}
+                                </select>
+                                <select
+                                    name="stat_last_putt_decimeters_{{ hole.hole_number }}"
+                                    class="autosave-stat stat-select"
+                                    data-hole-number="{{ hole.hole_number }}"
+                                    data-stat-field="last_putt_decimeters"
+                                    aria-label="Desimeter siste putt hull {{ hole.hole_number }}"
+                                    {% if round.status == 'finished' %}disabled{% endif %}
+                                >
+                                    <option value="" {% if stat.last_putt_decimeters is none %}selected{% endif %}>dm</option>
+                                    {% for decimeters in last_putt_decimeter_options %}
+                                    <option value="{{ decimeters }}" {% if stat.last_putt_decimeters == decimeters %}selected{% endif %}>{{ decimeters }}dm</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                         {% endif %}
                     </td>

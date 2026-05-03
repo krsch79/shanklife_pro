@@ -28,7 +28,8 @@ rounds_bp = Blueprint("rounds", __name__)
 
 ALLOWED_ROUND_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 GREEN_DIRECTIONS = ("pin", "long", "short", "left", "right")
-LAST_PUTT_DISTANCE_OPTIONS = (0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+LAST_PUTT_METER_OPTIONS = tuple(range(0, 16))
+LAST_PUTT_DECIMETER_OPTIONS = tuple(range(0, 10))
 
 
 def build_course_tee_options(courses):
@@ -192,7 +193,28 @@ def _parse_putts_for_score(raw_value, entry):
     return putts
 
 
-def _parse_last_putt_distance(raw_value):
+def _parse_last_putt_distance(raw_value="", meters_raw=None, decimeters_raw=None):
+    if meters_raw is not None or decimeters_raw is not None:
+        meters_text = (meters_raw or "").strip()
+        decimeters_text = (decimeters_raw or "").strip()
+        if meters_text == "" and decimeters_text == "":
+            return None
+
+        try:
+            meters = int(meters_text or "0")
+            decimeters = int(decimeters_text or "0")
+        except ValueError as exc:
+            raise ValueError("Avstand på siste putt må være et gyldig valg.") from exc
+
+        if meters not in LAST_PUTT_METER_OPTIONS or decimeters not in LAST_PUTT_DECIMETER_OPTIONS:
+            raise ValueError("Avstand på siste putt må være et gyldig valg.")
+
+        total_decimeters = meters * 10 + decimeters
+        if total_decimeters == 0:
+            return None
+
+        return round(total_decimeters / 10, 1)
+
     raw_value = (raw_value or "").strip()
     if raw_value == "":
         return None
@@ -200,9 +222,23 @@ def _parse_last_putt_distance(raw_value):
         distance = float(raw_value.replace(",", "."))
     except ValueError as exc:
         raise ValueError("Avstand på siste putt må være et gyldig valg.") from exc
-    if distance not in LAST_PUTT_DISTANCE_OPTIONS:
+    total_decimeters = round(distance * 10)
+    if abs(distance * 10 - total_decimeters) > 0.0001:
         raise ValueError("Avstand på siste putt må være et gyldig valg.")
-    return distance
+    meters = total_decimeters // 10
+    decimeters = total_decimeters % 10
+    if total_decimeters == 0:
+        return None
+    if meters not in LAST_PUTT_METER_OPTIONS or decimeters not in LAST_PUTT_DECIMETER_OPTIONS:
+        raise ValueError("Avstand på siste putt må være et gyldig valg.")
+    return round(total_decimeters / 10, 1)
+
+
+def _last_putt_distance_select_values(distance):
+    if distance is None:
+        return None, None
+    total_decimeters = round(distance * 10)
+    return total_decimeters // 10, total_decimeters % 10
 
 
 def _validate_score_stat_rules(entry, hole, fairway_result, putts, score=None):
@@ -333,7 +369,16 @@ def _parse_score_for_hole(raw_value, hole, player_name):
     return strokes
 
 
-def _save_score_stat(entry, hole, drive_distance_raw, fairway_result_raw, putts_raw, last_putt_distance_raw=""):
+def _save_score_stat(
+    entry,
+    hole,
+    drive_distance_raw,
+    fairway_result_raw,
+    putts_raw,
+    last_putt_distance_raw="",
+    last_putt_meters_raw=None,
+    last_putt_decimeters_raw=None,
+):
     drive_distance = None
     fairway_result = None
     if hole.par == 3:
@@ -350,7 +395,11 @@ def _save_score_stat(entry, hole, drive_distance_raw, fairway_result_raw, putts_
 
     putts = _parse_putts_for_score(putts_raw, entry)
     _validate_score_stat_rules(entry, hole, fairway_result, putts)
-    last_putt_distance = _parse_last_putt_distance(last_putt_distance_raw)
+    last_putt_distance = _parse_last_putt_distance(
+        last_putt_distance_raw,
+        last_putt_meters_raw,
+        last_putt_decimeters_raw,
+    )
     if putts == 0:
         last_putt_distance = None
 
@@ -550,6 +599,8 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                     _green_stat_from_form("stat_green_status", "stat_green_direction") if hole.par == 3 else request.form.get("stat_fairway", ""),
                     request.form.get("stat_putts", ""),
                     request.form.get("stat_last_putt_distance", ""),
+                    request.form.get("stat_last_putt_meters", ""),
+                    request.form.get("stat_last_putt_decimeters", ""),
                 )
             except ValueError as exc:
                 message = str(exc) or "Ugyldig statistikk."
@@ -1033,6 +1084,9 @@ def round_hole(round_id, hole_number):
         "putts": stat.putts if stat else None,
         "last_putt_distance_m": stat.last_putt_distance_m if stat else None,
     }
+    last_putt_meters, last_putt_decimeters = _last_putt_distance_select_values(stats_values["last_putt_distance_m"])
+    stats_values["last_putt_meters"] = last_putt_meters
+    stats_values["last_putt_decimeters"] = last_putt_decimeters
     green_status, green_directions = _green_stat_parts(stats_values["fairway_result"])
     stats_values["green_status"] = green_status
     stats_values["green_directions"] = green_directions
@@ -1053,7 +1107,8 @@ def round_hole(round_id, hole_number):
         stats_round_player_id=stats_rp.id if stats_rp else None,
         stats_values=stats_values,
         score_options=score_options,
-        last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
+        last_putt_meter_options=LAST_PUTT_METER_OPTIONS,
+        last_putt_decimeter_options=LAST_PUTT_DECIMETER_OPTIONS,
         club_tracking_enabled=club_tracking_enabled,
         clubs=clubs,
         club_defaults=_hole_club_defaults(round_obj, round_players, hole_number) if club_tracking_enabled else {},
@@ -1211,6 +1266,8 @@ def autosave_score_stat(round_id):
             _green_stat_from_form("green_status", "green_direction") if hole.par == 3 else request.form.get("fairway_result", ""),
             request.form.get("putts", ""),
             request.form.get("last_putt_distance", ""),
+            request.form.get("last_putt_meters", ""),
+            request.form.get("last_putt_decimeters", ""),
         )
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc) or "Statistikkfelt har ugyldig verdi."}), 400
@@ -1279,6 +1336,8 @@ def round_score(round_id):
                             _green_stat_from_form(f"stat_green_status_{hole}", f"stat_green_direction_{hole}") if hole_obj.par == 3 else request.form.get(f"stat_fairway_{hole}", ""),
                             request.form.get(f"stat_putts_{hole}", ""),
                             request.form.get(f"stat_last_putt_distance_{hole}", ""),
+                            request.form.get(f"stat_last_putt_meters_{hole}", ""),
+                            request.form.get(f"stat_last_putt_decimeters_{hole}", ""),
                         )
                     except ValueError as exc:
                         message = str(exc) or "Ugyldig statistikk."
@@ -1365,6 +1424,11 @@ def round_score(round_id):
                     "putts": stat.putts if stat else None,
                     "last_putt_distance_m": stat.last_putt_distance_m if stat else None,
                 }
+                last_putt_meters, last_putt_decimeters = _last_putt_distance_select_values(
+                    stats_map[hole]["last_putt_distance_m"]
+                )
+                stats_map[hole]["last_putt_meters"] = last_putt_meters
+                stats_map[hole]["last_putt_decimeters"] = last_putt_decimeters
 
             if strokes is not None:
                 grand_total += strokes
@@ -1425,6 +1489,7 @@ def round_score(round_id):
             for hole in course.holes
         },
         putt_options=list(range(0, 6)),
-        last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
+        last_putt_meter_options=LAST_PUTT_METER_OPTIONS,
+        last_putt_decimeter_options=LAST_PUTT_DECIMETER_OPTIONS,
         is_balletour_scoring_page=_is_balletour_round(round_obj),
     )

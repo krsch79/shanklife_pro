@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.7.0] - 2026-05-03 18:15
+- Bytter registrering av siste putt i detaljert BalleTour-score fra faste valg til separate meter- og desimetervalg.
+
 ## [1.6.1] - 2026-05-02 21:46
 - Flytter BalleTour-knappen for a bytte mellom prod- og testdatabase fra BalleTour-forsiden til admin-siden.
 
