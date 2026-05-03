@@ -116,14 +116,20 @@
                     </label>
                     <label>
                         <span>Siste putt</span>
-                        <select name="stat_last_putt_distance" {% if round.status == 'finished' %}disabled{% endif %}>
-                            <option value="" {% if stats_values.last_putt_distance_m is none %}selected{% endif %}>—</option>
-                            {% for distance in last_putt_distance_options %}
-                            <option value="{{ distance }}" {% if stats_values.last_putt_distance_m == distance %}selected{% endif %}>
-                                {{ distance|string|replace(".0", "") }} m
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <div class="last-putt-selects">
+                            <select name="stat_last_putt_meters" aria-label="Meter siste putt" {% if round.status == 'finished' %}disabled{% endif %}>
+                                <option value="" {% if stats_values.last_putt_meters is none %}selected{% endif %}>m</option>
+                                {% for meters in last_putt_meter_options %}
+                                <option value="{{ meters }}" {% if stats_values.last_putt_meters == meters %}selected{% endif %}>{{ meters }} m</option>
+                                {% endfor %}
+                            </select>
+                            <select name="stat_last_putt_decimeters" aria-label="Desimeter siste putt" {% if round.status == 'finished' %}disabled{% endif %}>
+                                <option value="" {% if stats_values.last_putt_decimeters is none %}selected{% endif %}>dm</option>
+                                {% for decimeters in last_putt_decimeter_options %}
+                                <option value="{{ decimeters }}" {% if stats_values.last_putt_decimeters == decimeters %}selected{% endif %}>{{ decimeters }} dm</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </label>
                 </div>
                 {% endif %}
