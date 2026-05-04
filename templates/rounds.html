@@ -33,7 +33,7 @@
                 <div class="button-row compact">
                     <a
                         class="button secondary"
-                        href="{% if round.status == 'ongoing' %}{{ url_for('rounds.round_hole', round_id=round.id, hole_number=1) }}{% else %}{{ url_for('rounds.round_score', round_id=round.id) }}{% endif %}"
+                        href="{% if round.status == 'ongoing' %}{{ url_for('rounds.continue_round', round_id=round.id) }}{% else %}{{ url_for('rounds.round_score', round_id=round.id) }}{% endif %}"
                     >
                         {% if round.status == 'ongoing' %}Fortsett{% else %}Se{% endif %}
                     </a>

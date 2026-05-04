@@ -75,7 +75,7 @@
                 <td>
                     <a
                         class="button secondary"
-                        href="{% if rp.round.status == 'ongoing' %}{{ url_for('rounds.round_hole', round_id=rp.round.id, hole_number=1) }}{% else %}{{ url_for('rounds.round_score', round_id=rp.round.id) }}{% endif %}"
+                        href="{% if rp.round.status == 'ongoing' %}{{ url_for('rounds.continue_round', round_id=rp.round.id) }}{% else %}{{ url_for('rounds.round_score', round_id=rp.round.id) }}{% endif %}"
                     >
                         Åpne
                     </a>

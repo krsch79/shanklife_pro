@@ -562,6 +562,27 @@ def _score_totals(round_obj, round_player_id):
     }
 
 
+def _next_unscored_hole_number(round_obj):
+    round_player_ids = [round_player.id for round_player in round_obj.round_players]
+    if not round_player_ids:
+        return 1
+
+    entries = ScoreEntry.query.filter(
+        ScoreEntry.round_id == round_obj.id,
+        ScoreEntry.round_player_id.in_(round_player_ids),
+    ).all()
+    scored_by_hole = {}
+    for entry in entries:
+        if entry.strokes is not None:
+            scored_by_hole.setdefault(entry.hole_number, set()).add(entry.round_player_id)
+
+    expected_player_count = len(round_player_ids)
+    for hole in round_obj.course.holes:
+        if len(scored_by_hole.get(hole.hole_number, set())) < expected_player_count:
+            return hole.hole_number
+    return round_obj.course.hole_count
+
+
 def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
     hole = next((item for item in round_obj.course.holes if item.hole_number == hole_number), None)
     if not hole:
@@ -1021,6 +1042,18 @@ def delete_round(round_id):
 def round_detail(round_id):
     round_obj = Round.query.get_or_404(round_id)
     return render_template("round_detail.html", round=round_obj)
+
+
+@rounds_bp.route("/rounds/<int:round_id>/continue")
+def continue_round(round_id):
+    round_obj = Round.query.get_or_404(round_id)
+    if round_obj.status != "ongoing":
+        return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+    return redirect(url_for(
+        "rounds.round_hole",
+        round_id=round_obj.id,
+        hole_number=_next_unscored_hole_number(round_obj),
+    ))
 
 
 @rounds_bp.route("/rounds/<int:round_id>/hole/<int:hole_number>", methods=["GET", "POST"])

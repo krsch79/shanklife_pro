@@ -25,7 +25,7 @@
 
     <div class="button-row">
         {% if round.status == 'ongoing' %}
-        <a class="button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=1) }}">Fortsett runde</a>
+        <a class="button" href="{{ url_for('rounds.continue_round', round_id=round.id) }}">Fortsett runde</a>
         {% endif %}
         <a class="button secondary" href="{{ url_for('rounds.round_score', round_id=round.id) }}">Åpne scorekort</a>
         {% if current_user and current_user.is_admin %}

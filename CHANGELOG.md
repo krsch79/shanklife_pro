@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.7.1] - 2026-05-04 21:15
+- Sender Fortsett runde til forste hull der minst en spiller mangler score.
+
 ## [1.7.0] - 2026-05-03 18:15
 - Bytter registrering av siste putt i detaljert BalleTour-score fra faste valg til separate meter- og desimetervalg.
 
