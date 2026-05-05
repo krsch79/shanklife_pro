@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.3] - 2026-05-05 19:49
+- Endrer Side til Retning og fikser at Pa flagget ikke laser de andre greenvalgene.
+
 ## [1.8.2] - 2026-05-05 19:42
 - Forbedrer mobil-layouten for BalleTour-greenvalg med tydelige grupper og tekst over radioknappene.
 

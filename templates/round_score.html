@@ -446,18 +446,9 @@
         const pinUnavailable = statusSelect.value !== "hit";
         pinInput.disabled = pinUnavailable || statusSelect.disabled;
         if (pinUnavailable) pinInput.checked = false;
-        if (pinInput.checked) {
-            directionInputs.forEach((input) => {
-                if (input !== pinInput) {
-                    input.checked = false;
-                    input.disabled = true;
-                }
-            });
-        } else {
-            directionInputs.forEach((input) => {
-                if (input !== pinInput) input.disabled = statusSelect.disabled;
-            });
-        }
+        directionInputs.forEach((input) => {
+            input.disabled = statusSelect.disabled;
+        });
     }
 
     document.querySelectorAll('select[data-stat-field="green_status"]').forEach(syncPinOption);
