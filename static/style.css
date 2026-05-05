@@ -564,29 +564,33 @@ nav a {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
+    gap: 8px;
 }
 
 .green-direction-grid label {
     display: flex;
+    flex-direction: column-reverse;
     align-items: center;
-    justify-content: flex-start;
-    gap: 5px;
-    min-height: 34px;
+    justify-content: center;
+    gap: 4px;
+    min-height: 52px;
     margin: 0;
-    padding: 0 8px;
+    padding: 6px 4px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: #f8fafc;
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 700;
+    line-height: 1.1;
+    text-align: center;
+    overflow-wrap: anywhere;
 }
 
 .green-radio-group {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    gap: 5px;
 }
 
 .green-radio-group > span {
@@ -597,8 +601,8 @@ nav a {
 }
 
 .green-radio-group label {
-    min-height: 30px;
-    padding: 0 6px;
+    min-height: 52px;
+    padding: 6px 4px;
 }
 
 .green-direction-grid input {

@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.2] - 2026-05-05 19:42
+- Forbedrer mobil-layouten for BalleTour-greenvalg med tydelige grupper og tekst over radioknappene.
+
 ## [1.8.1] - 2026-05-05 17:25
 - Rydder greenvalg i BalleTour-score: fjerner Rett, flytter Pa flagget inn i sidevalget og endrer Riktig til Pin high.
 
