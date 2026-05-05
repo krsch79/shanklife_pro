@@ -9,7 +9,7 @@
 <body>
     {% set is_balletour_page = request.endpoint and (request.endpoint.startswith('balletour.') or (series is defined and series.name in ['Balletour', 'BalleTour'])) %}
     {% set is_balletour_scoring_page = is_balletour_scoring_page|default(false) %}
-    <header class="site-header">
+    <header class="site-header {% if is_balletour_scoring_page or is_balletour_page %}balletour-header{% endif %}">
         <div class="container">
             <h1 class="site-brand">
                 <span class="brand-logos">
@@ -38,13 +38,6 @@
                 {% if series is defined %}
                 <a href="{{ url_for('series.club_stats', series_id=series.id) }}">Køllestatistikk</a>
                 <a href="{{ url_for('series.gallery', series_id=series.id) }}">Galleri</a>
-                {% endif %}
-                {% if current_user %}
-                <form method="post" action="{{ url_for('auth.logout') }}" class="nav-form">
-                    <button type="submit">Logg ut</button>
-                </form>
-                {% else %}
-                <a href="{{ url_for('auth.login') }}">Logg inn</a>
                 {% endif %}
                 {% else %}
                 <a href="{{ url_for('main.index') }}">Hjem</a>

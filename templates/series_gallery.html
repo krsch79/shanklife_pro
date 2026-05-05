@@ -12,6 +12,8 @@
             {{ image.round.course.name }}
             {% if image.hole_number %} · hull {{ image.hole_number }}{% endif %}
             {% if image.tagged_player %} · {{ image.tagged_player.name }}{% endif %}
+            <br>
+            Lastet opp {{ image.uploaded_at|datetime_local }}
         </figcaption>
     </figure>
     {% else %}

@@ -124,7 +124,7 @@
                     </label>
                     <label>
                         <span>Siste putt</span>
-                        <select name="stat_last_putt_distance{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" class="last-putt-distance-select" aria-label="Siste putt" data-default-putt-distance="0.5" {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_last_putt_distance{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" class="last-putt-distance-select" aria-label="Siste putt" {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if stat_values.last_putt_distance is none %}selected{% endif %}>—</option>
                             {% for distance in last_putt_distance_options %}
                             <option value="{{ distance }}" {% if stat_values.last_putt_distance == distance %}selected{% endif %}>{{ "%.1f"|format(distance) }} m</option>
@@ -286,12 +286,50 @@
         syncPuttsOptionsForRow(row);
     });
 
-    document.querySelectorAll(".last-putt-distance-select").forEach((select) => {
-        select.addEventListener("focus", () => {
-            if (!select.value) {
-                select.value = select.dataset.defaultPuttDistance || "0.5";
+    const form = document.getElementById("hole-entry-form");
+    form?.addEventListener("submit", (event) => {
+        const submitter = event.submitter;
+        if (!submitter || !["next", "finish"].includes(submitter.value)) {
+            return;
+        }
+
+        const missingLines = [];
+        document.querySelectorAll(".hole-player-row").forEach((row) => {
+            const playerName = row.querySelector(".hole-player-meta strong")?.textContent.trim() || "Spiller";
+            const missing = [];
+            const scoreSelect = row.querySelector('select[name^="score_"]');
+            const clubSelect = row.querySelector('select[name^="tee_club_"]');
+            const statGrid = row.querySelector(".hole-stat-grid");
+
+            if (scoreSelect && !scoreSelect.value) missing.push("score");
+            if (clubSelect && !clubSelect.value) missing.push("kølle");
+
+            if (statGrid) {
+                const greenStatus = statGrid.querySelector("[data-green-status]");
+                const horizontalChoices = Array.from(statGrid.querySelectorAll('input[name^="stat_green_horizontal"]'));
+                const verticalChoices = Array.from(statGrid.querySelectorAll('input[name^="stat_green_vertical"]'));
+                const puttsSelect = statGrid.querySelector(".stat-putts-select");
+                const lastPuttSelect = statGrid.querySelector(".last-putt-distance-select");
+
+                if (greenStatus && !greenStatus.value) missing.push("green");
+                if (horizontalChoices.length && !horizontalChoices.some((input) => input.checked)) missing.push("retning");
+                if (verticalChoices.length && !verticalChoices.some((input) => input.checked)) missing.push("lengde");
+                if (puttsSelect && !puttsSelect.value) {
+                    missing.push("putter");
+                } else if (puttsSelect && Number(puttsSelect.value) > 0 && lastPuttSelect && !lastPuttSelect.value) {
+                    missing.push("siste putt");
+                }
             }
-        }, { once: true });
+
+            if (missing.length) {
+                missingLines.push(`${playerName}: ${missing.join(", ")}`);
+            }
+        });
+
+        if (missingLines.length) {
+            event.preventDefault();
+            window.alert(`Mangler valg:\n${missingLines.join("\n")}`);
+        }
     });
 })();
 </script>

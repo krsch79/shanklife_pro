@@ -157,7 +157,6 @@
                                 class="autosave-stat stat-select last-putt-distance-select"
                                 data-hole-number="{{ hole.hole_number }}"
                                 data-stat-field="last_putt_distance"
-                                data-default-putt-distance="0.5"
                                 aria-label="Siste putt hull {{ hole.hole_number }}"
                                 {% if round.status == 'finished' %}disabled{% endif %}
                             >
@@ -488,14 +487,6 @@
     document.querySelectorAll('select[data-stat-field="green_status"]').forEach((select) => {
         select.addEventListener("change", () => syncPuttsOptions(select.dataset.holeNumber));
     });
-    document.querySelectorAll(".last-putt-distance-select").forEach((select) => {
-        select.addEventListener("focus", () => {
-            if (!select.value) {
-                select.value = select.dataset.defaultPuttDistance || "0.5";
-            }
-        }, { once: true });
-    });
-
     if (finishButton) {
         finishButton.addEventListener("click", function (event) {
             if (!hasEmptyScoreFields()) {

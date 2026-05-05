@@ -2,6 +2,12 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.5] - 2026-05-05 20:13
+- Gjør BalleTour-headeren mer kompakt, fjerner Logg ut fra BalleTour-menyen og flytter versjonsnummeret ved BalleTour-overskriften.
+- Viser opplastingsdato og klokkeslett i galleriet.
+- Stopper BalleTour-scorevalidering i nettleseren før siden sendes inn, slik at utfylte valg ikke nullstilles nar noe mangler.
+- Fjerner automatisk 0,5 m valg ved fokus pa siste putt slik at siste putt ma velges aktivt.
+
 ## [1.8.4] - 2026-05-05 19:59
 - Setter Pa flagget og Pin high som standardvalg for BalleTour-greenvalg, mens score, putter og siste putt starter tomt.
 - Stopper navigering til neste hull nar obligatoriske BalleTour-valg mangler og viser hvilke felt som mangler per spiller.
