@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.7] - 2026-05-05 20:29
+- Høyrestiller versjonsnummeret pa BalleTour-forsiden og legger BalleTour-menyen pa samme rad som logoen.
+
 ## [1.8.6] - 2026-05-05 20:22
 - Lar BalleTour-retningen Pa flagget brukes sammen med miss og bunker, ikke bare greentreff.
 

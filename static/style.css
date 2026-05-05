@@ -78,27 +78,36 @@ body {
 }
 
 .balletour-header .container {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 8px 14px;
     padding-top: 6px;
     padding-bottom: 6px;
 }
 
+.balletour-header .site-brand {
+    min-width: 0;
+}
+
 .balletour-header .site-logo {
-    height: 54px;
+    height: 48px;
 }
 
 .balletour-header .balletour-logo {
-    width: clamp(118px, 18vw, 176px);
+    width: clamp(104px, 15vw, 158px);
 }
 
 .balletour-header nav {
     align-items: center;
+    justify-content: flex-end;
     gap: 6px 10px;
+    min-width: 0;
 }
 
 .balletour-header nav a {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
+    white-space: nowrap;
 }
 
 nav {
@@ -186,6 +195,20 @@ nav a {
     display: flex;
     align-items: baseline;
     gap: 12px;
+}
+
+.balletour-title-row {
+    align-items: flex-start;
+}
+
+.balletour-title-row .version-link {
+    margin-left: auto;
+    padding-top: 6px;
+    text-align: right;
+}
+
+.balletour-home-actions {
+    margin-bottom: 14px;
 }
 
 .version-link {
@@ -1837,6 +1860,28 @@ th {
 
     nav a {
         font-size: 0.88rem;
+    }
+
+    .balletour-header .container {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 6px;
+    }
+
+    .balletour-header .site-logo {
+        height: 42px;
+    }
+
+    .balletour-header .balletour-logo {
+        width: 96px;
+    }
+
+    .balletour-header nav {
+        gap: 4px 7px;
+        justify-content: flex-end;
+    }
+
+    .balletour-header nav a {
+        font-size: 0.78rem;
     }
 
     .form-card {
