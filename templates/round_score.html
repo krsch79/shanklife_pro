@@ -442,9 +442,7 @@
         const pinInput = container.querySelector('[data-green-pin]');
         if (!pinInput) return;
         const directionInputs = Array.from(container.querySelectorAll('input[data-green-direction]'));
-        const pinUnavailable = statusSelect.value !== "hit";
-        pinInput.disabled = pinUnavailable || statusSelect.disabled;
-        if (pinUnavailable) pinInput.checked = false;
+        pinInput.disabled = statusSelect.disabled;
         directionInputs.forEach((input) => {
             input.disabled = statusSelect.disabled;
         });
