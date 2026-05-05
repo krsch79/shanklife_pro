@@ -700,6 +700,50 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                 raise ValueError(f"{message} ({rp.player_name_snapshot})") from exc
 
 
+def _missing_hole_choices(round_obj, hole, stats_rp=None):
+    missing_by_player = []
+    round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
+    club_tracking_enabled = _round_uses_club_tracking(round_obj)
+    scoped_stats = _is_balletour_round(round_obj)
+
+    for rp in round_players:
+        missing = []
+        if not request.form.get(f"score_{rp.id}", "").strip():
+            missing.append("score")
+        if club_tracking_enabled and not request.form.get(f"tee_club_{rp.id}", "").strip():
+            missing.append("kølle")
+
+        if _round_player_tracks_stats(round_obj, rp, stats_rp):
+            if hole.par == 3:
+                green_status_name = _stat_field_name("stat_green_status", rp, scoped_stats)
+                green_horizontal_name = _stat_field_name("stat_green_horizontal", rp, scoped_stats)
+                green_vertical_name = _stat_field_name("stat_green_vertical", rp, scoped_stats)
+                if green_status_name not in request.form or not request.form.get(green_status_name, "").strip():
+                    missing.append("green")
+                if green_horizontal_name not in request.form:
+                    missing.append("retning")
+                if green_vertical_name not in request.form:
+                    missing.append("lengde")
+
+            putts_name = _stat_field_name("stat_putts", rp, scoped_stats)
+            last_putt_name = _stat_field_name("stat_last_putt_distance", rp, scoped_stats)
+            putts_raw = request.form.get(putts_name, "").strip()
+            if putts_raw == "":
+                missing.append("putter")
+            else:
+                try:
+                    putts = int(putts_raw)
+                except ValueError:
+                    putts = None
+                if putts and not request.form.get(last_putt_name, "").strip():
+                    missing.append("siste putt")
+
+        if missing:
+            missing_by_player.append(f"{rp.player_name_snapshot}: {', '.join(missing)}")
+
+    return missing_by_player
+
+
 def _hole_player_details(round_players, hole_number):
     details = {}
     for rp in round_players:
@@ -1138,6 +1182,7 @@ def round_hole(round_id, hole_number):
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
 
     stats_rp = _stats_round_player(round_obj)
+    hole = next((item for item in course.holes if item.hole_number == hole_number), None)
 
     if request.method == "POST":
         if round_obj.status != "ongoing":
@@ -1145,6 +1190,11 @@ def round_hole(round_id, hole_number):
             return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
         action = request.form.get("action", "next")
+        if action in ("next", "finish"):
+            missing_choices = _missing_hole_choices(round_obj, hole, stats_rp)
+            if missing_choices:
+                flash("Mangler valg: " + " | ".join(missing_choices), "error")
+                return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
 
         try:
             _save_hole_from_form(round_obj, hole_number, stats_rp)
@@ -1169,7 +1219,6 @@ def round_hole(round_id, hole_number):
 
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=target_hole))
 
-    hole = next((item for item in course.holes if item.hole_number == hole_number), None)
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
     score_entries = {
