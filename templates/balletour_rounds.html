@@ -13,15 +13,40 @@
     </div>
 </div>
 
+<form method="get" class="form-card compact-filter-form">
+    <div class="section-title-row">
+        <h3>Filter</h3>
+        <div class="button-row compact">
+            <button type="submit" class="button compact-button">Vis runder</button>
+            <a class="button secondary compact-button" href="{{ url_for('balletour.finished_rounds') }}">Alle</a>
+        </div>
+    </div>
+    <div class="checkbox-row">
+        {% for player in players %}
+        <label>
+            <input
+                type="checkbox"
+                name="player_id"
+                value="{{ player.id }}"
+                {% if player.id in selected_player_ids %}checked{% endif %}
+            >
+            {{ display_name(player) }}
+        </label>
+        {% endfor %}
+    </div>
+</form>
+
 {% for card in score_cards %}
 <section class="compact-round-card">
     <div class="compact-round-card-header">
         <div>
             <h3>Runde {{ card.round.id }}</h3>
             <p class="muted">{{ card.round.started_at|datetime_local }}</p>
+            {% if card.weather_summary %}
+            <p class="muted">{{ card.weather_summary }}</p>
+            {% endif %}
         </div>
         <div class="button-row compact">
-            <a class="button secondary compact-button" href="{{ url_for('rounds.round_score', round_id=card.round.id) }}">Scorekort</a>
             {% if current_user and current_user.is_admin %}
             <form
                 method="post"

@@ -563,7 +563,7 @@ nav a {
 .green-direction-grid {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 2fr));
     gap: 6px;
 }
 
@@ -583,7 +583,60 @@ nav a {
     font-weight: 700;
 }
 
+.green-radio-group {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.green-radio-group > span {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.green-radio-group label {
+    min-height: 30px;
+    padding: 0 6px;
+}
+
 .green-direction-grid input {
+    width: auto;
+    margin: 0;
+}
+
+.info-strip {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.compact-filter-form {
+    margin-bottom: 16px;
+    padding: 12px;
+}
+
+.checkbox-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.checkbox-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    font-weight: 700;
+}
+
+.checkbox-row input {
     width: auto;
     margin: 0;
 }
@@ -1468,7 +1521,7 @@ th {
 .score-green-directions {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(5, minmax(22px, 1fr));
+    grid-template-columns: repeat(7, minmax(24px, 1fr));
     gap: 3px;
     width: 100%;
 }

@@ -104,11 +104,13 @@
                                 <option value="bunker" {% if stat.green_status == 'bunker' %}selected{% endif %}>Bunker</option>
                             </select>
                             <div class="score-green-directions">
-                                <label class="green-pin-option"><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="pin" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'pin' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> F</label>
-                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="left" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'left' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> V</label>
-                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="right" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'right' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> H</label>
-                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="short" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'short' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> K</label>
-                                <label><input type="checkbox" name="stat_green_direction_{{ hole.hole_number }}" value="long" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_direction" {% if 'long' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> L</label>
+                                <label class="green-pin-option"><input type="checkbox" name="stat_green_pin_{{ hole.hole_number }}" value="pin" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_pin" data-green-pin {% if 'pin' in stat.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> F</label>
+                                <label><input type="radio" name="stat_green_horizontal_{{ hole.hole_number }}" value="" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_horizontal" data-green-direction {% if not stat.green_horizontal %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Rett</label>
+                                <label><input type="radio" name="stat_green_horizontal_{{ hole.hole_number }}" value="left" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_horizontal" data-green-direction {% if stat.green_horizontal == 'left' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> V</label>
+                                <label><input type="radio" name="stat_green_horizontal_{{ hole.hole_number }}" value="right" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_horizontal" data-green-direction {% if stat.green_horizontal == 'right' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> H</label>
+                                <label><input type="radio" name="stat_green_vertical_{{ hole.hole_number }}" value="" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_vertical" data-green-direction {% if not stat.green_vertical %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Riktig</label>
+                                <label><input type="radio" name="stat_green_vertical_{{ hole.hole_number }}" value="short" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_vertical" data-green-direction {% if stat.green_vertical == 'short' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> K</label>
+                                <label><input type="radio" name="stat_green_vertical_{{ hole.hole_number }}" value="long" class="autosave-stat" data-hole-number="{{ hole.hole_number }}" data-stat-field="green_vertical" data-green-direction {% if stat.green_vertical == 'long' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> L</label>
                             </div>
                             {% endif %}
 
@@ -151,34 +153,20 @@
                                 <option value="{{ putt_option }}" {% if stat.putts == putt_option %}selected{% endif %}>{{ putt_option }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="last-putt-selects score-last-putt-selects">
-                                <select
-                                    name="stat_last_putt_meters_{{ hole.hole_number }}"
-                                    class="autosave-stat stat-select"
-                                    data-hole-number="{{ hole.hole_number }}"
-                                    data-stat-field="last_putt_meters"
-                                    aria-label="Meter siste putt hull {{ hole.hole_number }}"
-                                    {% if round.status == 'finished' %}disabled{% endif %}
-                                >
-                                    <option value="" {% if stat.last_putt_meters is none %}selected{% endif %}>m</option>
-                                    {% for meters in last_putt_meter_options %}
-                                    <option value="{{ meters }}" {% if stat.last_putt_meters == meters %}selected{% endif %}>{{ meters }}m</option>
-                                    {% endfor %}
-                                </select>
-                                <select
-                                    name="stat_last_putt_decimeters_{{ hole.hole_number }}"
-                                    class="autosave-stat stat-select"
-                                    data-hole-number="{{ hole.hole_number }}"
-                                    data-stat-field="last_putt_decimeters"
-                                    aria-label="Desimeter siste putt hull {{ hole.hole_number }}"
-                                    {% if round.status == 'finished' %}disabled{% endif %}
-                                >
-                                    <option value="" {% if stat.last_putt_decimeters is none %}selected{% endif %}>dm</option>
-                                    {% for decimeters in last_putt_decimeter_options %}
-                                    <option value="{{ decimeters }}" {% if stat.last_putt_decimeters == decimeters %}selected{% endif %}>{{ decimeters }}dm</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+                            <select
+                                name="stat_last_putt_distance_{{ hole.hole_number }}"
+                                class="autosave-stat stat-select last-putt-distance-select"
+                                data-hole-number="{{ hole.hole_number }}"
+                                data-stat-field="last_putt_distance"
+                                data-default-putt-distance="0.5"
+                                aria-label="Siste putt hull {{ hole.hole_number }}"
+                                {% if round.status == 'finished' %}disabled{% endif %}
+                            >
+                                <option value="" {% if stat.last_putt_distance is none %}selected{% endif %}>Siste putt</option>
+                                {% for distance in last_putt_distance_options %}
+                                <option value="{{ distance }}" {% if stat.last_putt_distance == distance %}selected{% endif %}>{{ "%.1f"|format(distance) }} m</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         {% endif %}
                     </td>
@@ -358,6 +346,9 @@
             if (field.type === "checkbox" && !field.checked) {
                 return;
             }
+            if (field.type === "radio" && !field.checked) {
+                return;
+            }
             formData.append(field.dataset.statField, field.value.trim());
         });
 
@@ -452,7 +443,7 @@
         if (!container) return;
         const pinInput = container.querySelector('.green-pin-option input[type="checkbox"]');
         if (!pinInput) return;
-        const directionInputs = Array.from(container.querySelectorAll('input[data-stat-field="green_direction"]'));
+        const directionInputs = Array.from(container.querySelectorAll('input[data-green-direction]'));
         const pinUnavailable = statusSelect.value !== "hit";
         pinInput.disabled = pinUnavailable || statusSelect.disabled;
         if (pinUnavailable) pinInput.checked = false;
@@ -468,22 +459,10 @@
                 if (input !== pinInput) input.disabled = statusSelect.disabled;
             });
         }
-        const leftInput = container.querySelector('input[value="left"]');
-        const rightInput = container.querySelector('input[value="right"]');
-        const shortInput = container.querySelector('input[value="short"]');
-        const longInput = container.querySelector('input[value="long"]');
-        if (leftInput && rightInput) {
-            rightInput.disabled = rightInput.disabled || leftInput.checked;
-            leftInput.disabled = leftInput.disabled || rightInput.checked;
-        }
-        if (shortInput && longInput) {
-            longInput.disabled = longInput.disabled || shortInput.checked;
-            shortInput.disabled = shortInput.disabled || longInput.checked;
-        }
     }
 
     document.querySelectorAll('select[data-stat-field="green_status"]').forEach(syncPinOption);
-    document.querySelectorAll('input[data-stat-field="green_direction"]').forEach((input) => {
+    document.querySelectorAll('input[data-green-pin], input[data-green-direction]').forEach((input) => {
         input.addEventListener("change", () => {
             const container = input.closest(".score-stat-fields");
             const select = container ? container.querySelector('select[data-stat-field="green_status"]') : null;
@@ -518,6 +497,13 @@
     });
     document.querySelectorAll('select[data-stat-field="green_status"]').forEach((select) => {
         select.addEventListener("change", () => syncPuttsOptions(select.dataset.holeNumber));
+    });
+    document.querySelectorAll(".last-putt-distance-select").forEach((select) => {
+        select.addEventListener("focus", () => {
+            if (!select.value) {
+                select.value = select.dataset.defaultPuttDistance || "0.5";
+            }
+        }, { once: true });
     });
 
     if (finishButton) {

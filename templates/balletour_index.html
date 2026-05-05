@@ -57,7 +57,11 @@
             {% for row in leaderboard_rows %}
             <tr>
                 <td>{{ row.rank }}</td>
-                <td>{{ display_name(row.player) }}</td>
+                <td>
+                    <a href="{{ url_for('balletour.finished_rounds', player_id=row.player.id) }}">
+                        {{ display_name(row.player) }}
+                    </a>
+                </td>
                 <td>{{ row.rounds_played }}</td>
                 <td>{{ row.total_vs_par_display }}</td>
                 <td>{{ row.avg_round if row.avg_round is not none else "-" }}</td>

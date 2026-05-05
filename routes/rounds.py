@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from secrets import token_hex
 
@@ -23,11 +24,14 @@ from services.handicap import calculate_playing_handicap_for_course, received_st
 from services.balletour import get_balletour_series
 from services.mailer import send_mail
 from services.time import server_now
+from services.weather import summarize_weather_payload
 
 rounds_bp = Blueprint("rounds", __name__)
 
 ALLOWED_ROUND_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 GREEN_DIRECTIONS = ("pin", "long", "short", "left", "right")
+LAST_PUTT_DISTANCE_OPTIONS = tuple(round(value / 10, 1) for value in range(1, 151))
+DEFAULT_LAST_PUTT_DISTANCE = 0.5
 LAST_PUTT_METER_OPTIONS = tuple(range(0, 16))
 LAST_PUTT_DECIMETER_OPTIONS = tuple(range(0, 10))
 
@@ -158,6 +162,12 @@ def _stats_round_player(round_obj):
     )
 
 
+def _round_player_tracks_stats(round_obj, round_player, stats_rp=None):
+    if _is_balletour_round(round_obj):
+        return True
+    return bool(stats_rp and round_player.id == stats_rp.id)
+
+
 def _parse_optional_int(raw_value, min_value, max_value):
     raw_value = (raw_value or "").strip()
     if raw_value == "":
@@ -225,20 +235,18 @@ def _parse_last_putt_distance(raw_value="", meters_raw=None, decimeters_raw=None
     total_decimeters = round(distance * 10)
     if abs(distance * 10 - total_decimeters) > 0.0001:
         raise ValueError("Avstand på siste putt må være et gyldig valg.")
-    meters = total_decimeters // 10
-    decimeters = total_decimeters % 10
     if total_decimeters == 0:
         return None
-    if meters not in LAST_PUTT_METER_OPTIONS or decimeters not in LAST_PUTT_DECIMETER_OPTIONS:
+    distance = round(total_decimeters / 10, 1)
+    if distance not in LAST_PUTT_DISTANCE_OPTIONS:
         raise ValueError("Avstand på siste putt må være et gyldig valg.")
-    return round(total_decimeters / 10, 1)
+    return distance
 
 
-def _last_putt_distance_select_values(distance):
+def _last_putt_distance_select_value(distance):
     if distance is None:
-        return None, None
-    total_decimeters = round(distance * 10)
-    return total_decimeters // 10, total_decimeters % 10
+        return None
+    return round(distance, 1)
 
 
 def _validate_score_stat_rules(entry, hole, fairway_result, putts, score=None):
@@ -333,6 +341,63 @@ def _green_stat_from_form(status_field, direction_field):
         request.form.get(status_field, "hit"),
         request.form.getlist(direction_field),
     )
+
+
+def _green_stat_from_grouped_form(status_field, pin_field, horizontal_field, vertical_field):
+    directions = []
+    if request.form.get(pin_field):
+        directions.append("pin")
+    horizontal = request.form.get(horizontal_field, "").strip()
+    vertical = request.form.get(vertical_field, "").strip()
+    if horizontal:
+        directions.append(horizontal)
+    if vertical:
+        directions.append(vertical)
+    return _encode_green_stat(request.form.get(status_field, "hit"), directions)
+
+
+def _stat_field_name(base_name, round_player=None, scoped=False):
+    if scoped and round_player:
+        return f"{base_name}_{round_player.id}"
+    return base_name
+
+
+def _stat_form_value(base_name, round_player=None, scoped=False):
+    return request.form.get(_stat_field_name(base_name, round_player, scoped), "")
+
+
+def _green_stat_from_form_for_round_player(round_player, scoped=False, prefix="stat"):
+    base = f"{prefix}_green"
+    if scoped:
+        return _green_stat_from_grouped_form(
+            _stat_field_name(f"{base}_status", round_player, True),
+            _stat_field_name(f"{base}_pin", round_player, True),
+            _stat_field_name(f"{base}_horizontal", round_player, True),
+            _stat_field_name(f"{base}_vertical", round_player, True),
+        )
+    return _green_stat_from_grouped_form(
+        f"{base}_status",
+        f"{base}_pin",
+        f"{base}_horizontal",
+        f"{base}_vertical",
+    )
+
+
+def _stat_view_values(stat):
+    green_status, green_directions = _green_stat_parts(stat.fairway_result if stat else "")
+    horizontal = "left" if "left" in green_directions else "right" if "right" in green_directions else ""
+    vertical = "short" if "short" in green_directions else "long" if "long" in green_directions else ""
+    return {
+        "drive_distance_m": stat.drive_distance_m if stat else None,
+        "fairway_result": stat.fairway_result if stat else "",
+        "green_status": green_status,
+        "green_directions": green_directions,
+        "green_horizontal": horizontal,
+        "green_vertical": vertical,
+        "putts": stat.putts if stat else None,
+        "last_putt_distance_m": stat.last_putt_distance_m if stat else None,
+        "last_putt_distance": _last_putt_distance_select_value(stat.last_putt_distance_m if stat else None),
+    }
 
 
 def _score_bounds_for_par(par):
@@ -513,6 +578,14 @@ def _balletour_round_scorecard(round_obj):
     }
 
 
+def _round_weather_summary(round_obj):
+    return summarize_weather_payload(round_obj.weather_json)
+
+
+def _weather_json(payload):
+    return json.dumps(payload, ensure_ascii=False) if payload else None
+
+
 def _save_tee_club(entry, raw_value, player_name):
     raw_value = (raw_value or "").strip()
     if raw_value == "":
@@ -590,6 +663,7 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
 
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
+    scoped_stats = _is_balletour_round(round_obj)
 
     for rp in round_players:
         raw_value = request.form.get(f"score_{rp.id}", "").strip()
@@ -611,17 +685,15 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                 rp.player_name_snapshot,
             )
 
-        if stats_rp and rp.id == stats_rp.id:
+        if _round_player_tracks_stats(round_obj, rp, stats_rp):
             try:
                 _save_score_stat(
                     entry,
                     hole,
-                    request.form.get("stat_drive", ""),
-                    _green_stat_from_form("stat_green_status", "stat_green_direction") if hole.par == 3 else request.form.get("stat_fairway", ""),
-                    request.form.get("stat_putts", ""),
-                    request.form.get("stat_last_putt_distance", ""),
-                    request.form.get("stat_last_putt_meters", ""),
-                    request.form.get("stat_last_putt_decimeters", ""),
+                    _stat_form_value("stat_drive", rp, scoped_stats),
+                    _green_stat_from_form_for_round_player(rp, scoped_stats) if hole.par == 3 else _stat_form_value("stat_fairway", rp, scoped_stats),
+                    _stat_form_value("stat_putts", rp, scoped_stats),
+                    _stat_form_value("stat_last_putt_distance", rp, scoped_stats),
                 )
             except ValueError as exc:
                 message = str(exc) or "Ugyldig statistikk."
@@ -1109,20 +1181,13 @@ def round_hole(round_id, hole_number):
     }
     score_options = _score_options_for_par(hole.par)
 
-    stats_entry = score_entries.get(stats_rp.id) if stats_rp else None
-    stat = stats_entry.detailed_stat if stats_entry and stats_entry.detailed_stat else None
-    stats_values = {
-        "drive_distance_m": stat.drive_distance_m if stat else None,
-        "fairway_result": stat.fairway_result if stat else "",
-        "putts": stat.putts if stat else None,
-        "last_putt_distance_m": stat.last_putt_distance_m if stat else None,
-    }
-    last_putt_meters, last_putt_decimeters = _last_putt_distance_select_values(stats_values["last_putt_distance_m"])
-    stats_values["last_putt_meters"] = last_putt_meters
-    stats_values["last_putt_decimeters"] = last_putt_decimeters
-    green_status, green_directions = _green_stat_parts(stats_values["fairway_result"])
-    stats_values["green_status"] = green_status
-    stats_values["green_directions"] = green_directions
+    stats_values_by_player = {}
+    for rp in round_players:
+        if not _round_player_tracks_stats(round_obj, rp, stats_rp):
+            continue
+        entry = score_entries.get(rp.id)
+        stats_values_by_player[rp.id] = _stat_view_values(entry.detailed_stat if entry else None)
+    stats_values = stats_values_by_player.get(stats_rp.id if stats_rp else None, {})
     clubs = Club.query.order_by(Club.sort_order.asc(), Club.name.asc()).all() if club_tracking_enabled else []
     hole_images = (
         RoundImage.query.filter_by(round_id=round_obj.id, hole_number=hole_number)
@@ -1140,8 +1205,8 @@ def round_hole(round_id, hole_number):
         stats_round_player_id=stats_rp.id if stats_rp else None,
         stats_values=stats_values,
         score_options=score_options,
-        last_putt_meter_options=LAST_PUTT_METER_OPTIONS,
-        last_putt_decimeter_options=LAST_PUTT_DECIMETER_OPTIONS,
+        stats_values_by_player=stats_values_by_player,
+        last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
         club_tracking_enabled=club_tracking_enabled,
         clubs=clubs,
         club_defaults=_hole_club_defaults(round_obj, round_players, hole_number) if club_tracking_enabled else {},
@@ -1269,8 +1334,19 @@ def autosave_score_stat(round_id):
     if round_obj.status != "ongoing":
         return jsonify({"ok": False, "error": "Runden er fullført."}), 400
 
-    if not stats_rp:
+    if not stats_rp and not _is_balletour_round(round_obj):
         return jsonify({"ok": False, "error": "Du kan ikke føre statistikk på denne runden."}), 403
+
+    round_player = stats_rp
+    round_player_id_raw = request.form.get("round_player_id", "").strip()
+    if _is_balletour_round(round_obj) and round_player_id_raw:
+        try:
+            round_player_id = int(round_player_id_raw)
+        except ValueError:
+            return jsonify({"ok": False, "error": "Ugyldig spiller."}), 400
+        round_player = RoundPlayer.query.filter_by(id=round_player_id, round_id=round_obj.id).first()
+        if not round_player:
+            return jsonify({"ok": False, "error": "Fant ikke spiller i runden."}), 404
 
     hole_number_raw = request.form.get("hole_number", "").strip()
     try:
@@ -1284,7 +1360,7 @@ def autosave_score_stat(round_id):
 
     entry = ScoreEntry.query.filter_by(
         round_id=round_obj.id,
-        round_player_id=stats_rp.id,
+        round_player_id=round_player.id,
         hole_number=hole_number,
     ).first()
 
@@ -1296,11 +1372,9 @@ def autosave_score_stat(round_id):
             entry,
             hole,
             request.form.get("drive_distance", ""),
-            _green_stat_from_form("green_status", "green_direction") if hole.par == 3 else request.form.get("fairway_result", ""),
+            _green_stat_from_grouped_form("green_status", "green_pin", "green_horizontal", "green_vertical") if hole.par == 3 else request.form.get("fairway_result", ""),
             request.form.get("putts", ""),
             request.form.get("last_putt_distance", ""),
-            request.form.get("last_putt_meters", ""),
-            request.form.get("last_putt_decimeters", ""),
         )
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc) or "Statistikkfelt har ugyldig verdi."}), 400
@@ -1366,11 +1440,14 @@ def round_score(round_id):
                             entry,
                             hole_obj,
                             request.form.get(f"stat_drive_{hole}", ""),
-                            _green_stat_from_form(f"stat_green_status_{hole}", f"stat_green_direction_{hole}") if hole_obj.par == 3 else request.form.get(f"stat_fairway_{hole}", ""),
+                            _green_stat_from_grouped_form(
+                                f"stat_green_status_{hole}",
+                                f"stat_green_pin_{hole}",
+                                f"stat_green_horizontal_{hole}",
+                                f"stat_green_vertical_{hole}",
+                            ) if hole_obj.par == 3 else request.form.get(f"stat_fairway_{hole}", ""),
                             request.form.get(f"stat_putts_{hole}", ""),
                             request.form.get(f"stat_last_putt_distance_{hole}", ""),
-                            request.form.get(f"stat_last_putt_meters_{hole}", ""),
-                            request.form.get(f"stat_last_putt_decimeters_{hole}", ""),
                         )
                     except ValueError as exc:
                         message = str(exc) or "Ugyldig statistikk."
@@ -1448,20 +1525,7 @@ def round_score(round_id):
 
             if stats_rp and rp.id == stats_rp.id:
                 stat = entry.detailed_stat if entry else None
-                green_status, green_directions = _green_stat_parts(stat.fairway_result if stat else "")
-                stats_map[hole] = {
-                    "drive_distance_m": stat.drive_distance_m if stat else None,
-                    "fairway_result": stat.fairway_result if stat else "",
-                    "green_status": green_status,
-                    "green_directions": green_directions,
-                    "putts": stat.putts if stat else None,
-                    "last_putt_distance_m": stat.last_putt_distance_m if stat else None,
-                }
-                last_putt_meters, last_putt_decimeters = _last_putt_distance_select_values(
-                    stats_map[hole]["last_putt_distance_m"]
-                )
-                stats_map[hole]["last_putt_meters"] = last_putt_meters
-                stats_map[hole]["last_putt_decimeters"] = last_putt_decimeters
+                stats_map[hole] = _stat_view_values(stat)
 
             if strokes is not None:
                 grand_total += strokes
@@ -1522,7 +1586,6 @@ def round_score(round_id):
             for hole in course.holes
         },
         putt_options=list(range(0, 6)),
-        last_putt_meter_options=LAST_PUTT_METER_OPTIONS,
-        last_putt_decimeter_options=LAST_PUTT_DECIMETER_OPTIONS,
+        last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
         is_balletour_scoring_page=_is_balletour_round(round_obj),
     )

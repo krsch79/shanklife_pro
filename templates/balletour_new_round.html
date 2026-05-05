@@ -12,6 +12,12 @@
 <form method="post" class="form-card">
     <input type="hidden" id="course_id" name="course_id" value="{{ course.id }}">
 
+    {% if weather_summary %}
+    <div class="info-strip weather-strip">
+        <strong>Vær nå:</strong> {{ weather_summary }}
+    </div>
+    {% endif %}
+
     <div class="section-title-row">
         <h3>Din runde</h3>
         <div class="button-row compact">

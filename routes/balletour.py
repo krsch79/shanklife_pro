@@ -1,10 +1,12 @@
+import json
+
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import func
 
 from extensions import db
 from models import Club, CourseTee, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
 from routes.auth import login_required
-from routes.rounds import _create_round, _parse_hcp, _parse_tee, build_course_tee_options
+from routes.rounds import _create_round, _parse_hcp, _parse_tee, _round_weather_summary, build_course_tee_options
 from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
 from services.balletour_test_db import (
     balletour_data_context,
@@ -12,6 +14,7 @@ from services.balletour_test_db import (
     test_database_exists,
 )
 from services.version import APP_VERSION
+from services.weather import fetch_bekkestua_weather, summarize_weather_payload
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
 
@@ -52,6 +55,11 @@ def _balletour_new_round_state(series, players):
     player_genders = {str(player.id): player.gender for player in players}
     yellow_tee = next((tee for tee in course.tees if "gul" in tee.name.lower()), None)
     default_tee = str(yellow_tee.id) if yellow_tee else ""
+    weather_payload = None
+    try:
+        weather_payload = fetch_bekkestua_weather()
+    except Exception:
+        weather_payload = None
 
     other_slots = []
     for i in range(2, 5):
@@ -75,6 +83,7 @@ def _balletour_new_round_state(series, players):
         course_tee_options=course_tee_options,
         player_hcps=player_hcps,
         player_genders=player_genders,
+        weather_summary=summarize_weather_payload(weather_payload),
     )
 
 
@@ -757,6 +766,7 @@ def _round_score_card(round_obj):
         "round": round_obj,
         "holes": holes,
         "rows": rows,
+        "weather_summary": _round_weather_summary(round_obj),
     }
 
 
@@ -871,6 +881,11 @@ def new_round():
             return _balletour_new_round_state(series, players)
 
         round_obj = _create_round(course, round_players_payload, stats_user_id=g.current_user.id)
+        try:
+            weather_payload = fetch_bekkestua_weather(round_obj.started_at)
+            round_obj.weather_json = json.dumps(weather_payload, ensure_ascii=True)
+        except Exception:
+            round_obj.weather_json = None
         db.session.commit()
         flash("BalleTour-runde opprettet.", "success")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
@@ -909,16 +924,34 @@ def finished_rounds():
     _require_balletour_player()
     with balletour_data_context():
         series = _balletour_or_404()
-        rows = (
-            Round.query.filter_by(course_id=series.course_id, status="finished")
-            .order_by(Round.started_at.desc())
-            .all()
-        )
+        memberships = get_balletour_memberships()
+        players = [membership.player for membership in memberships]
+        player_ids = {player.id for player in players}
+        selected_player_ids = []
+        for raw_id in request.args.getlist("player_id"):
+            try:
+                player_id = int(raw_id)
+            except ValueError:
+                continue
+            if player_id in player_ids and player_id not in selected_player_ids:
+                selected_player_ids.append(player_id)
+
+        query = Round.query.filter_by(course_id=series.course_id, status="finished")
+        if selected_player_ids:
+            query = (
+                query.join(RoundPlayer)
+                .filter(RoundPlayer.player_id.in_(selected_player_ids))
+                .distinct()
+            )
+        rows = query.order_by(Round.started_at.desc()).all()
         score_cards = [_round_score_card(round_obj) for round_obj in rows]
         return render_template(
             "balletour_rounds.html",
             series=series,
+            players=players,
+            selected_player_ids=selected_player_ids,
             score_cards=score_cards,
+            display_name=_player_display_name,
             **_balletour_database_context(),
         )
 

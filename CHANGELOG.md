@@ -2,6 +2,13 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.0] - 2026-05-05 16:43
+- Lar BalleTour-leaderboardet lenke til filtrert oversikt over avsluttede runder per spiller.
+- Legger til spillerfilter, vaeroppsummering og fjerner egen Scorekort-knapp fra avsluttede BalleTour-runder.
+- Henter og lagrer vaer for Bekkestua nar en BalleTour-runde startes, og viser vaeret ved opprettelse og pa rundeoversikten.
+- Lar BalleTour-runder med flere spillere fore full statistikk for alle spillere.
+- Endrer siste putt til ett valg med 0,1 meters intervall og radiovalg for gjensidig utelukkende greenretninger.
+
 ## [1.7.1] - 2026-05-04 21:15
 - Sender Fortsett runde til forste hull der minst en spiller mangler score.
 
