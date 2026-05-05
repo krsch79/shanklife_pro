@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.1] - 2026-05-05 17:25
+- Rydder greenvalg i BalleTour-score: fjerner Rett, flytter Pa flagget inn i sidevalget og endrer Riktig til Pin high.
+
 ## [1.8.0] - 2026-05-05 16:43
 - Lar BalleTour-leaderboardet lenke til filtrert oversikt over avsluttede runder per spiller.
 - Legger til spillerfilter, vaeroppsummering og fjerner egen Scorekort-knapp fra avsluttede BalleTour-runder.

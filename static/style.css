@@ -563,7 +563,7 @@ nav a {
 .green-direction-grid {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 2fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
 }
 
@@ -1521,7 +1521,7 @@ th {
 .score-green-directions {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(7, minmax(24px, 1fr));
+    grid-template-columns: repeat(6, minmax(24px, 1fr));
     gap: 3px;
     width: 100%;
 }

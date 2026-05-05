@@ -75,16 +75,15 @@
                         </select>
                     </label>
                     <div class="green-direction-grid">
-                        <label class="green-pin-option"><input type="checkbox" name="stat_green_pin{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="pin" data-green-pin {% if 'pin' in stat_values.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> På flagget</label>
                         <div class="green-radio-group">
                             <span>Side</span>
-                            <label><input type="radio" name="stat_green_horizontal{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="" data-green-direction {% if not stat_values.green_horizontal %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Rett</label>
+                            <label class="green-pin-option"><input type="radio" name="stat_green_horizontal{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="pin" data-green-pin {% if 'pin' in stat_values.green_directions %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> På flagget</label>
                             <label><input type="radio" name="stat_green_horizontal{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="left" data-green-direction {% if stat_values.green_horizontal == 'left' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Venstre</label>
                             <label><input type="radio" name="stat_green_horizontal{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="right" data-green-direction {% if stat_values.green_horizontal == 'right' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Høyre</label>
                         </div>
                         <div class="green-radio-group">
                             <span>Lengde</span>
-                            <label><input type="radio" name="stat_green_vertical{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="" data-green-direction {% if not stat_values.green_vertical %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Riktig</label>
+                            <label><input type="radio" name="stat_green_vertical{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="" data-green-direction {% if not stat_values.green_vertical %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Pin high</label>
                             <label><input type="radio" name="stat_green_vertical{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="short" data-green-direction {% if stat_values.green_vertical == 'short' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Kort</label>
                             <label><input type="radio" name="stat_green_vertical{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="long" data-green-direction {% if stat_values.green_vertical == 'long' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Lang</label>
                         </div>
@@ -233,7 +232,7 @@
     function syncPinOption(statusSelect) {
         const container = statusSelect.closest(".hole-stat-grid, .score-stat-fields");
         if (!container) return;
-        const pinInput = container.querySelector('.green-pin-option input[type="checkbox"]');
+        const pinInput = container.querySelector('[data-green-pin]');
         if (!pinInput) return;
         const directionInputs = Array.from(container.querySelectorAll('input[data-green-direction]'));
         const pinUnavailable = statusSelect.value !== "hit";

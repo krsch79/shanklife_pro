@@ -345,11 +345,11 @@ def _green_stat_from_form(status_field, direction_field):
 
 def _green_stat_from_grouped_form(status_field, pin_field, horizontal_field, vertical_field):
     directions = []
-    if request.form.get(pin_field):
-        directions.append("pin")
     horizontal = request.form.get(horizontal_field, "").strip()
+    if request.form.get(pin_field) or horizontal == "pin":
+        directions.append("pin")
     vertical = request.form.get(vertical_field, "").strip()
-    if horizontal:
+    if horizontal in ("left", "right"):
         directions.append(horizontal)
     if vertical:
         directions.append(vertical)
