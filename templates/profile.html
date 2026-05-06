@@ -13,6 +13,13 @@
     </div>
 </div>
 
+<div class="tee-tabs">
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('profile.me', tee=tee.key) }}">{{ tee.label }}</a>
+    {% endfor %}
+</div>
+
 <div class="stat-grid">
     <div class="stat-card"><strong>{{ summary.rounds_played }}</strong><span>Runder spilt</span></div>
     <div class="stat-card"><strong>{{ summary.finished_rounds }}</strong><span>Fullførte runder</span></div>
@@ -57,6 +64,7 @@
             <tr>
                 <th>Dato</th>
                 <th>Bane</th>
+                <th>Tee</th>
                 <th>Status</th>
                 <th>HCP</th>
                 <th>Score</th>
@@ -69,6 +77,7 @@
             <tr>
                 <td>{{ rp.round.started_at|datetime_local }}</td>
                 <td>{{ rp.round.course.name }}</td>
+                <td>{{ rp.selected_tee.name if rp.selected_tee else "—" }}</td>
                 <td>{{ rp.round.status }}</td>
                 <td>{{ "%.1f"|format(rp.hcp_for_round) }}</td>
                 <td>{% if entries %}{{ entries|sum(attribute="strokes") }}{% else %}—{% endif %}</td>

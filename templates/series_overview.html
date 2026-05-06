@@ -9,7 +9,7 @@
     </div>
     <div class="button-row">
         <a class="button secondary" href="{{ url_for('series.players', series_id=series.id) }}">Spillere</a>
-        <a class="button secondary" href="{{ url_for('series.club_stats', series_id=series.id) }}">Køllestatistikk</a>
+        <a class="button secondary" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee_key) }}">Køllestatistikk</a>
         <a class="button secondary" href="{{ url_for('series.gallery', series_id=series.id) }}">Galleri</a>
     </div>
 </div>
@@ -22,9 +22,9 @@
 </div>
 
 <div class="tee-tabs">
-    <a class="{% if not selected_tee %}active{% endif %}" href="{{ url_for('series.overview', series_id=series.id) }}">Alle tees</a>
-    {% for tee in tees %}
-    <a class="{% if selected_tee == tee.name %}active{% endif %}" href="{{ url_for('series.overview', series_id=series.id, tee=tee.name) }}">{{ tee.name }}</a>
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('series.overview', series_id=series.id, tee=tee.key) }}">{{ tee.label }}</a>
     {% endfor %}
 </div>
 
@@ -45,7 +45,7 @@
             {% for row in leaderboard_rows %}
             <tr>
                 <td>{{ row.rank }}</td>
-                <td><a href="{{ url_for('series.player_profile', series_id=series.id, player_id=row.player.id) }}">{{ row.player.name }}</a></td>
+                <td><a href="{{ url_for('series.player_profile', series_id=series.id, player_id=row.player.id, tee=selected_tee_key) }}">{{ row.player.name }}</a></td>
                 <td>{{ row.rounds_played }}</td>
                 <td>{{ row.total_vs_par_display }}</td>
                 <td>{{ row.avg_round }}</td>

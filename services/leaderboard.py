@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from models import CourseTeeLength, Round, RoundPlayer, ScoreEntry
 from services.handicap import calculate_playing_handicap_for_course, strokes_received_for_hole
+from services.tee_filters import round_player_matches_tee
 
 
 def _to_par_display(value):
@@ -72,7 +73,7 @@ def _score_shape_class(score, par):
     return "score-shape plain"
 
 
-def build_live_leaderboards(view_mode="gross"):
+def build_live_leaderboards(view_mode="gross", tee_key="gul"):
     ongoing_rounds = (
         Round.query.filter_by(status="ongoing")
         .order_by(Round.started_at.asc())
@@ -100,6 +101,9 @@ def build_live_leaderboards(view_mode="gross"):
 
         for round_obj in rounds:
             for round_player in round_obj.round_players:
+                if tee_key and not round_player_matches_tee(round_player, tee_key):
+                    continue
+
                 score_entries = (
                     ScoreEntry.query.filter_by(
                         round_id=round_obj.id,

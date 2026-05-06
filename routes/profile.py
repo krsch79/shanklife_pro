@@ -1,7 +1,8 @@
-from flask import Blueprint, g, render_template
+from flask import Blueprint, g, render_template, request
 
 from models import CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 from routes.auth import login_required
+from services.tee_filters import round_player_matches_tee, selected_tee_key, tee_filter_options
 
 profile_bp = Blueprint("profile", __name__)
 
@@ -22,12 +23,17 @@ def _avg(values):
 @login_required
 def me():
     player = g.current_user.player
+    tee_key = selected_tee_key(request.args.get("tee"))
     round_players = (
         RoundPlayer.query.filter_by(player_id=player.id)
         .join(Round)
         .order_by(Round.started_at.desc())
         .all()
     )
+    round_players = [
+        round_player for round_player in round_players
+        if round_player_matches_tee(round_player, tee_key)
+    ]
 
     rounds_played = len(round_players)
     finished_rounds = [rp for rp in round_players if rp.round.status == "finished"]
@@ -52,6 +58,7 @@ def me():
         )
         .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
         .filter(RoundPlayer.player_id == player.id)
+        .filter(RoundPlayer.id.in_([round_player.id for round_player in round_players]))
         .filter(ScoreEntry.strokes.isnot(None))
         .with_entities(
             ScoreEntry.strokes,
@@ -73,6 +80,7 @@ def me():
         ScoreStat.query.join(ScoreEntry)
         .join(RoundPlayer, ScoreEntry.round_player_id == RoundPlayer.id)
         .filter(RoundPlayer.player_id == player.id)
+        .filter(RoundPlayer.id.in_([round_player.id for round_player in round_players]))
         .all()
     )
 
@@ -130,4 +138,6 @@ def me():
         round_players=round_players,
         summary=summary,
         fairway_summary=fairway_summary,
+        tee_options=tee_filter_options(),
+        selected_tee_key=tee_key,
     )

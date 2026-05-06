@@ -15,6 +15,13 @@
     <a class="button secondary" href="{{ url_for('balletour.finished_rounds') }}">Avsluttede runder</a>
 </div>
 
+<div class="tee-tabs">
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('balletour.index', tee=tee.key) }}">{{ tee.label }}</a>
+    {% endfor %}
+</div>
+
 <div class="stat-grid">
     <div class="stat-card"><strong>{{ round_count }}</strong><span>Runder totalt</span></div>
     <div class="stat-card"><strong>{{ finished_round_count }}</strong><span>Fullførte runder</span></div>
@@ -23,11 +30,11 @@
 </div>
 
 <div class="card-grid">
-    <a class="card-link" href="{{ url_for('balletour.stats') }}">
+    <a class="card-link" href="{{ url_for('balletour.stats', tee=selected_tee_key) }}">
         <h3>Statistikk</h3>
         <p>Spillerkort, greenkart og nøkkeltall.</p>
     </a>
-    <a class="card-link" href="{{ url_for('balletour.all_stats') }}">
+    <a class="card-link" href="{{ url_for('balletour.all_stats', tee=selected_tee_key) }}">
         <h3>Samlet statistikk</h3>
         <p>Sammenlign alle BalleTour-spillere i én tabell.</p>
     </a>
@@ -56,7 +63,7 @@
             <tr>
                 <td>{{ row.rank }}</td>
                 <td>
-                    <a href="{{ url_for('balletour.finished_rounds', player_id=row.player.id) }}">
+                    <a href="{{ url_for('balletour.finished_rounds', player_id=row.player.id, tee=selected_tee_key) }}">
                         {{ display_name(row.player) }}
                     </a>
                 </td>

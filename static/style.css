@@ -404,8 +404,16 @@ nav a {
 .tee-tabs {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
     margin: 10px 0 14px;
+}
+
+.tee-tabs-label {
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-weight: 800;
+    margin-right: 2px;
 }
 
 .tee-tabs a {

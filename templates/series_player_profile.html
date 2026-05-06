@@ -12,7 +12,14 @@
             <p class="muted">{{ series.name }}</p>
         </div>
     </div>
-    <a class="button secondary" href="{{ url_for('series.overview', series_id=series.id) }}">Til leaderboard</a>
+    <a class="button secondary" href="{{ url_for('series.overview', series_id=series.id, tee=selected_tee_key) }}">Til leaderboard</a>
+</div>
+
+<div class="tee-tabs">
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('series.player_profile', series_id=series.id, player_id=player.id, tee=tee.key) }}">{{ tee.label }}</a>
+    {% endfor %}
 </div>
 
 <div class="stat-grid">

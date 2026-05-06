@@ -22,6 +22,7 @@
         </div>
     </div>
     <div class="checkbox-row">
+        <input type="hidden" name="tee" value="{{ selected_tee_key }}">
         {% for player in players %}
         <label>
             <input
@@ -35,6 +36,13 @@
         {% endfor %}
     </div>
 </form>
+
+<div class="tee-tabs">
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('balletour.finished_rounds', tee=tee.key, player_id=selected_player_ids) }}">{{ tee.label }}</a>
+    {% endfor %}
+</div>
 
 {% for card in score_cards %}
 <section class="compact-round-card">

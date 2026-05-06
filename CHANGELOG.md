@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.8] - 2026-05-06
+- Splitter leaderboard, BalleTour-statistikk, series-statistikk og Min side pa gul og rod tee, med gul som standardvisning.
+
 ## [1.8.7] - 2026-05-05 20:29
 - Høyrestiller versjonsnummeret pa BalleTour-forsiden og legger BalleTour-menyen pa samme rad som logoen.
 

@@ -10,7 +10,7 @@
     {% if selected_player %}
     <a
         class="button secondary"
-        href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=selected_player.id, edit_defaults=1) }}#default-clubs"
+        href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee_key, player_id=selected_player.id, edit_defaults=1) }}#default-clubs"
     >
         Default-køller
     </a>
@@ -18,9 +18,9 @@
 </div>
 
 <div class="tee-tabs">
-    <a class="{% if not selected_tee %}active{% endif %}" href="{{ url_for('series.club_stats', series_id=series.id, player_id=selected_player.id if selected_player else none) }}">Alle tees</a>
-    {% for tee in tees %}
-    <a class="{% if selected_tee == tee.name %}active{% endif %}" href="{{ url_for('series.club_stats', series_id=series.id, tee=tee.name, player_id=selected_player.id if selected_player else none) }}">{{ tee.name }}</a>
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('series.club_stats', series_id=series.id, tee=tee.key, player_id=selected_player.id if selected_player else none) }}">{{ tee.label }}</a>
     {% endfor %}
 </div>
 
@@ -28,7 +28,7 @@
     {% for player in players %}
     <a
         class="{% if selected_player and selected_player.id == player.id %}active{% endif %}"
-        href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=player.id) }}"
+        href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee_key, player_id=player.id) }}"
     >
         {{ player.name }}
     </a>
@@ -43,10 +43,11 @@
                 <p class="muted">{{ series.course.name }}</p>
                 <h2>Default-køller for {{ selected_player.name }}</h2>
             </div>
-            <a class="button secondary compact-button" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=selected_player.id) }}">Lukk</a>
+            <a class="button secondary compact-button" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee_key, player_id=selected_player.id) }}">Lukk</a>
         </div>
         <form method="post" action="{{ url_for('series.save_club_defaults', series_id=series.id) }}">
             <input type="hidden" name="player_id" value="{{ selected_player.id }}">
+            <input type="hidden" name="tee" value="{{ selected_tee_key }}">
             <div class="default-club-grid">
                 {% for hole in series.course.holes %}
                 <label>
@@ -62,7 +63,7 @@
             </div>
             <div class="button-row">
                 <button type="submit" class="button">Lagre default-køller</button>
-                <a class="button secondary" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee, player_id=selected_player.id) }}">Avbryt</a>
+                <a class="button secondary" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee_key, player_id=selected_player.id) }}">Avbryt</a>
             </div>
         </form>
     </section>
@@ -89,7 +90,7 @@
                 <td>
                     {% for length in row.lengths %}
                     <span>
-                        {% if selected_tee %}
+                        {% if selected_tee_key %}
                         {{ length.length_meters }} m
                         {% else %}
                         {{ length.tee_name }}: {{ length.length_meters }} m

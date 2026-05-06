@@ -20,6 +20,11 @@ from models import (
 from routes.auth import login_required
 from extensions import db
 from services.balletour import BALLETOUR_SERIES_NAME
+from services.tee_filters import (
+    selected_tee_key,
+    tee_filter_options,
+    tee_ids_for_key,
+)
 
 series_bp = Blueprint("series", __name__, url_prefix="/series")
 
@@ -38,19 +43,15 @@ def _score_vs_par(total, par):
     return f"+{diff}" if diff > 0 else str(diff)
 
 
-def _completed_round_players(series, tee_name=None):
-    rows = (
+def _completed_round_players(series, tee_ids=None):
+    query = (
         RoundPlayer.query.join(Round)
         .filter(Round.course_id == series.course_id)
         .filter(Round.status == "finished")
-        .all()
     )
-    if tee_name:
-        rows = [
-            rp for rp in rows
-            if rp.selected_tee and rp.selected_tee.name.lower() == tee_name.lower()
-        ]
-    return rows
+    if tee_ids:
+        query = query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+    return query.all()
 
 
 def _round_player_total(round_player, hole_count):
@@ -60,11 +61,11 @@ def _round_player_total(round_player, hole_count):
     return sum(entry.strokes for entry in entries)
 
 
-def _leaderboard_rows(series, tee_name=None):
+def _leaderboard_rows(series, tee_ids=None):
     course_par = sum(hole.par for hole in series.course.holes)
     by_player = defaultdict(list)
 
-    for round_player in _completed_round_players(series, tee_name):
+    for round_player in _completed_round_players(series, tee_ids):
         total = _round_player_total(round_player, series.course.hole_count)
         if total is not None:
             by_player[round_player.player_id].append(total)
@@ -119,20 +120,31 @@ def overview(series_id):
     if series.name.lower() == BALLETOUR_SERIES_NAME.lower():
         return redirect(url_for("balletour.index"))
 
-    tee_name = request.args.get("tee", "").strip() or None
+    tee_key = selected_tee_key(request.args.get("tee"))
+    tee_ids = tee_ids_for_key(series.course, tee_key)
     tees = CourseTee.query.filter_by(course_id=series.course_id).order_by(CourseTee.display_order).all()
-    leaderboard_rows = _leaderboard_rows(series, tee_name)
-    round_count = Round.query.filter_by(course_id=series.course_id).count()
+    leaderboard_rows = _leaderboard_rows(series, tee_ids)
+    round_query = Round.query.join(RoundPlayer).filter(Round.course_id == series.course_id)
+    if tee_ids:
+        round_query = round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+    round_count = round_query.distinct().count()
     image_count = (
         RoundImage.query.join(Round)
         .filter(Round.course_id == series.course_id)
-        .count()
     )
+    if tee_ids:
+        image_count = (
+            image_count.join(RoundPlayer, RoundPlayer.round_id == Round.id)
+            .filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+            .distinct()
+        )
+    image_count = image_count.count()
     return render_template(
         "series_overview.html",
         series=series,
         tees=tees,
-        selected_tee=tee_name,
+        tee_options=tee_filter_options(series.course),
+        selected_tee_key=tee_key,
         leaderboard_rows=leaderboard_rows,
         round_count=round_count,
         image_count=image_count,
@@ -157,13 +169,17 @@ def players(series_id):
 def player_profile(series_id, player_id):
     series = _series_or_404(series_id)
     player = Player.query.get_or_404(player_id)
-    round_players = (
+    tee_key = selected_tee_key(request.args.get("tee"))
+    tee_ids = tee_ids_for_key(series.course, tee_key)
+    round_players_query = (
         RoundPlayer.query.join(Round)
         .filter(Round.course_id == series.course_id)
         .filter(RoundPlayer.player_id == player.id)
         .order_by(Round.started_at.desc())
-        .all()
     )
+    if tee_ids:
+        round_players_query = round_players_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+    round_players = round_players_query.all()
 
     course_par = sum(hole.par for hole in series.course.holes)
     completed = []
@@ -185,8 +201,10 @@ def player_profile(series_id, player_id):
         .filter(RoundPlayer.player_id == player.id)
         .filter(ScoreEntry.strokes.isnot(None))
         .with_entities(ScoreEntry.strokes, CourseHole.par)
-        .all()
     )
+    if tee_ids:
+        entries = entries.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+    entries = entries.all()
     birdies = sum(1 for strokes, par in entries if strokes == par - 1)
     pars = sum(1 for strokes, par in entries if strokes == par)
     bogeys = sum(1 for strokes, par in entries if strokes == par + 1)
@@ -216,6 +234,8 @@ def player_profile(series_id, player_id):
         completed=completed,
         summary=summary,
         images=images,
+        tee_options=tee_filter_options(series.course),
+        selected_tee_key=tee_key,
     )
 
 
@@ -223,14 +243,15 @@ def player_profile(series_id, player_id):
 @login_required
 def club_stats(series_id):
     series = _series_or_404(series_id)
-    tee_name = request.args.get("tee", "").strip() or None
+    tee_key = selected_tee_key(request.args.get("tee"))
+    tee_ids = tee_ids_for_key(series.course, tee_key)
     selected_player_id_raw = request.args.get("player_id", "").strip()
     tees = CourseTee.query.filter_by(course_id=series.course_id).order_by(CourseTee.display_order).all()
     tee_length_rows = CourseTeeLength.query.join(CourseTee).filter(
         CourseTee.course_id == series.course_id
     )
-    if tee_name:
-        tee_length_rows = tee_length_rows.filter(func.lower(CourseTee.name) == tee_name.lower())
+    if tee_ids:
+        tee_length_rows = tee_length_rows.filter(CourseTee.id.in_(tee_ids))
     tee_lengths_by_hole = defaultdict(list)
     for length in tee_length_rows.order_by(CourseTee.display_order.asc(), CourseTeeLength.hole_number.asc()).all():
         tee_lengths_by_hole[length.hole_number].append({
@@ -258,8 +279,7 @@ def club_stats(series_id):
         .all()
     )
 
-    if tee_name:
-        tee_ids = [tee.id for tee in tees if tee.name.lower() == tee_name.lower()]
+    if tee_ids:
         rows = (
             ScoreEntry.query.join(RoundPlayer)
             .join(Round)
@@ -379,7 +399,8 @@ def club_stats(series_id):
         "series_club_stats.html",
         series=series,
         tees=tees,
-        selected_tee=tee_name,
+        tee_options=tee_filter_options(series.course),
+        selected_tee_key=tee_key,
         clubs=clubs,
         all_clubs=all_clubs,
         players=players,
@@ -395,16 +416,17 @@ def club_stats(series_id):
 def save_club_defaults(series_id):
     series = _series_or_404(series_id)
     player_id_raw = request.form.get("player_id", "").strip()
+    tee_key = selected_tee_key(request.form.get("tee"))
     try:
         player_id = int(player_id_raw)
     except ValueError:
         flash("Ugyldig spiller.", "error")
-        return redirect(url_for("series.club_stats", series_id=series.id))
+        return redirect(url_for("series.club_stats", series_id=series.id, tee=tee_key))
 
     membership = SeriesPlayer.query.filter_by(series_id=series.id, player_id=player_id).first()
     if not membership:
         flash("Spilleren er ikke registrert i denne serien.", "error")
-        return redirect(url_for("series.club_stats", series_id=series.id))
+        return redirect(url_for("series.club_stats", series_id=series.id, tee=tee_key))
 
     club_ids = {club.id for club in Club.query.all()}
     for hole in series.course.holes:
@@ -425,11 +447,11 @@ def save_club_defaults(series_id):
             club_id = int(club_id_raw)
         except ValueError:
             flash(f"Ugyldig køllevalg på hull {hole.hole_number}.", "error")
-            return redirect(url_for("series.club_stats", series_id=series.id, player_id=player_id, edit_defaults=1))
+            return redirect(url_for("series.club_stats", series_id=series.id, tee=tee_key, player_id=player_id, edit_defaults=1))
 
         if club_id not in club_ids:
             flash(f"Valgt kølle finnes ikke på hull {hole.hole_number}.", "error")
-            return redirect(url_for("series.club_stats", series_id=series.id, player_id=player_id, edit_defaults=1))
+            return redirect(url_for("series.club_stats", series_id=series.id, tee=tee_key, player_id=player_id, edit_defaults=1))
 
         if existing:
             existing.club_id = club_id
@@ -445,7 +467,7 @@ def save_club_defaults(series_id):
 
     db.session.commit()
     flash("Default-køller er lagret.", "success")
-    return redirect(url_for("series.club_stats", series_id=series.id, player_id=player_id))
+    return redirect(url_for("series.club_stats", series_id=series.id, tee=tee_key, player_id=player_id))
 
 
 @series_bp.route("/<int:series_id>/gallery")

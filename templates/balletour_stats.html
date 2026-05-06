@@ -8,15 +8,22 @@
         <p class="muted">{{ series.course.name }}</p>
     </div>
     <div class="page-title-actions">
-        <a class="button secondary" href="{{ url_for('balletour.all_stats') }}">Samlet statistikk</a>
+        <a class="button secondary" href="{{ url_for('balletour.all_stats', tee=selected_tee_key) }}">Samlet statistikk</a>
     </div>
+</div>
+
+<div class="tee-tabs">
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('balletour.stats', tee=tee.key, player_id=selected_player.id if selected_player else none, hole=selected_hole_number) }}">{{ tee.label }}</a>
+    {% endfor %}
 </div>
 
 <div class="tee-tabs player-tabs">
     {% for player in players %}
     <a
         class="{% if selected_player and selected_player.id == player.id %}active{% endif %}"
-        href="{{ url_for('balletour.stats', player_id=player.id, hole=selected_hole_number) }}"
+        href="{{ url_for('balletour.stats', tee=selected_tee_key, player_id=player.id, hole=selected_hole_number) }}"
     >
         {{ display_name(player) }}
     </a>
@@ -60,9 +67,9 @@
 </section>
 
 <div class="tee-tabs">
-    <a class="{% if not selected_hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', player_id=selected_player.id) }}">Alle hull</a>
+    <a class="{% if not selected_hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', tee=selected_tee_key, player_id=selected_player.id) }}">Alle hull</a>
     {% for hole in stats.holes %}
-    <a class="{% if selected_hole_number == hole.hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', player_id=selected_player.id, hole=hole.hole_number) }}">Hull {{ hole.hole_number }}</a>
+    <a class="{% if selected_hole_number == hole.hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', tee=selected_tee_key, player_id=selected_player.id, hole=hole.hole_number) }}">Hull {{ hole.hole_number }}</a>
     {% endfor %}
 </div>
 

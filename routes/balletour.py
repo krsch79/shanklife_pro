@@ -13,6 +13,12 @@ from services.balletour_test_db import (
     current_balletour_database_view,
     test_database_exists,
 )
+from services.tee_filters import (
+    round_player_matches_tee,
+    selected_tee_key,
+    tee_filter_options,
+    tee_ids_for_key,
+)
 from services.version import APP_VERSION
 from services.weather import fetch_bekkestua_weather, summarize_weather_payload
 
@@ -109,7 +115,7 @@ def _score_vs_par(total, par):
     return f"+{diff}" if diff > 0 else str(diff)
 
 
-def _best_hole_score_table(series, memberships):
+def _best_hole_score_table(series, memberships, tee_ids=None):
     players = [membership.player for membership in memberships]
     player_ids = [player.id for player in players]
     best_scores = {}
@@ -128,8 +134,10 @@ def _best_hole_score_table(series, memberships):
             .filter(RoundPlayer.player_id.in_(player_ids))
             .filter(ScoreEntry.strokes.isnot(None))
             .group_by(RoundPlayer.player_id, ScoreEntry.hole_number)
-            .all()
         )
+        if tee_ids:
+            rows = rows.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+        rows = rows.all()
         best_scores = {
             (player_id, hole_number): best_score
             for player_id, hole_number, best_score in rows
@@ -201,7 +209,7 @@ def _best_hole_score_table(series, memberships):
     }
 
 
-def _balletour_leaderboard_rows(series, memberships):
+def _balletour_leaderboard_rows(series, memberships, tee_ids=None):
     course_par = sum(hole.par for hole in series.course.holes)
     players = {membership.player_id: membership.player for membership in memberships}
     rows = []
@@ -212,8 +220,10 @@ def _balletour_leaderboard_rows(series, memberships):
             .filter(Round.course_id == series.course_id)
             .filter(Round.status == "finished")
             .filter(RoundPlayer.player_id == player_id)
-            .all()
         )
+        if tee_ids:
+            round_players = round_players.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+        round_players = round_players.all()
         totals = []
         for round_player in round_players:
             entries = [entry for entry in round_player.score_entries if entry.strokes is not None]
@@ -369,7 +379,7 @@ def _green_bucket(status, directions):
     return "miss"
 
 
-def _completed_balletour_round_players(series, player_ids=None):
+def _completed_balletour_round_players(series, player_ids=None, tee_ids=None):
     query = (
         RoundPlayer.query.join(Round)
         .filter(Round.course_id == series.course_id)
@@ -377,6 +387,8 @@ def _completed_balletour_round_players(series, player_ids=None):
     )
     if player_ids:
         query = query.filter(RoundPlayer.player_id.in_(player_ids))
+    if tee_ids:
+        query = query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
 
     round_players = query.all()
     round_player_ids = [round_player.id for round_player in round_players]
@@ -414,9 +426,9 @@ def _avg_by_key(rows):
     }
 
 
-def _balletour_sg_baselines(series, memberships):
+def _balletour_sg_baselines(series, memberships, tee_ids=None):
     player_ids = [membership.player_id for membership in memberships]
-    completed_round_players = _completed_balletour_round_players(series, player_ids)
+    completed_round_players = _completed_balletour_round_players(series, player_ids, tee_ids)
     round_player_ids = [round_player.id for round_player in completed_round_players]
     rows = (
         db.session.query(ScoreEntry, ScoreStat)
@@ -448,12 +460,12 @@ def _balletour_sg_baselines(series, memberships):
     }
 
 
-def _strokes_gained_stats(series, memberships, selected_player, selected_hole_number=None, baselines=None):
+def _strokes_gained_stats(series, memberships, selected_player, selected_hole_number=None, baselines=None, tee_ids=None):
     if not selected_player:
         return {}
 
-    baselines = baselines or _balletour_sg_baselines(series, memberships)
-    completed_round_players = _completed_balletour_round_players(series, [selected_player.id])
+    baselines = baselines or _balletour_sg_baselines(series, memberships, tee_ids)
+    completed_round_players = _completed_balletour_round_players(series, [selected_player.id], tee_ids)
     round_player_ids = [round_player.id for round_player in completed_round_players]
     stats_rows = (
         db.session.query(ScoreEntry, ScoreStat)
@@ -524,7 +536,7 @@ def _strokes_gained_stats(series, memberships, selected_player, selected_hole_nu
     }
 
 
-def _balletour_player_stats(series, memberships, selected_player, selected_hole_number=None):
+def _balletour_player_stats(series, memberships, selected_player, selected_hole_number=None, tee_ids=None):
     holes = list(series.course.holes)
     course_par = sum(hole.par for hole in holes)
     par_by_hole = {hole.hole_number: hole.par for hole in holes}
@@ -539,8 +551,10 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         .filter(RoundPlayer.player_id == selected_player.id)
         .filter(Round.status == "finished")
         .order_by(Round.started_at.desc())
-        .all()
     )
+    if tee_ids:
+        round_players = round_players.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+    round_players = round_players.all()
     round_ids = [round_player.round_id for round_player in round_players]
     round_player_ids = [round_player.id for round_player in round_players]
     entries = (
@@ -666,7 +680,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         if green_bucket_counts.get(key, 0) or key in ("hit", "bunker")
     ]
 
-    strokes_gained = _strokes_gained_stats(series, memberships, selected_player, selected_hole_number)
+    strokes_gained = _strokes_gained_stats(series, memberships, selected_player, selected_hole_number, tee_ids=tee_ids)
 
     return {
         "selected_player": selected_player,
@@ -703,13 +717,13 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
     }
 
 
-def _balletour_all_player_stats(series, memberships):
-    baselines = _balletour_sg_baselines(series, memberships)
+def _balletour_all_player_stats(series, memberships, tee_ids=None):
+    baselines = _balletour_sg_baselines(series, memberships, tee_ids)
     rows = []
     for membership in memberships:
         player = membership.player
-        stats = _balletour_player_stats(series, memberships, player)
-        strokes_gained = _strokes_gained_stats(series, memberships, player, baselines=baselines)
+        stats = _balletour_player_stats(series, memberships, player, tee_ids=tee_ids)
+        strokes_gained = _strokes_gained_stats(series, memberships, player, baselines=baselines, tee_ids=tee_ids)
         rows.append({
             "player": player,
             "completed_round_count": stats.get("completed_round_count"),
@@ -734,11 +748,18 @@ def _balletour_all_player_stats(series, memberships):
     return rows
 
 
-def _round_score_card(round_obj):
+def _round_score_card(round_obj, tee_key=None):
     holes = list(round_obj.course.holes)
     par_by_hole = {hole.hole_number: hole.par for hole in holes}
     rows = []
-    for round_player in sorted(round_obj.round_players, key=lambda item: item.id):
+    round_players = sorted(round_obj.round_players, key=lambda item: item.id)
+    if tee_key:
+        round_players = [
+            round_player for round_player in round_players
+            if round_player_matches_tee(round_player, tee_key)
+        ]
+
+    for round_player in round_players:
         entries = {
             entry.hole_number: entry
             for entry in round_player.score_entries
@@ -777,13 +798,17 @@ def index():
     with balletour_data_context():
         series = _balletour_or_404()
         memberships = get_balletour_memberships()
-        round_count = Round.query.filter_by(course_id=series.course_id).count()
-        finished_round_count = Round.query.filter_by(
-            course_id=series.course_id,
-            status="finished",
-        ).count()
-        best_hole_score_table = _best_hole_score_table(series, memberships)
-        leaderboard_rows = _balletour_leaderboard_rows(series, memberships)
+        tee_key = selected_tee_key(request.args.get("tee"))
+        tee_ids = tee_ids_for_key(series.course, tee_key)
+        round_query = Round.query.join(RoundPlayer).filter(Round.course_id == series.course_id)
+        finished_round_query = round_query.filter(Round.status == "finished")
+        if tee_ids:
+            round_query = round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+            finished_round_query = finished_round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+        round_count = round_query.distinct().count()
+        finished_round_count = finished_round_query.distinct().count()
+        best_hole_score_table = _best_hole_score_table(series, memberships, tee_ids)
+        leaderboard_rows = _balletour_leaderboard_rows(series, memberships, tee_ids)
         return render_template(
             "balletour_index.html",
             series=series,
@@ -792,6 +817,8 @@ def index():
             finished_round_count=finished_round_count,
             best_hole_score_table=best_hole_score_table,
             leaderboard_rows=leaderboard_rows,
+            tee_options=tee_filter_options(series.course),
+            selected_tee_key=tee_key,
             display_name=_player_display_name,
             app_version=APP_VERSION,
             **_balletour_database_context(),
@@ -925,6 +952,8 @@ def finished_rounds():
     with balletour_data_context():
         series = _balletour_or_404()
         memberships = get_balletour_memberships()
+        tee_key = selected_tee_key(request.args.get("tee"))
+        tee_ids = tee_ids_for_key(series.course, tee_key)
         players = [membership.player for membership in memberships]
         player_ids = {player.id for player in players}
         selected_player_ids = []
@@ -937,20 +966,23 @@ def finished_rounds():
                 selected_player_ids.append(player_id)
 
         query = Round.query.filter_by(course_id=series.course_id, status="finished")
+        if tee_ids:
+            query = query.join(RoundPlayer).filter(RoundPlayer.selected_tee_id.in_(tee_ids))
         if selected_player_ids:
-            query = (
-                query.join(RoundPlayer)
-                .filter(RoundPlayer.player_id.in_(selected_player_ids))
-                .distinct()
-            )
+            if not tee_ids:
+                query = query.join(RoundPlayer)
+            query = query.filter(RoundPlayer.player_id.in_(selected_player_ids))
+        query = query.distinct()
         rows = query.order_by(Round.started_at.desc()).all()
-        score_cards = [_round_score_card(round_obj) for round_obj in rows]
+        score_cards = [_round_score_card(round_obj, tee_key) for round_obj in rows]
         return render_template(
             "balletour_rounds.html",
             series=series,
             players=players,
             selected_player_ids=selected_player_ids,
             score_cards=score_cards,
+            tee_options=tee_filter_options(series.course),
+            selected_tee_key=tee_key,
             display_name=_player_display_name,
             **_balletour_database_context(),
         )
@@ -963,6 +995,8 @@ def stats():
     with balletour_data_context():
         series = _balletour_or_404()
         memberships = get_balletour_memberships()
+        tee_key = selected_tee_key(request.args.get("tee"))
+        tee_ids = tee_ids_for_key(series.course, tee_key)
         players = [membership.player for membership in memberships]
         player_by_id = {player.id: player for player in players}
 
@@ -988,7 +1022,7 @@ def stats():
             if candidate_hole and any(hole.hole_number == candidate_hole for hole in series.course.holes):
                 selected_hole_number = candidate_hole
 
-        player_stats = _balletour_player_stats(series, memberships, selected_player, selected_hole_number)
+        player_stats = _balletour_player_stats(series, memberships, selected_player, selected_hole_number, tee_ids)
         return render_template(
             "balletour_stats.html",
             series=series,
@@ -997,6 +1031,8 @@ def stats():
             selected_player=selected_player,
             selected_hole_number=selected_hole_number,
             stats=player_stats,
+            tee_options=tee_filter_options(series.course),
+            selected_tee_key=tee_key,
             display_name=_player_display_name,
             **_balletour_database_context(),
         )
@@ -1009,11 +1045,15 @@ def all_stats():
     with balletour_data_context():
         series = _balletour_or_404()
         memberships = get_balletour_memberships()
-        rows = _balletour_all_player_stats(series, memberships)
+        tee_key = selected_tee_key(request.args.get("tee"))
+        tee_ids = tee_ids_for_key(series.course, tee_key)
+        rows = _balletour_all_player_stats(series, memberships, tee_ids)
         return render_template(
             "balletour_all_stats.html",
             series=series,
             rows=rows,
+            tee_options=tee_filter_options(series.course),
+            selected_tee_key=tee_key,
             display_name=_player_display_name,
             **_balletour_database_context(),
         )
