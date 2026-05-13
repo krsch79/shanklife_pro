@@ -562,6 +562,11 @@ nav a {
     grid-template-columns: minmax(0, 1fr) 70px 96px;
 }
 
+.hole-player-row.has-validation-error {
+    border-color: var(--flash-error-border);
+    background: #fff7f7;
+}
+
 .hole-player-meta {
     min-width: 0;
 }
@@ -712,6 +717,31 @@ nav a {
     min-width: 0;
     padding: 7px 5px;
     font-size: 0.9rem;
+}
+
+.hole-player-row [data-after-score]:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.form-error-panel {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--flash-error-border);
+    border-radius: 8px;
+    background: var(--flash-error-bg);
+    color: #7f1d1d;
+    font-weight: 700;
+}
+
+.form-error-panel[hidden] {
+    display: none;
+}
+
+.form-error-panel ul {
+    margin: 0;
+    padding-left: 18px;
 }
 
 .last-putt-selects {

@@ -309,26 +309,24 @@ def _green_stat_parts(raw_value):
 def _encode_green_stat(status_raw, direction_values):
     status = (status_raw or "hit").strip()
     if status not in ("hit", "miss", "bunker"):
-        raise ValueError
+        raise ValueError("Green må være greentreff, miss eller bunker.")
 
     directions = []
     seen = set()
     for direction in direction_values:
         direction = (direction or "").strip()
         if direction not in GREEN_DIRECTIONS:
-            raise ValueError
-        if direction == "pin" and status != "hit":
-            raise ValueError
+            raise ValueError("Green-retning har ugyldig verdi.")
         if direction not in seen:
             seen.add(direction)
             directions.append(direction)
 
-    if "pin" in seen and len(seen) > 1:
-        raise ValueError
+    if "pin" in seen and ("left" in seen or "right" in seen):
+        raise ValueError("På flagget kan ikke kombineres med venstre eller høyre.")
     if "short" in seen and "long" in seen:
-        raise ValueError
+        raise ValueError("Green kan ikke være både kort og lang.")
     if "left" in seen and "right" in seen:
-        raise ValueError
+        raise ValueError("Green kan ikke være både venstre og høyre.")
 
     if not directions:
         return status
@@ -710,6 +708,8 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None):
         missing = []
         if not request.form.get(f"score_{rp.id}", "").strip():
             missing.append("score")
+            missing_by_player.append(f"{rp.player_name_snapshot}: {', '.join(missing)}")
+            continue
         if club_tracking_enabled and not request.form.get(f"tee_club_{rp.id}", "").strip():
             missing.append("kølle")
 
