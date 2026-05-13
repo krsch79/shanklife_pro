@@ -295,63 +295,60 @@ def _green_parts(raw_value):
 
 
 def _green_point(status, directions, index):
-    if "pin" in directions:
-        x, y = 50, 50
+    if "long" in directions:
+        vertical = "long"
+    elif "short" in directions:
+        vertical = "short"
     else:
-        if "long" in directions:
-            vertical = "long"
-        elif "short" in directions:
-            vertical = "short"
-        else:
-            vertical = ""
+        vertical = ""
 
-        if "left" in directions:
-            horizontal = "left"
-        elif "right" in directions:
-            horizontal = "right"
-        else:
-            horizontal = ""
+    if "left" in directions:
+        horizontal = "left"
+    elif "right" in directions:
+        horizontal = "right"
+    else:
+        horizontal = ""
 
-        direction_key = "_".join(part for part in (vertical, horizontal) if part) or "center"
-        if direction_key == "center" and status in ("bunker", "miss"):
-            direction_key = ("long", "right", "short", "left")[index % 4]
+    direction_key = "_".join(part for part in (vertical, horizontal) if part) or "center"
+    if direction_key == "center" and status in ("bunker", "miss"):
+        direction_key = ("long", "right", "short", "left")[index % 4]
 
-        anchors = {
-            "hit": {
-                "center": (50, 50),
-                "long": (50, 39),
-                "short": (50, 61),
-                "left": (39, 50),
-                "right": (61, 50),
-                "long_left": (41, 41),
-                "long_right": (59, 41),
-                "short_left": (41, 60),
-                "short_right": (59, 60),
-            },
-            "bunker": {
-                "long": (50, 19),
-                "short": (50, 81),
-                "left": (20, 50),
-                "right": (80, 50),
-                "long_left": (30, 20),
-                "long_right": (70, 20),
-                "short_left": (30, 80),
-                "short_right": (70, 80),
-                "center": (50, 19),
-            },
-            "miss": {
-                "long": (50, 10),
-                "short": (50, 91),
-                "left": (10, 50),
-                "right": (90, 50),
-                "long_left": (22, 10),
-                "long_right": (78, 10),
-                "short_left": (22, 90),
-                "short_right": (78, 90),
-                "center": (50, 91),
-            },
-        }
-        x, y = anchors.get(status, anchors["hit"]).get(direction_key, anchors["hit"]["center"])
+    anchors = {
+        "hit": {
+            "center": (50, 50),
+            "long": (50, 39),
+            "short": (50, 61),
+            "left": (39, 50),
+            "right": (61, 50),
+            "long_left": (41, 41),
+            "long_right": (59, 41),
+            "short_left": (41, 60),
+            "short_right": (59, 60),
+        },
+        "bunker": {
+            "long": (50, 19),
+            "short": (50, 81),
+            "left": (20, 50),
+            "right": (80, 50),
+            "long_left": (30, 20),
+            "long_right": (70, 20),
+            "short_left": (30, 80),
+            "short_right": (70, 80),
+            "center": (50, 19),
+        },
+        "miss": {
+            "long": (50, 10),
+            "short": (50, 91),
+            "left": (10, 50),
+            "right": (90, 50),
+            "long_left": (22, 10),
+            "long_right": (78, 10),
+            "short_left": (22, 90),
+            "short_right": (78, 90),
+            "center": (50, 91),
+        },
+    }
+    x, y = anchors.get(status, anchors["hit"]).get(direction_key, anchors["hit"]["center"])
 
     jitter_range = 5 if status == "hit" else 3
     jitter_x = ((index * 17) % jitter_range) - (jitter_range // 2)
