@@ -66,10 +66,10 @@
     </div>
 </section>
 
-<div class="tee-tabs">
-    <a class="{% if not selected_hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', tee=selected_tee_key, player_id=selected_player.id) }}">Alle hull</a>
+<div class="tee-tabs" id="green-pattern">
+    <a class="{% if not selected_hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', tee=selected_tee_key, player_id=selected_player.id) }}#green-pattern">Alle hull</a>
     {% for hole in stats.holes %}
-    <a class="{% if selected_hole_number == hole.hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', tee=selected_tee_key, player_id=selected_player.id, hole=hole.hole_number) }}">Hull {{ hole.hole_number }}</a>
+    <a class="{% if selected_hole_number == hole.hole_number %}active{% endif %}" href="{{ url_for('balletour.stats', tee=selected_tee_key, player_id=selected_player.id, hole=hole.hole_number) }}#green-pattern">Hull {{ hole.hole_number }}</a>
     {% endfor %}
 </div>
 
