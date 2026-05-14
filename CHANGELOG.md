@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.15] - 2026-05-14
+- Lar tag- og hullvalgene i BalleTour-galleriet bli stående åpne mens flere checkbokser velges, og oppdaterer først når dropdownen lukkes.
+
 ## [1.8.14] - 2026-05-14
 - Lar BalleTour-galleriet filtrere pa flere tags og flere hull samtidig med checkbox-valg.
 - Rydder bildeteksten i galleriet til dato/tid, hull og tags, og fjerner fast banenavn og teksten Lastet opp.

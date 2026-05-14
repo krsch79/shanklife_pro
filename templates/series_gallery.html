@@ -76,13 +76,28 @@
 (function () {
     const form = document.querySelector(".gallery-filter-form");
     if (!form) return;
+    const checkboxMenus = form.querySelectorAll(".gallery-filter-menu");
+    let checkboxChanged = false;
     let timer = null;
     function submitSoon() {
         window.clearTimeout(timer);
         timer = window.setTimeout(() => form.requestSubmit(), 180);
     }
-    form.querySelectorAll("select, input").forEach((field) => {
+    form.querySelectorAll("select, input[type='date']").forEach((field) => {
         field.addEventListener("change", submitSoon);
+    });
+    checkboxMenus.forEach((menu) => {
+        menu.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
+            checkbox.addEventListener("change", () => {
+                checkboxChanged = true;
+            });
+        });
+        menu.addEventListener("toggle", () => {
+            if (!menu.open && checkboxChanged) {
+                checkboxChanged = false;
+                submitSoon();
+            }
+        });
     });
 })();
 </script>
