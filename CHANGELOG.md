@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.13] - 2026-05-14
+- Legger til vedlikeholdsmodus for deploy, med statisk Shanklife Pro/BalleTour-side, logoer og golfillustrasjon mens serveren oppdateres.
+- Oppdaterer deploy-scriptet slik at vedlikeholdsmodus skrus pa for deploy og fjernes automatisk nar deployen er ferdig eller feiler.
+- Gjør filterne i BalleTour-galleriet og Avsluttede runder automatiske, slik at visningen oppdateres nar filtervalg endres.
+
 ## [1.8.12] - 2026-05-14
 - Utvider bildeopplasting med fleksible tags: BalleTour-bilder kan tagges med alle BalleTour-spillere og med nye fritekst-tags som lagres til senere bruk.
 - Endrer bildeopplastingsfeltet fra Spiller-tag til Tag og viser alle tags på hullside, spillerprofil og galleri.

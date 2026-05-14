@@ -46,7 +46,6 @@
         </select>
     </label>
     <div class="gallery-filter-actions">
-        <button type="submit" class="button">Filtrer</button>
         <a class="button secondary" href="{{ url_for('series.gallery', series_id=series.id) }}">Nullstill</a>
     </div>
 </form>
@@ -67,4 +66,18 @@
     <p>Ingen bilder importert.</p>
     {% endfor %}
 </div>
+<script>
+(function () {
+    const form = document.querySelector(".gallery-filter-form");
+    if (!form) return;
+    let timer = null;
+    function submitSoon() {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => form.requestSubmit(), 180);
+    }
+    form.querySelectorAll("select, input").forEach((field) => {
+        field.addEventListener("change", submitSoon);
+    });
+})();
+</script>
 {% endblock %}

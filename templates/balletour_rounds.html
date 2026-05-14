@@ -17,7 +17,6 @@
     <div class="section-title-row">
         <h3>Filter</h3>
         <div class="button-row compact">
-            <button type="submit" class="button compact-button">Vis runder</button>
             <a class="button secondary compact-button" href="{{ url_for('balletour.finished_rounds') }}">Alle</a>
         </div>
     </div>
@@ -100,4 +99,13 @@
 {% else %}
 <p>Ingen avsluttede BalleTour-runder ennå.</p>
 {% endfor %}
+<script>
+(function () {
+    const form = document.querySelector(".compact-filter-form");
+    if (!form) return;
+    form.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
+        checkbox.addEventListener("change", () => form.requestSubmit());
+    });
+})();
+</script>
 {% endblock %}

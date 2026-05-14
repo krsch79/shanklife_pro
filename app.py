@@ -2,8 +2,9 @@
 # Version: 1.0.0
 
 import os
+from pathlib import Path
 
-from flask import Flask, g, session
+from flask import Flask, g, request, send_file, session
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
@@ -21,6 +22,13 @@ from routes.series import series_bp
 from routes.balletour import balletour_bp
 from services.balletour import is_balletour_player
 from services.time import format_server_datetime
+
+
+def maintenance_file_path(app):
+    configured_path = os.environ.get("SHANKLIFE_MAINTENANCE_FILE", "").strip()
+    if configured_path:
+        return Path(configured_path)
+    return Path(app.instance_path) / "maintenance.lock"
 
 
 def ensure_schema_updates(app):
@@ -145,6 +153,18 @@ def create_app():
     @app.template_filter("datetime_local")
     def datetime_local(value):
         return format_server_datetime(value)
+
+    @app.before_request
+    def show_maintenance_page():
+        if request.path.startswith("/static/"):
+            return None
+        if maintenance_file_path(app).exists():
+            return send_file(
+                app.root_path + "/static/maintenance.html",
+                mimetype="text/html",
+                max_age=0,
+            ), 503
+        return None
 
     @app.before_request
     def load_current_user():

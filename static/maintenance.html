@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vedlikehold - Shanklife Pro / BalleTour</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #172033;
+            --muted: #64748b;
+            --line: #d8e1ee;
+            --brand: #0f766e;
+            --card: #ffffff;
+            --page: #f4f7fb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 22px;
+            background: var(--page);
+            color: var(--ink);
+            font-family: Arial, sans-serif;
+        }
+        main {
+            width: min(920px, 100%);
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
+            gap: 26px;
+            align-items: center;
+        }
+        .logo-row {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
+        }
+        .logo-row img {
+            max-height: 58px;
+            width: auto;
+            object-fit: contain;
+        }
+        h1 {
+            margin: 0 0 12px;
+            font-size: clamp(2rem, 6vw, 4rem);
+            line-height: 1;
+        }
+        p {
+            margin: 0;
+            color: var(--muted);
+            font-size: clamp(1.05rem, 2vw, 1.35rem);
+            line-height: 1.45;
+        }
+        .status {
+            display: inline-block;
+            margin-bottom: 14px;
+            padding: 7px 11px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--card);
+            color: var(--brand);
+            font-weight: 800;
+        }
+        .fun {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--card);
+            box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+        }
+        @media (max-width: 760px) {
+            main { grid-template-columns: 1fr; }
+            .fun { order: -1; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section>
+            <div class="logo-row">
+                <img src="/static/shanklife.png" alt="Shanklife Pro">
+                <img src="/static/balletourlogo.png" alt="BalleTour">
+            </div>
+            <div class="status">Vedlikehold pågår</div>
+            <h1>Shanklife Pro og BalleTour er nede for vedlikehold.</h1>
+            <p>Tilbake om noen få minutter, bedre enn noensinne. Vi strammer skruene, vasker ballene og later som vi har full kontroll.</p>
+        </section>
+        <img class="fun" src="/static/maintenance-golf.svg" alt="Blid golfball på verksted">
+    </main>
+</body>
+</html>

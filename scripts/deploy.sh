@@ -6,6 +6,7 @@ BRANCH="${BRANCH:-main}"
 PYTHON_BIN="${PYTHON_BIN:-/tmp/shanklife_pro_venv/bin/python}"
 PIP_BIN="${PIP_BIN:-/tmp/shanklife_pro_venv/bin/pip}"
 LOG_FILE="${LOG_FILE:-/tmp/shanklife_pro.log}"
+MAINTENANCE_FILE="${SHANKLIFE_MAINTENANCE_FILE:-$APP_DIR/instance/maintenance.lock}"
 
 cd "$APP_DIR"
 
@@ -14,6 +15,15 @@ if [ ! -d .git ]; then
     echo "Klon repoet eller initier remote før dette scriptet brukes."
     exit 1
 fi
+
+disable_maintenance() {
+    rm -f "$MAINTENANCE_FILE"
+}
+
+echo "Setter Shanklife Pro i vedlikeholdsmodus..."
+mkdir -p "$(dirname "$MAINTENANCE_FILE")"
+printf 'Deploy startet %s\n' "$(date -Is)" > "$MAINTENANCE_FILE"
+trap disable_maintenance EXIT
 
 echo "Tar databasebackup før deploy..."
 "$PYTHON_BIN" scripts/daily_backup.py --force --name "Backup før deploy"
@@ -38,5 +48,8 @@ fi
 nohup ./run.sh > "$LOG_FILE" 2>&1 < /dev/null &
 sleep 3
 ps -ef | grep "/tmp/shanklife_pro_venv/bin/python app.py" | grep -v grep
+
+echo "Tar Shanklife Pro ut av vedlikeholdsmodus..."
+disable_maintenance
 
 echo "Deploy ferdig."
