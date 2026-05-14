@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Velkommen til BalleTour{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>Velkommen til BalleTour</h2>
+        <p class="muted">Invitasjon for {{ invitation.name }}</p>
+    </div>
+</div>
+
+<form method="post" class="form-card">
+    <h3>Sett passord</h3>
+    <p>
+        BalleTour er vår interne golftour i Shanklife Pro. Her kan du registrere score hull for hull,
+        følge live leaderboard og bygge statistikk for score, putting, køller, greenvalg og utvikling.
+    </p>
+    <p class="muted">Du logger inn med {{ invitation.email }} etter at passordet er satt.</p>
+
+    <label for="password">Passord</label>
+    <input type="password" id="password" name="password" required>
+
+    <label for="confirm_password">Bekreft passord</label>
+    <input type="password" id="confirm_password" name="confirm_password" required>
+
+    <div class="button-row">
+        <button type="submit" class="button">Sett passord og logg inn</button>
+    </div>
+</form>
+{% endblock %}

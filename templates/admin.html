@@ -10,6 +10,18 @@
         <p>Legg inn prompt for feilretting og følg status på forespørsler.</p>
     </a>
 
+    <form method="post" action="{{ url_for('admin.invite_balletour_player') }}" class="form-card">
+        <h3>Inviter BalleTour-spiller</h3>
+        <label for="invite_name">Navn</label>
+        <input type="text" id="invite_name" name="name" placeholder="F.eks. Ola Nordmann" required>
+        <label for="invite_email">E-post</label>
+        <input type="email" id="invite_email" name="email" placeholder="ola@example.com" required>
+        <p class="muted">Spilleren får en engangslenke for å sette passord og bli lagt til i BalleTour.</p>
+        <div class="button-row">
+            <button type="submit" class="button">Send invitasjon</button>
+        </div>
+    </form>
+
     <form method="post" action="{{ url_for('admin.backup_database') }}" class="form-card">
         <h3>Ta backup</h3>
         <label for="backup_name">Navn på backup</label>
@@ -85,6 +97,32 @@
         </div>
     </form>
 </div>
+
+<h3>Ventende BalleTour-invitasjoner</h3>
+{% if pending_balletour_invitations %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Navn</th>
+                <th>E-post</th>
+                <th>Sendt</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for invitation in pending_balletour_invitations %}
+            <tr>
+                <td>{{ invitation.name }}</td>
+                <td>{{ invitation.email }}</td>
+                <td>{{ invitation.created_at|datetime_local }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p>Ingen ventende BalleTour-invitasjoner.</p>
+{% endif %}
 
 <h3>Tilgjengelige backuper</h3>
 {% if backups %}

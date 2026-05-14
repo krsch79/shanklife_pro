@@ -68,7 +68,7 @@ def _balletour_new_round_state(series, players):
         weather_payload = None
 
     other_slots = []
-    for i in range(2, 5):
+    for i in range(2, len(players) + 1):
         other_slots.append({
             "slot": i,
             "selected_player": request.form.get(f"player_slot_{i}", "").strip(),
@@ -857,7 +857,7 @@ def new_round():
         if self_hcp != current_player.default_hcp:
             current_player.default_hcp = self_hcp
 
-        for i in range(2, 5):
+        for i in range(2, len(players) + 1):
             player_id_raw = request.form.get(f"player_slot_{i}", "").strip()
             if not player_id_raw:
                 continue

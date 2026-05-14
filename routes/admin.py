@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import subprocess
 from pathlib import Path
 
@@ -5,7 +7,7 @@ from flask import Blueprint, flash, g, redirect, render_template, request, sessi
 from sqlalchemy.exc import SQLAlchemyError
 
 from extensions import db
-from models import AiFixRequest
+from models import AiFixRequest, BalleTourInvitation, Player, User
 from routes.auth import login_required
 from services.admin_tools import (
     DatabaseWriteError,
@@ -38,6 +40,7 @@ from services.github_issues import (
     merge_ready_pull_request_for_ai_request,
 )
 from services.mailer import send_mail
+from services.balletour import get_balletour_series
 
 admin_bp = Blueprint("admin", __name__)
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -120,6 +123,28 @@ def _upsert_ai_request_from_issue(issue, fallback_user_id):
     return fix_request
 
 
+def _hash_invitation_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _balletour_invitation_body(name, invitation_url):
+    return (
+        f"Hei {name},\n\n"
+        "Du er invitert til BalleTour i Shanklife Pro.\n\n"
+        "BalleTour er vår interne golftour der rundene spilles, scores og følges opp samlet. "
+        "Her kan du registrere score hull for hull, se live leaderboard, følge egne og andres "
+        "runder, og bygge statistikk over tid for score, putting, køller, greenvalg og utvikling.\n\n"
+        "For å komme i gang må du sette passord for brukeren din. Trykk på lenken under, "
+        "velg passord, og logg inn:\n\n"
+        f"{invitation_url}\n\n"
+        "Lenken kan bare brukes én gang. Hvis den ikke fungerer, si fra til en administrator, "
+        "så kan du få en ny invitasjon.\n\n"
+        "Velkommen til BalleTour. Måtte puttene sitte litt oftere enn de burde.\n\n"
+        "Hilsen\n"
+        "BalleTour / Shanklife Pro"
+    )
+
+
 def _sync_ai_requests_from_github(fallback_user_id):
     comments_by_request_id = {}
     errors = []
@@ -162,7 +187,66 @@ def admin_home():
         balletour_database_view=current_balletour_database_view(),
         balletour_test_database_exists=test_database_exists(),
         balletour_test_database_path=test_database_path(),
+        pending_balletour_invitations=BalleTourInvitation.query.filter_by(accepted_at=None)
+        .order_by(BalleTourInvitation.created_at.desc())
+        .all(),
     )
+
+
+@admin_bp.route("/admin/balletour-invitations", methods=["POST"])
+@admin_required
+def invite_balletour_player():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+
+    if not name or not email:
+        flash("Navn og e-post må fylles ut.", "error")
+        return redirect(url_for("admin.admin_home"))
+    if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+        flash("E-postadressen ser ikke gyldig ut.", "error")
+        return redirect(url_for("admin.admin_home"))
+    if not get_balletour_series():
+        flash("Fant ikke BalleTour-serien.", "error")
+        return redirect(url_for("admin.admin_home"))
+    if Player.query.filter(db.func.lower(Player.name) == name.lower()).first():
+        flash(f"Spilleren '{name}' finnes allerede.", "error")
+        return redirect(url_for("admin.admin_home"))
+    if User.query.filter(db.func.lower(User.username) == email.lower()).first():
+        flash(f"Det finnes allerede en bruker med e-postadressen {email}.", "error")
+        return redirect(url_for("admin.admin_home"))
+
+    token = secrets.token_urlsafe(32)
+    token_hash = _hash_invitation_token(token)
+    invitation = BalleTourInvitation.query.filter(
+        BalleTourInvitation.accepted_at.is_(None),
+        db.func.lower(BalleTourInvitation.email) == email.lower(),
+    ).first()
+    if not invitation:
+        invitation = BalleTourInvitation(
+            name=name,
+            email=email,
+            token_hash=token_hash,
+            invited_by_user_id=g.current_user.id,
+        )
+        db.session.add(invitation)
+    else:
+        invitation.name = name
+        invitation.token_hash = token_hash
+        invitation.invited_by_user_id = g.current_user.id
+
+    invitation_url = url_for("auth.accept_balletour_invitation", token=token, _external=True)
+    if not send_mail(
+        "Du er invitert til BalleTour",
+        _balletour_invitation_body(name, invitation_url),
+        recipient=email,
+    ):
+        db.session.rollback()
+        flash("Invitasjonen ble ikke sendt. Sjekk e-postoppsettet.", "error")
+        return redirect(url_for("admin.admin_home"))
+
+    db.session.commit()
+    flash(f"Invitasjon sendt til {name} på {email}.", "success")
+    return redirect(url_for("admin.admin_home"))
 
 
 @admin_bp.route("/admin/ai-requests", methods=["GET", "POST"])

@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.9] - 2026-05-14
+- Lar BalleTour-runder velge dynamisk blant alle BalleTour-spillere, ikke bare fire faste spillerplasser.
+- Legger til admin-invitasjoner for nye BalleTour-spillere med e-postlenke for a sette passord og bli lagt til i touren.
+
 ## [1.8.8] - 2026-05-06
 - Splitter leaderboard, BalleTour-statistikk, series-statistikk og Min side pa gul og rod tee, med gul som standardvisning.
 

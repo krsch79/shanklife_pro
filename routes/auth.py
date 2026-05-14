@@ -1,12 +1,19 @@
 from functools import wraps
+import hashlib
 
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
-from models import User
+from models import BalleTourInvitation, Player, SeriesPlayer, User
+from services.balletour import get_balletour_series
+from services.time import server_now
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _hash_invitation_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def login_required(view):
@@ -76,3 +83,68 @@ def change_password():
 
     return render_template("change_password.html")
 
+
+@auth_bp.route("/balletour-invitation/<token>", methods=["GET", "POST"])
+def accept_balletour_invitation(token):
+    token_hash = _hash_invitation_token(token)
+    invitation = BalleTourInvitation.query.filter_by(token_hash=token_hash).first()
+    if not invitation or invitation.accepted_at:
+        flash("Invitasjonslenken er ugyldig eller allerede brukt.", "error")
+        return redirect(url_for("auth.login"))
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        if len(password) < 4:
+            flash("Passordet må være minst 4 tegn.", "error")
+            return render_template("accept_balletour_invitation.html", invitation=invitation)
+        if password != confirm_password:
+            flash("Passord og bekreftelse er ikke like.", "error")
+            return render_template("accept_balletour_invitation.html", invitation=invitation)
+
+        if User.query.filter(db.func.lower(User.username) == invitation.email.lower()).first():
+            flash("Det finnes allerede en bruker med denne e-postadressen.", "error")
+            return redirect(url_for("auth.login"))
+        if Player.query.filter(db.func.lower(Player.name) == invitation.name.lower()).first():
+            flash("Det finnes allerede en spiller med dette navnet. Be en administrator sende ny invitasjon.", "error")
+            return redirect(url_for("auth.login"))
+
+        series = get_balletour_series()
+        if not series:
+            flash("Fant ikke BalleTour-serien. Be en administrator sjekke oppsettet.", "error")
+            return redirect(url_for("auth.login"))
+
+        player = Player(name=invitation.name, default_hcp=0.0, gender="male")
+        db.session.add(player)
+        db.session.flush()
+
+        user = User(
+            username=invitation.email,
+            password_hash=generate_password_hash(password),
+            player_id=player.id,
+            is_admin=False,
+        )
+        db.session.add(user)
+        db.session.flush()
+
+        max_display_order = (
+            db.session.query(db.func.max(SeriesPlayer.display_order))
+            .filter_by(series_id=series.id)
+            .scalar()
+            or 0
+        )
+        db.session.add(SeriesPlayer(
+            series_id=series.id,
+            player_id=player.id,
+            display_order=max_display_order + 1,
+        ))
+        invitation.accepted_user_id = user.id
+        invitation.accepted_at = server_now()
+        db.session.commit()
+
+        session.clear()
+        session["user_id"] = user.id
+        flash("Velkommen til BalleTour. Passordet er satt, og du er logget inn.", "success")
+        return redirect(url_for("balletour.index"))
+
+    return render_template("accept_balletour_invitation.html", invitation=invitation)
