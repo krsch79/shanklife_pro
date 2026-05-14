@@ -10,24 +10,30 @@
 </div>
 
 <form method="get" class="gallery-filter-form">
-    <label>
-        <span>Tag</span>
-        <select name="tag">
-            <option value="">Alle tags</option>
+    <details class="gallery-filter-menu">
+        <summary>Tags{% if selected_tags %} ({{ selected_tags|length }}){% endif %}</summary>
+        <div class="gallery-filter-options">
             {% for tag in tag_options %}
-            <option value="{{ tag }}" {% if selected_tag == tag %}selected{% endif %}>{{ tag }}</option>
+            <label>
+                <input type="checkbox" name="tag" value="{{ tag }}" {% if tag in selected_tags %}checked{% endif %}>
+                {{ tag }}
+            </label>
+            {% else %}
+            <span class="muted">Ingen tags ennå.</span>
             {% endfor %}
-        </select>
-    </label>
-    <label>
-        <span>Hull</span>
-        <select name="hole">
-            <option value="">Alle hull</option>
+        </div>
+    </details>
+    <details class="gallery-filter-menu">
+        <summary>Hull{% if selected_holes %} ({{ selected_holes|length }}){% endif %}</summary>
+        <div class="gallery-filter-options gallery-hole-options">
             {% for hole in hole_options %}
-            <option value="{{ hole }}" {% if selected_hole == hole %}selected{% endif %}>Hull {{ hole }}</option>
+            <label>
+                <input type="checkbox" name="hole" value="{{ hole }}" {% if hole in selected_holes %}checked{% endif %}>
+                {{ hole }}
+            </label>
             {% endfor %}
-        </select>
-    </label>
+        </div>
+    </details>
     <label>
         <span>Fra dato</span>
         <input type="date" name="date_from" value="{{ date_from }}">
@@ -53,13 +59,13 @@
 <div class="gallery-grid">
     {% for image in images %}
     <figure>
-        <img src="{{ url_for('main.uploaded_file', filename='round-images/' ~ image.filename) }}" alt="Rundebilde">
+        <a href="{{ url_for('main.uploaded_file', filename='round-images/' ~ image.filename) }}" target="_blank" rel="noopener">
+            <img src="{{ url_for('main.uploaded_file', filename='round-images/' ~ image.filename) }}" alt="Rundebilde">
+        </a>
         <figcaption>
-            {{ image.round.course.name }}
-            {% if image.hole_number %} · hull {{ image.hole_number }}{% endif %}
-            {% if image.tag_labels %} · {{ image.tag_labels|join(", ") }}{% endif %}
-            <br>
-            Lastet opp {{ image.uploaded_at|datetime_local }}
+            <span>{{ image.uploaded_at|datetime_local }}</span>
+            {% if image.hole_number %}<span>Hull {{ image.hole_number }}</span>{% endif %}
+            {% if image.tag_labels %}<span>{{ image.tag_labels|join(", ") }}</span>{% endif %}
         </figcaption>
     </figure>
     {% else %}

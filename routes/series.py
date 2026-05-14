@@ -516,8 +516,19 @@ def save_club_defaults(series_id):
 @login_required
 def gallery(series_id):
     series = _series_or_404(series_id)
-    selected_tag = request.args.get("tag", "").strip()
-    selected_hole = request.args.get("hole", "").strip()
+    selected_tags = [
+        tag.strip()
+        for tag in request.args.getlist("tag")
+        if tag.strip()
+    ]
+    selected_holes = []
+    for raw_hole in request.args.getlist("hole"):
+        try:
+            hole_number = int(raw_hole)
+        except ValueError:
+            continue
+        if 1 <= hole_number <= series.course.hole_count and hole_number not in selected_holes:
+            selected_holes.append(hole_number)
     date_from = _parse_date_filter(request.args.get("date_from"))
     date_to = _parse_date_filter(request.args.get("date_to"))
     sort = request.args.get("sort", "newest").strip()
@@ -531,21 +542,15 @@ def gallery(series_id):
         .filter(Round.course_id == series.course_id)
     )
 
-    if selected_tag:
-        tag_key = selected_tag.lower()
+    if selected_tags:
+        tag_keys = [tag.lower() for tag in selected_tags]
         images_query = images_query.filter(or_(
-            func.lower(RoundImageTag.tag) == tag_key,
-            func.lower(Player.name) == tag_key,
+            func.lower(RoundImageTag.tag).in_(tag_keys),
+            func.lower(Player.name).in_(tag_keys),
         ))
 
-    selected_hole_number = None
-    if selected_hole:
-        try:
-            selected_hole_number = int(selected_hole)
-        except ValueError:
-            selected_hole_number = None
-        if selected_hole_number:
-            images_query = images_query.filter(RoundImage.hole_number == selected_hole_number)
+    if selected_holes:
+        images_query = images_query.filter(RoundImage.hole_number.in_(selected_holes))
 
     if date_from:
         images_query = images_query.filter(RoundImage.uploaded_at >= datetime.combine(date_from, time.min))
@@ -568,8 +573,8 @@ def gallery(series_id):
         images=images,
         tag_options=_series_gallery_tag_options(series),
         hole_options=list(range(1, series.course.hole_count + 1)),
-        selected_tag=selected_tag,
-        selected_hole=selected_hole_number,
+        selected_tags=selected_tags,
+        selected_holes=selected_holes,
         date_from=date_from.isoformat() if date_from else "",
         date_to=date_to.isoformat() if date_to else "",
         selected_sort=sort,

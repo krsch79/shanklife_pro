@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.14] - 2026-05-14
+- Lar BalleTour-galleriet filtrere pa flere tags og flere hull samtidig med checkbox-valg.
+- Rydder bildeteksten i galleriet til dato/tid, hull og tags, og fjerner fast banenavn og teksten Lastet opp.
+- Gjør galleribildene klikkbare slik at originalbildet åpnes i ny fane.
+
 ## [1.8.13] - 2026-05-14
 - Legger til vedlikeholdsmodus for deploy, med statisk Shanklife Pro/BalleTour-side, logoer og golfillustrasjon mens serveren oppdateres.
 - Oppdaterer deploy-scriptet slik at vedlikeholdsmodus skrus pa for deploy og fjernes automatisk nar deployen er ferdig eller feiler.
