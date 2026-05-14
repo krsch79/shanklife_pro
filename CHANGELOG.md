@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.10] - 2026-05-14
+- Etterregistrerer BalleTour-endringene som manglet fra changelog: beholdt scrollposisjon ved hullbytte i statistikk, rettet scorestat-validering og justerte pin-offsets i greenmønsteret.
+- Dokumenterer repo-regelen om at changelog og versjon alltid skal oppdateres sammen med kodeendringer.
+
 ## [1.8.9] - 2026-05-14
 - Lar BalleTour-runder velge dynamisk blant alle BalleTour-spillere, ikke bare fire faste spillerplasser.
 - Legger til admin-invitasjoner for nye BalleTour-spillere med e-postlenke for a sette passord og bli lagt til i touren.
