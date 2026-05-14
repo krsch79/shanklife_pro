@@ -459,6 +459,28 @@ nav a {
     gap: 12px;
 }
 
+.gallery-filter-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 14px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+}
+
+.gallery-filter-form label {
+    margin: 0;
+}
+
+.gallery-filter-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .gallery-grid figure {
     margin: 0;
 }

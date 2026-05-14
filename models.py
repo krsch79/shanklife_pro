@@ -375,3 +375,34 @@ class RoundImage(db.Model):
 
     round = db.relationship("Round", back_populates="images")
     tagged_player = db.relationship("Player")
+    tags = db.relationship(
+        "RoundImageTag",
+        back_populates="image",
+        cascade="all, delete-orphan",
+        order_by="RoundImageTag.tag",
+    )
+
+    @property
+    def tag_labels(self):
+        labels = []
+        if self.tagged_player:
+            labels.append(self.tagged_player.name)
+        for tag in self.tags:
+            if tag.tag.lower() not in {label.lower() for label in labels}:
+                labels.append(tag.tag)
+        return labels
+
+
+class RoundImageTag(db.Model):
+    __tablename__ = "round_image_tags"
+
+    id = db.Column(db.Integer, primary_key=True)
+    image_id = db.Column(db.Integer, db.ForeignKey("round_images.id"), nullable=False)
+    tag = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+
+    image = db.relationship("RoundImage", back_populates="tags")
+
+    __table_args__ = (
+        db.UniqueConstraint("image_id", "tag", name="uq_round_image_tag"),
+    )

@@ -1,7 +1,8 @@
 from collections import defaultdict
+from datetime import date, datetime, time
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from models import (
     Club,
@@ -12,6 +13,7 @@ from models import (
     PlayerHoleDefaultClub,
     Round,
     RoundImage,
+    RoundImageTag,
     RoundPlayer,
     ScoreEntry,
     Series,
@@ -34,6 +36,41 @@ def _series_or_404(series_id):
     if not series.course:
         abort(404)
     return series
+
+
+def _parse_date_filter(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _series_gallery_tag_options(series):
+    rows = (
+        db.session.query(RoundImageTag.tag)
+        .join(RoundImage)
+        .join(Round)
+        .filter(Round.course_id == series.course_id)
+        .distinct()
+        .all()
+    )
+    legacy_player_rows = (
+        db.session.query(Player.name)
+        .join(RoundImage, RoundImage.tagged_player_id == Player.id)
+        .join(Round)
+        .filter(Round.course_id == series.course_id)
+        .filter(RoundImage.tagged_player_id.isnot(None))
+        .distinct()
+        .all()
+    )
+    tags = {}
+    for (tag,) in rows + legacy_player_rows:
+        if tag:
+            tags.setdefault(tag.lower(), tag)
+    return sorted(tags.values(), key=str.lower)
 
 
 def _score_vs_par(total, par):
@@ -211,9 +248,14 @@ def player_profile(series_id, player_id):
 
     images = (
         RoundImage.query.join(Round)
+        .outerjoin(RoundImageTag)
         .filter(Round.course_id == series.course_id)
-        .filter(RoundImage.tagged_player_id == player.id)
+        .filter(or_(
+            RoundImage.tagged_player_id == player.id,
+            func.lower(RoundImageTag.tag) == player.name.lower(),
+        ))
         .order_by(RoundImage.uploaded_at.desc())
+        .distinct()
         .all()
     )
 
@@ -474,10 +516,61 @@ def save_club_defaults(series_id):
 @login_required
 def gallery(series_id):
     series = _series_or_404(series_id)
-    images = (
+    selected_tag = request.args.get("tag", "").strip()
+    selected_hole = request.args.get("hole", "").strip()
+    date_from = _parse_date_filter(request.args.get("date_from"))
+    date_to = _parse_date_filter(request.args.get("date_to"))
+    sort = request.args.get("sort", "newest").strip()
+    if sort not in ("newest", "oldest", "hole_asc", "hole_desc"):
+        sort = "newest"
+
+    images_query = (
         RoundImage.query.join(Round)
+        .outerjoin(RoundImageTag)
+        .outerjoin(Player, RoundImage.tagged_player_id == Player.id)
         .filter(Round.course_id == series.course_id)
-        .order_by(RoundImage.uploaded_at.desc())
-        .all()
     )
-    return render_template("series_gallery.html", series=series, images=images)
+
+    if selected_tag:
+        tag_key = selected_tag.lower()
+        images_query = images_query.filter(or_(
+            func.lower(RoundImageTag.tag) == tag_key,
+            func.lower(Player.name) == tag_key,
+        ))
+
+    selected_hole_number = None
+    if selected_hole:
+        try:
+            selected_hole_number = int(selected_hole)
+        except ValueError:
+            selected_hole_number = None
+        if selected_hole_number:
+            images_query = images_query.filter(RoundImage.hole_number == selected_hole_number)
+
+    if date_from:
+        images_query = images_query.filter(RoundImage.uploaded_at >= datetime.combine(date_from, time.min))
+    if date_to:
+        images_query = images_query.filter(RoundImage.uploaded_at <= datetime.combine(date_to, time.max))
+
+    if sort == "oldest":
+        images_query = images_query.order_by(RoundImage.uploaded_at.asc())
+    elif sort == "hole_asc":
+        images_query = images_query.order_by(RoundImage.hole_number.asc(), RoundImage.uploaded_at.desc())
+    elif sort == "hole_desc":
+        images_query = images_query.order_by(RoundImage.hole_number.desc(), RoundImage.uploaded_at.desc())
+    else:
+        images_query = images_query.order_by(RoundImage.uploaded_at.desc())
+
+    images = images_query.distinct().all()
+    return render_template(
+        "series_gallery.html",
+        series=series,
+        images=images,
+        tag_options=_series_gallery_tag_options(series),
+        hole_options=list(range(1, series.course.hole_count + 1)),
+        selected_tag=selected_tag,
+        selected_hole=selected_hole_number,
+        date_from=date_from.isoformat() if date_from else "",
+        date_to=date_to.isoformat() if date_to else "",
+        selected_sort=sort,
+    )

@@ -15,13 +15,14 @@ from models import (
     PlayerHoleDefaultClub,
     Round,
     RoundImage,
+    RoundImageTag,
     RoundPlayer,
     ScoreEntry,
     ScoreStat,
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
-from services.balletour import get_balletour_series
+from services.balletour import get_balletour_memberships, get_balletour_series
 from services.mailer import send_mail
 from services.time import server_now
 from services.weather import summarize_weather_payload
@@ -34,6 +35,50 @@ LAST_PUTT_DISTANCE_OPTIONS = tuple(round(value / 10, 1) for value in range(1, 15
 DEFAULT_LAST_PUTT_DISTANCE = 0.5
 LAST_PUTT_METER_OPTIONS = tuple(range(0, 16))
 LAST_PUTT_DECIMETER_OPTIONS = tuple(range(0, 10))
+
+
+def _normalize_image_tags(raw_tags):
+    tags = []
+    seen = set()
+    for raw_tag in (raw_tags or "").replace("\n", ",").replace(";", ",").split(","):
+        tag = " ".join(raw_tag.strip().strip("#").split())
+        if not tag:
+            continue
+        if len(tag) > 80:
+            raise ValueError("Tag kan maks være 80 tegn.")
+        key = tag.lower()
+        if key not in seen:
+            seen.add(key)
+            tags.append(tag)
+    return tags
+
+
+def _round_image_tag_choices(round_obj):
+    balletour_round = _is_balletour_round(round_obj)
+    if balletour_round:
+        players = [membership.player for membership in get_balletour_memberships()]
+    else:
+        players = [round_player.player for round_player in round_obj.round_players if round_player.player]
+
+    existing_tags = (
+        db.session.query(RoundImageTag.tag)
+        .join(RoundImage)
+        .join(Round)
+        .filter(Round.course_id == round_obj.course_id)
+        .order_by(func.lower(RoundImageTag.tag).asc())
+        .distinct()
+        .all()
+    )
+    player_names = {player.name.lower() for player in players}
+    tags = [
+        tag
+        for (tag,) in existing_tags
+        if tag and tag.lower() not in player_names
+    ]
+    return {
+        "players": sorted(players, key=lambda player: player.name.lower()),
+        "tags": tags,
+    }
 
 
 def build_course_tee_options(courses):
@@ -1261,6 +1306,7 @@ def round_hole(round_id, hole_number):
         club_defaults=_hole_club_defaults(round_obj, round_players, hole_number) if club_tracking_enabled else {},
         player_details=_hole_player_details(round_players, hole_number),
         hole_images=hole_images,
+        image_tag_choices=_round_image_tag_choices(round_obj),
         is_balletour_scoring_page=_is_balletour_round(round_obj),
         previous_hole=hole_number - 1 if hole_number > 1 else None,
         next_hole=hole_number + 1 if hole_number < course.hole_count else None,
@@ -1268,6 +1314,7 @@ def round_hole(round_id, hole_number):
 
 
 @rounds_bp.route("/rounds/<int:round_id>/hole/<int:hole_number>/images", methods=["POST"])
+@login_required
 def upload_round_hole_image(round_id, hole_number):
     round_obj = Round.query.get_or_404(round_id)
     course = round_obj.course
@@ -1281,18 +1328,42 @@ def upload_round_hole_image(round_id, hole_number):
         flash("Velg et bilde først.", "error")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
 
+    selected_tag = request.form.get("image_tag", "").strip()
     tagged_player_id = None
-    tagged_player_raw = request.form.get("tagged_player_id", "").strip()
-    if tagged_player_raw:
+    tags = []
+    if selected_tag.startswith("player:"):
         try:
-            tagged_player_id = int(tagged_player_raw)
+            tagged_player_id = int(selected_tag.removeprefix("player:"))
         except ValueError:
-            flash("Ugyldig spiller-tag.", "error")
+            flash("Ugyldig tag.", "error")
             return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
 
-        if not any(rp.player_id == tagged_player_id for rp in round_obj.round_players):
-            flash("Spilleren finnes ikke i denne runden.", "error")
+        allowed_player_ids = (
+            {membership.player_id for membership in get_balletour_memberships()}
+            if _is_balletour_round(round_obj)
+            else {rp.player_id for rp in round_obj.round_players}
+        )
+        if tagged_player_id not in allowed_player_ids:
+            flash("Spilleren finnes ikke blant tilgjengelige tags.", "error")
             return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
+        tagged_player = Player.query.get(tagged_player_id)
+        if tagged_player:
+            tags.append(tagged_player.name)
+    elif selected_tag.startswith("tag:"):
+        try:
+            tags.extend(_normalize_image_tags(selected_tag.removeprefix("tag:")))
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
+    elif selected_tag:
+        flash("Ugyldig tag.", "error")
+        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
+
+    try:
+        tags.extend(_normalize_image_tags(request.form.get("new_tags", "")))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
 
     try:
         filename = _save_round_image_file(image_file, round_obj.id)
@@ -1300,14 +1371,21 @@ def upload_round_hole_image(round_id, hole_number):
         flash(str(exc), "error")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
 
-    db.session.add(
-        RoundImage(
-            round_id=round_obj.id,
-            filename=filename,
-            hole_number=hole_number,
-            tagged_player_id=tagged_player_id,
-        )
+    image = RoundImage(
+        round_id=round_obj.id,
+        filename=filename,
+        hole_number=hole_number,
+        tagged_player_id=tagged_player_id,
     )
+    db.session.add(image)
+    db.session.flush()
+    seen_tags = set()
+    for tag in tags:
+        key = tag.lower()
+        if key in seen_tags:
+            continue
+        seen_tags.add(key)
+        db.session.add(RoundImageTag(image_id=image.id, tag=tag))
     db.session.commit()
     flash(f"Bilde lagt til for {course.name}, hull {hole_number}.", "success")
     return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))

@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from extensions import db
-from models import Club, Round, RoundImage, RoundPlayer, ScoreEntry, ScoreStat, Series, User
+from models import Club, Round, RoundImage, RoundImageTag, RoundPlayer, ScoreEntry, ScoreStat, Series, User
 from services.admin_tools import (
     _balletour_green_result,
     _balletour_putts,
@@ -89,6 +89,7 @@ def _copy_prod_to_test_database():
 
 
 def _clear_rounds(test_session):
+    test_session.query(RoundImageTag).delete()
     test_session.query(RoundImage).delete()
     test_session.query(ScoreStat).delete()
     test_session.query(ScoreEntry).delete()

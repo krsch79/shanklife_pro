@@ -188,13 +188,28 @@
                 <input type="file" name="round_image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
             </label>
             <label>
-                <span>Spiller-tag</span>
-                <select name="tagged_player_id">
-                    <option value="">Ingen spiller</option>
-                    {% for rp in round_players %}
-                    <option value="{{ rp.player_id }}">{{ rp.player_name_snapshot }}</option>
+                <span>Tag</span>
+                <select name="image_tag">
+                    <option value="">Ingen tag</option>
+                    {% for player in image_tag_choices.players %}
+                    <option value="player:{{ player.id }}">{{ player.name }}</option>
+                    {% endfor %}
+                    {% if image_tag_choices.tags %}
+                    <option value="" disabled>Andre tags</option>
+                    {% endif %}
+                    {% for tag in image_tag_choices.tags %}
+                    <option value="tag:{{ tag }}">{{ tag }}</option>
                     {% endfor %}
                 </select>
+            </label>
+            <label>
+                <span>Nye tags</span>
+                <input type="text" name="new_tags" list="round-image-tag-options" placeholder="F.eks. Birdie">
+                <datalist id="round-image-tag-options">
+                    {% for tag in image_tag_choices.tags %}
+                    <option value="{{ tag }}"></option>
+                    {% endfor %}
+                </datalist>
             </label>
             <button type="submit" class="button">Last opp bilde</button>
         </form>
@@ -206,7 +221,7 @@
                 <img src="{{ url_for('main.uploaded_file', filename='round-images/' ~ image.filename) }}" alt="Bilde fra {{ course.name }}, hull {{ hole.hole_number }}">
                 <figcaption>
                     Hull {{ image.hole_number }} · {{ course.name }}
-                    {% if image.tagged_player %} · {{ image.tagged_player.name }}{% endif %}
+                    {% if image.tag_labels %} · {{ image.tag_labels|join(", ") }}{% endif %}
                 </figcaption>
             </figure>
             {% endfor %}

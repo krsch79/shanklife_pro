@@ -59,6 +59,7 @@
         <figcaption>
             {{ image.round.course.name }}
             {% if image.hole_number %} · hull {{ image.hole_number }}{% endif %}
+            {% if image.tag_labels %} · {{ image.tag_labels|join(", ") }}{% endif %}
         </figcaption>
     </figure>
     {% endfor %}

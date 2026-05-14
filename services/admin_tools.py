@@ -10,7 +10,7 @@ from pathlib import Path
 from flask import current_app
 
 from extensions import db
-from models import Club, Course, Player, Round, RoundImage, RoundPlayer, ScoreEntry, ScoreStat, User
+from models import Club, Course, Player, Round, RoundImage, RoundImageTag, RoundPlayer, ScoreEntry, ScoreStat, User
 from services.time import server_now
 
 
@@ -173,6 +173,7 @@ def restore_backup(filename):
 
 
 def _delete_round_rows():
+    RoundImageTag.query.delete()
     RoundImage.query.delete()
     ScoreStat.query.delete()
     ScoreEntry.query.delete()

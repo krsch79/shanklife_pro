@@ -2,7 +2,54 @@
 {% block title %}Galleri - {{ series.name }}{% endblock %}
 
 {% block content %}
-<h2>{{ series.name }}: Galleri</h2>
+<div class="page-title-row">
+    <div>
+        <h2>{{ series.name }}: Galleri</h2>
+        <p class="muted">{{ images|length }} bilder i denne visningen</p>
+    </div>
+</div>
+
+<form method="get" class="gallery-filter-form">
+    <label>
+        <span>Tag</span>
+        <select name="tag">
+            <option value="">Alle tags</option>
+            {% for tag in tag_options %}
+            <option value="{{ tag }}" {% if selected_tag == tag %}selected{% endif %}>{{ tag }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>
+        <span>Hull</span>
+        <select name="hole">
+            <option value="">Alle hull</option>
+            {% for hole in hole_options %}
+            <option value="{{ hole }}" {% if selected_hole == hole %}selected{% endif %}>Hull {{ hole }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>
+        <span>Fra dato</span>
+        <input type="date" name="date_from" value="{{ date_from }}">
+    </label>
+    <label>
+        <span>Til dato</span>
+        <input type="date" name="date_to" value="{{ date_to }}">
+    </label>
+    <label>
+        <span>Sorter</span>
+        <select name="sort">
+            <option value="newest" {% if selected_sort == "newest" %}selected{% endif %}>Nyeste først</option>
+            <option value="oldest" {% if selected_sort == "oldest" %}selected{% endif %}>Eldste først</option>
+            <option value="hole_asc" {% if selected_sort == "hole_asc" %}selected{% endif %}>Hull stigende</option>
+            <option value="hole_desc" {% if selected_sort == "hole_desc" %}selected{% endif %}>Hull synkende</option>
+        </select>
+    </label>
+    <div class="gallery-filter-actions">
+        <button type="submit" class="button">Filtrer</button>
+        <a class="button secondary" href="{{ url_for('series.gallery', series_id=series.id) }}">Nullstill</a>
+    </div>
+</form>
 
 <div class="gallery-grid">
     {% for image in images %}
@@ -11,7 +58,7 @@
         <figcaption>
             {{ image.round.course.name }}
             {% if image.hole_number %} · hull {{ image.hole_number }}{% endif %}
-            {% if image.tagged_player %} · {{ image.tagged_player.name }}{% endif %}
+            {% if image.tag_labels %} · {{ image.tag_labels|join(", ") }}{% endif %}
             <br>
             Lastet opp {{ image.uploaded_at|datetime_local }}
         </figcaption>

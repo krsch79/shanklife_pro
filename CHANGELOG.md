@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.12] - 2026-05-14
+- Utvider bildeopplasting med fleksible tags: BalleTour-bilder kan tagges med alle BalleTour-spillere og med nye fritekst-tags som lagres til senere bruk.
+- Endrer bildeopplastingsfeltet fra Spiller-tag til Tag og viser alle tags på hullside, spillerprofil og galleri.
+- Legger til filter og sortering i galleriet for tag, hull, datointervall og visningsrekkefølge.
+
 ## [1.8.11] - 2026-05-14
 - Gjør GitHub-kommentarer fra AI worker tydeligere når Codex/OpenAI feiler, med egne meldinger for kvote/billing, autentisering, rate limit, utilgjengelig modell og lokale kode-/kommandofeil.
 - Lar isolert AI worker returnere feilkode uten a overskrive den forklarende GitHub-feilmeldingen med en ekstra Python-stacktrace.
