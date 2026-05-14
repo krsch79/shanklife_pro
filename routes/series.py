@@ -1,5 +1,4 @@
 from collections import defaultdict
-from datetime import date, datetime, time
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import func, or_
@@ -36,16 +35,6 @@ def _series_or_404(series_id):
     if not series.course:
         abort(404)
     return series
-
-
-def _parse_date_filter(value):
-    value = (value or "").strip()
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(value)
-    except ValueError:
-        return None
 
 
 def _series_gallery_tag_options(series):
@@ -529,8 +518,6 @@ def gallery(series_id):
             continue
         if 1 <= hole_number <= series.course.hole_count and hole_number not in selected_holes:
             selected_holes.append(hole_number)
-    date_from = _parse_date_filter(request.args.get("date_from"))
-    date_to = _parse_date_filter(request.args.get("date_to"))
     sort = request.args.get("sort", "newest").strip()
     if sort not in ("newest", "oldest", "hole_asc", "hole_desc"):
         sort = "newest"
@@ -552,11 +539,6 @@ def gallery(series_id):
     if selected_holes:
         images_query = images_query.filter(RoundImage.hole_number.in_(selected_holes))
 
-    if date_from:
-        images_query = images_query.filter(RoundImage.uploaded_at >= datetime.combine(date_from, time.min))
-    if date_to:
-        images_query = images_query.filter(RoundImage.uploaded_at <= datetime.combine(date_to, time.max))
-
     if sort == "oldest":
         images_query = images_query.order_by(RoundImage.uploaded_at.asc())
     elif sort == "hole_asc":
@@ -575,7 +557,5 @@ def gallery(series_id):
         hole_options=list(range(1, series.course.hole_count + 1)),
         selected_tags=selected_tags,
         selected_holes=selected_holes,
-        date_from=date_from.isoformat() if date_from else "",
-        date_to=date_to.isoformat() if date_to else "",
         selected_sort=sort,
     )

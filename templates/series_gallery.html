@@ -10,8 +10,8 @@
 </div>
 
 <form method="get" class="gallery-filter-form">
-    <details class="gallery-filter-menu">
-        <summary>Tags{% if selected_tags %} ({{ selected_tags|length }}){% endif %}</summary>
+    <fieldset class="gallery-filter-group">
+        <legend>Tags{% if selected_tags %} ({{ selected_tags|length }}){% endif %}</legend>
         <div class="gallery-filter-options">
             {% for tag in tag_options %}
             <label>
@@ -22,9 +22,9 @@
             <span class="muted">Ingen tags ennå.</span>
             {% endfor %}
         </div>
-    </details>
-    <details class="gallery-filter-menu">
-        <summary>Hull{% if selected_holes %} ({{ selected_holes|length }}){% endif %}</summary>
+    </fieldset>
+    <fieldset class="gallery-filter-group">
+        <legend>Hull{% if selected_holes %} ({{ selected_holes|length }}){% endif %}</legend>
         <div class="gallery-filter-options gallery-hole-options">
             {% for hole in hole_options %}
             <label>
@@ -33,15 +33,7 @@
             </label>
             {% endfor %}
         </div>
-    </details>
-    <label>
-        <span>Fra dato</span>
-        <input type="date" name="date_from" value="{{ date_from }}">
-    </label>
-    <label>
-        <span>Til dato</span>
-        <input type="date" name="date_to" value="{{ date_to }}">
-    </label>
+    </fieldset>
     <label>
         <span>Sorter</span>
         <select name="sort">
@@ -76,28 +68,13 @@
 (function () {
     const form = document.querySelector(".gallery-filter-form");
     if (!form) return;
-    const checkboxMenus = form.querySelectorAll(".gallery-filter-menu");
-    let checkboxChanged = false;
     let timer = null;
     function submitSoon() {
         window.clearTimeout(timer);
         timer = window.setTimeout(() => form.requestSubmit(), 180);
     }
-    form.querySelectorAll("select, input[type='date']").forEach((field) => {
+    form.querySelectorAll("select, input[type='checkbox']").forEach((field) => {
         field.addEventListener("change", submitSoon);
-    });
-    checkboxMenus.forEach((menu) => {
-        menu.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
-            checkbox.addEventListener("change", () => {
-                checkboxChanged = true;
-            });
-        });
-        menu.addEventListener("toggle", () => {
-            if (!menu.open && checkboxChanged) {
-                checkboxChanged = false;
-                submitSoon();
-            }
-        });
     });
 })();
 </script>

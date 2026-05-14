@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.16] - 2026-05-14
+- Fjerner datofiltrene fra BalleTour-galleriet.
+- Viser tag- og hullfiltre fast øverst i galleriet som synlige checkbox-grupper, og oppdaterer galleriet hver gang et filter velges eller velges bort.
+
 ## [1.8.15] - 2026-05-14
 - Lar tag- og hullvalgene i BalleTour-galleriet bli stående åpne mens flere checkbokser velges, og oppdaterer først når dropdownen lukkes.
 
