@@ -27,9 +27,21 @@ DEFAULT_CODEX_BIN = "/home/kristian/.npm-global/bin/codex"
 WORKTREE_ROOT = Path(os.environ.get("AI_WORKTREE_ROOT", "/home/kristian/shanklife_pro_ai_worktrees"))
 
 
+class AiWorkerFailure(RuntimeError):
+    def __init__(self, title, explanation, details=None):
+        super().__init__(explanation)
+        self.title = title
+        self.explanation = explanation
+        self.details = details or ""
+
+
 def run(command, *, cwd=ROOT, check=True, env=None, shell=False):
     print(f"$ {command if isinstance(command, str) else ' '.join(command)}")
     return subprocess.run(command, cwd=cwd, check=check, env=env, shell=shell)
+
+
+def command_text(command):
+    return command if isinstance(command, str) else " ".join(str(part) for part in command)
 
 
 def load_env_file():
@@ -146,7 +158,7 @@ def run_in_isolated_worktree(args):
         command.append("--push")
     if args.create_pr:
         command.append("--create-pr")
-    return run(command, cwd=worktree_path, env=env).returncode
+    return run(command, cwd=worktree_path, env=env, check=False).returncode
 
 
 def make_askpass(token):
@@ -207,7 +219,77 @@ def run_codex(issue, prompt_path):
     codex_bin = os.environ.get("CODEX_BIN") or (DEFAULT_CODEX_BIN if Path(DEFAULT_CODEX_BIN).exists() else "codex")
     if not shutil.which(codex_bin) and not Path(codex_bin).exists():
         raise RuntimeError(f"Fant ikke Codex CLI: {codex_bin}")
-    run([codex_bin, "exec", "--sandbox", "workspace-write", "-C", str(ROOT), prompt], env=codex_env)
+    command = [codex_bin, "exec", "--sandbox", "workspace-write", "-C", str(ROOT), prompt]
+    print(f"$ {command_text(command)}")
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=codex_env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    output = result.stdout or ""
+    if output:
+        print(output, end="" if output.endswith("\n") else "\n")
+    if result.returncode != 0:
+        raise classify_codex_failure(command, result.returncode, output)
+
+
+def classify_codex_failure(command, returncode, output):
+    lower_output = (output or "").lower()
+    details = (
+        f"Kommando: {command_text(command)}\n"
+        f"Exit code: {returncode}\n\n"
+        f"{(output or 'Ingen output fra Codex CLI.')[-4000:]}"
+    )
+
+    if any(marker in lower_output for marker in ("quota exceeded", "insufficient_quota", "billing")):
+        return AiWorkerFailure(
+            "OpenAI-kvote eller billing stoppet AI-fiksen",
+            (
+                "Codex CLI startet, men OpenAI svarte at kvote/billing ikke er tilgjengelig. "
+                "Sjekk at OpenAI-prosjektet bak serverens API-nøkkel har aktiv billing og tilgjengelig kvote."
+            ),
+            details,
+        )
+    if any(marker in lower_output for marker in (
+        "invalid api key",
+        "incorrect api key",
+        "authentication",
+        "unauthorized",
+        "401",
+        "api key",
+    )):
+        return AiWorkerFailure(
+            "OpenAI-autentisering feilet",
+            (
+                "Codex CLI fikk ikke autentisert mot OpenAI. "
+                "Sjekk OPENAI_API_KEY/CODEX_API_KEY i serverens `.env` og at nøkkelen er gyldig."
+            ),
+            details,
+        )
+    if any(marker in lower_output for marker in ("rate limit", "too many requests", "429")):
+        return AiWorkerFailure(
+            "OpenAI rate limit stoppet AI-fiksen",
+            "OpenAI avviste kjøringen på grunn av rate limit. Prøv igjen senere eller bruk en nøkkel med høyere grense.",
+            details,
+        )
+    if any(marker in lower_output for marker in ("model_not_found", "model not found", "does not exist")):
+        return AiWorkerFailure(
+            "OpenAI-modellen er ikke tilgjengelig",
+            "Codex CLI prøvde å bruke en modell som ikke er tilgjengelig for serverens OpenAI-prosjekt.",
+            details,
+        )
+
+    return AiWorkerFailure(
+        "Codex/OpenAI-kjøringen feilet",
+        (
+            "Codex CLI avsluttet med feil før AI-fiksen ble fullført. "
+            "Se tekniske detaljer under for output fra OpenAI/Codex."
+        ),
+        details,
+    )
 
 
 def codex_environment():
@@ -224,6 +306,40 @@ def codex_environment():
         "OPENAI_API_KEY mangler i miljøet for AI worker. "
         "Legg OPENAI_API_KEY i /home/kristian/shanklife_pro/.env på Raspberryen, "
         "eller konfigurer Codex CLI med en gyldig headless autentisering."
+    )
+
+
+def format_failure_comment(exc):
+    if isinstance(exc, AiWorkerFailure):
+        title = exc.title
+        explanation = exc.explanation
+        details = exc.details
+    elif isinstance(exc, subprocess.CalledProcessError):
+        title = "Kode-/kommando-feil stoppet AI-fiksen"
+        explanation = (
+            "En lokal kommando feilet mens AI worker jobbet. "
+            "Dette kan skyldes syntaksfeil, testfeil, git-feil eller annen kode-/miljøfeil."
+        )
+        output = ""
+        if exc.output:
+            output = str(exc.output)
+        elif exc.stderr:
+            output = str(exc.stderr)
+        details = (
+            f"Kommando: {command_text(exc.cmd)}\n"
+            f"Exit code: {exc.returncode}\n\n"
+            f"{output[-4000:] if output else str(exc)}"
+        )
+    else:
+        title = "AI worker feilet"
+        explanation = "AI worker stoppet før fiksen ble klar. Se tekniske detaljer under."
+        details = str(exc)
+
+    return (
+        f"AI worker feilet: **{title}**\n\n"
+        f"{explanation}\n\n"
+        "Tekniske detaljer:\n"
+        f"```text\n{details[-4000:]}\n```"
     )
 
 
@@ -344,7 +460,7 @@ def main():
             except Exception as exc:
                 remove_label(client, repo, issue["number"], WORKFLOW_LABELS["progress"])
                 add_labels(client, repo, issue["number"], [WORKFLOW_LABELS["failed"]])
-                add_comment(client, repo, issue["number"], f"AI worker feilet:\n\n```text\n{exc}\n```")
+                add_comment(client, repo, issue["number"], format_failure_comment(exc))
                 raise
 
         print(f"Klar: issue #{issue['number']} på branch {branch}")

@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.11] - 2026-05-14
+- Gjør GitHub-kommentarer fra AI worker tydeligere når Codex/OpenAI feiler, med egne meldinger for kvote/billing, autentisering, rate limit, utilgjengelig modell og lokale kode-/kommandofeil.
+- Lar isolert AI worker returnere feilkode uten a overskrive den forklarende GitHub-feilmeldingen med en ekstra Python-stacktrace.
+
 ## [1.8.10] - 2026-05-14
 - Etterregistrerer BalleTour-endringene som manglet fra changelog: beholdt scrollposisjon ved hullbytte i statistikk, rettet scorestat-validering og justerte pin-offsets i greenmønsteret.
 - Dokumenterer repo-regelen om at changelog og versjon alltid skal oppdateres sammen med kodeendringer.
