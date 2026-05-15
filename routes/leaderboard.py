@@ -20,6 +20,9 @@ def live_leaderboard():
         view_mode=view_mode,
         selected_tee_key=tee_key,
         tee_options=tee_filter_options(),
+        leaderboard_route="leaderboard.live_leaderboard",
+        leaderboard_partial_url="/leaderboard/live/partial",
+        balletour_mode=False,
     )
 
 
@@ -36,6 +39,7 @@ def live_leaderboard_partial():
         boards=boards,
         view_mode=view_mode,
         selected_tee_key=tee_key,
+        balletour_mode=False,
     )
 
 

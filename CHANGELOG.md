@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.17] - 2026-05-15
+- Viser Admin i toppmenyen også på BalleTour-sider for innloggede administratorer.
+- Gjør admin-rollen dynamisk slik at administratorer kan gi og fjerne admin-tilgang for registrerte brukere, uten at Kristian tvinges til admin ved hver oppstart.
+- Legger til egen Live leaderboard-side under BalleTour som bruker BalleTour-meny/header og bare viser BalleTour-runder.
+
 ## [1.8.16] - 2026-05-14
 - Fjerner datofiltrene fra BalleTour-galleriet.
 - Viser tag- og hullfiltre fast øverst i galleriet som synlige checkbox-grupper, og oppdaterer galleriet hver gang et filter velges eller velges bort.

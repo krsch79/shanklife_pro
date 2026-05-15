@@ -73,12 +73,13 @@ def _score_shape_class(score, par):
     return "score-shape plain"
 
 
-def build_live_leaderboards(view_mode="gross", tee_key="gul"):
+def build_live_leaderboards(view_mode="gross", tee_key="gul", course_id=None):
     ongoing_rounds = (
         Round.query.filter_by(status="ongoing")
-        .order_by(Round.started_at.asc())
-        .all()
     )
+    if course_id:
+        ongoing_rounds = ongoing_rounds.filter(Round.course_id == course_id)
+    ongoing_rounds = ongoing_rounds.order_by(Round.started_at.asc()).all()
 
     grouped = defaultdict(list)
 

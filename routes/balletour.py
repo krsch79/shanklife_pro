@@ -13,6 +13,7 @@ from services.balletour_test_db import (
     current_balletour_database_view,
     test_database_exists,
 )
+from services.leaderboard import build_live_leaderboards
 from services.tee_filters import (
     round_player_matches_tee,
     selected_tee_key,
@@ -939,6 +940,51 @@ def ongoing_rounds():
             series=series,
             rounds=rows,
             **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/live-leaderboard")
+@login_required
+def live_leaderboard():
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        view_mode = request.args.get("view", "gross").strip().lower()
+        if view_mode not in ("gross", "net"):
+            view_mode = "gross"
+        tee_key = selected_tee_key(request.args.get("tee"))
+        boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key, course_id=series.course_id)
+        return render_template(
+            "live_leaderboard.html",
+            series=series,
+            boards=boards,
+            view_mode=view_mode,
+            selected_tee_key=tee_key,
+            tee_options=tee_filter_options(series.course),
+            leaderboard_route="balletour.live_leaderboard",
+            leaderboard_partial_url=url_for("balletour.live_leaderboard_partial"),
+            balletour_mode=True,
+            **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/live-leaderboard/partial")
+@login_required
+def live_leaderboard_partial():
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        view_mode = request.args.get("view", "gross").strip().lower()
+        if view_mode not in ("gross", "net"):
+            view_mode = "gross"
+        tee_key = selected_tee_key(request.args.get("tee"))
+        boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key, course_id=series.course_id)
+        return render_template(
+            "live_leaderboard_content.html",
+            boards=boards,
+            view_mode=view_mode,
+            selected_tee_key=tee_key,
+            balletour_mode=True,
         )
 
 

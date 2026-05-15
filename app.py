@@ -87,6 +87,7 @@ def ensure_schema_updates(app):
 
 def seed_initial_user(app):
     with app.app_context():
+        has_admin = User.query.filter_by(is_admin=True).first() is not None
         kristian_s = Player.query.filter_by(name="Kristian S").first()
         if not kristian_s:
             kristian_s = Player(name="Kristian S", default_hcp=0.0, gender="male")
@@ -106,12 +107,16 @@ def seed_initial_user(app):
                 username="Kristian",
                 password_hash=generate_password_hash("Kristian"),
                 player_id=kristian_s.id,
-                is_admin=True,
+                is_admin=not has_admin,
             )
             db.session.add(user)
+            if user.is_admin:
+                has_admin = True
         else:
             user.player_id = kristian_s.id
-            user.is_admin = True
+            if not has_admin:
+                user.is_admin = True
+                has_admin = True
 
         erik = Player.query.filter_by(name="Erik").first()
         if not erik:

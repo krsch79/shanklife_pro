@@ -190,6 +190,7 @@ def admin_home():
         pending_balletour_invitations=BalleTourInvitation.query.filter_by(accepted_at=None)
         .order_by(BalleTourInvitation.created_at.desc())
         .all(),
+        users=User.query.order_by(User.username.asc()).all(),
     )
 
 
@@ -246,6 +247,28 @@ def invite_balletour_player():
 
     db.session.commit()
     flash(f"Invitasjon sendt til {name} på {email}.", "success")
+    return redirect(url_for("admin.admin_home"))
+
+
+@admin_bp.route("/admin/users/<int:user_id>/admin-role", methods=["POST"])
+@admin_required
+def update_user_admin_role(user_id):
+    user = User.query.get_or_404(user_id)
+    should_be_admin = request.form.get("is_admin") == "1"
+
+    if user.id == g.current_user.id and not should_be_admin:
+        flash("Du kan ikke fjerne admin-rollen fra deg selv.", "error")
+        return redirect(url_for("admin.admin_home"))
+
+    if user.is_admin and not should_be_admin:
+        admin_count = User.query.filter_by(is_admin=True).count()
+        if admin_count <= 1:
+            flash("Du kan ikke fjerne den siste admin-brukeren.", "error")
+            return redirect(url_for("admin.admin_home"))
+
+    user.is_admin = should_be_admin
+    db.session.commit()
+    flash(f"Admin-rolle oppdatert for {user.username}.", "success")
     return redirect(url_for("admin.admin_home"))
 
 

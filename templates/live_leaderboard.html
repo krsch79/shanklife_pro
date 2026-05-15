@@ -5,15 +5,15 @@
 <div class="page-header">
     <h2>Live leaderboard</h2>
     <div class="button-row compact">
-        <a class="button {% if view_mode != 'gross' %}secondary{% endif %}" href="{{ url_for('leaderboard.live_leaderboard', view='gross', tee=selected_tee_key) }}">Brutto</a>
-        <a class="button {% if view_mode != 'net' %}secondary{% endif %}" href="{{ url_for('leaderboard.live_leaderboard', view='net', tee=selected_tee_key) }}">Netto</a>
+        <a class="button {% if view_mode != 'gross' %}secondary{% endif %}" href="{{ url_for(leaderboard_route, view='gross', tee=selected_tee_key) }}">Brutto</a>
+        <a class="button {% if view_mode != 'net' %}secondary{% endif %}" href="{{ url_for(leaderboard_route, view='net', tee=selected_tee_key) }}">Netto</a>
     </div>
 </div>
 
 <div class="tee-tabs">
     <span class="tee-tabs-label">Tee</span>
     {% for tee in tee_options %}
-    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('leaderboard.live_leaderboard', view=view_mode, tee=tee.key) }}">{{ tee.label }}</a>
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for(leaderboard_route, view=view_mode, tee=tee.key) }}">{{ tee.label }}</a>
     {% endfor %}
 </div>
 
@@ -48,7 +48,7 @@
         try {
             const currentView = container.dataset.viewMode || "gross";
             const currentTee = container.dataset.teeKey || "gul";
-            const response = await fetch(`{{ url_for('leaderboard.live_leaderboard_partial') }}?view=${encodeURIComponent(currentView)}&tee=${encodeURIComponent(currentTee)}`, {
+            const response = await fetch(`{{ leaderboard_partial_url }}?view=${encodeURIComponent(currentView)}&tee=${encodeURIComponent(currentTee)}`, {
                 headers: { "X-Requested-With": "XMLHttpRequest" },
                 cache: "no-store"
             });

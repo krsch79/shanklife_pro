@@ -98,6 +98,45 @@
     </form>
 </div>
 
+<h3>Brukerroller</h3>
+{% if users %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Bruker</th>
+                <th>Spiller</th>
+                <th>Rolle</th>
+                <th>Endre</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.player.name if user.player else "-" }}</td>
+                <td>{{ "Admin" if user.is_admin else "Bruker" }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('admin.update_user_admin_role', user_id=user.id) }}" class="inline-form">
+                        <input type="hidden" name="is_admin" value="{{ '0' if user.is_admin else '1' }}">
+                        <button
+                            type="submit"
+                            class="button compact-button {% if user.is_admin %}secondary{% endif %}"
+                            {% if user.id == current_user.id and user.is_admin %}disabled title="Du kan ikke fjerne admin fra deg selv"{% endif %}
+                        >
+                            {{ "Fjern admin" if user.is_admin else "Gjør til admin" }}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p>Ingen brukere registrert.</p>
+{% endif %}
+
 <h3>Ventende BalleTour-invitasjoner</h3>
 {% if pending_balletour_invitations %}
 <div class="table-wrap">

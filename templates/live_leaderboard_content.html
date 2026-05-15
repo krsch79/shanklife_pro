@@ -1,4 +1,5 @@
 {% if boards %}
+    {% set balletour_mode = balletour_mode|default(false) %}
     {% for board in boards %}
     <div class="form-card leaderboard-card">
         <div class="page-header">
@@ -67,7 +68,7 @@
                         </td>
                         <td>{{ entry.tee_name }}</td>
                         <td>
-                            <a href="{{ url_for('rounds.round_score', round_id=entry.round_id) }}">
+                            <a href="{% if balletour_mode %}{{ url_for('rounds.balletour_round_scorecard', round_id=entry.round_id) }}{% else %}{{ url_for('rounds.round_score', round_id=entry.round_id) }}{% endif %}">
                                 Runde {{ entry.round_id }}
                             </a><br>
                             <span class="muted">{{ entry.round_started_at|datetime_local }}</span>
