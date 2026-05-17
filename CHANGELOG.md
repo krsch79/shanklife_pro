@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.22] - 2026-05-17
+- Bygger logoene og golfillustrasjonen direkte inn i vedlikeholdssiden, slik at de vises også når appens statiske filserver ikke er tilgjengelig under deploy.
+
 ## [1.8.21] - 2026-05-17
 - Viser fullførte og pågående BalleTour-runder på forsiden, sammen med totalantall birdies, par, bogeys og dobbelbogeys eller verre for valgt tee.
 - Fjerner BalleTour-spillere-statistikken og Status-kolonnen fra BalleTour-forsiden.
