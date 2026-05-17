@@ -2,6 +2,13 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.19] - 2026-05-17
+- Gjør Min side BalleTour-spesifikk for BalleTour-brukere og legger lenken i BalleTour-toppmenyen.
+- Lar brukere velge om rundevarsler skal gjelde alle BalleTour-spillere eller bare valgte spillere.
+- Setter alle e-postvarseltyper på som standard, slik at brukere aktivt kan velge bort varsler de ikke vil ha.
+- Setter avsender for appens e-poster til noreply@balletour.shanklife.no.
+- Lar deploy-scriptet vise den statiske vedlikeholdssiden mens app-prosessen er stoppet under restart.
+
 ## [1.8.18] - 2026-05-17
 - Lar BalleTour-brukere lagre e-postadresse og velge hvilke e-postvarsler de vil motta.
 - Viser BalleTour-brukere uten registrert e-post en påminnelse med lenke til varselinnstillingene etter innlogging.

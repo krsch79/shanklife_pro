@@ -34,7 +34,8 @@ class User(db.Model):
     email = db.Column(db.String(255), nullable=True)
     email_notifications_enabled = db.Column(db.Boolean, nullable=False, default=True)
     notify_balletour_round_finished = db.Column(db.Boolean, nullable=False, default=True)
-    notify_version_updates = db.Column(db.Boolean, nullable=False, default=False)
+    notify_version_updates = db.Column(db.Boolean, nullable=False, default=True)
+    balletour_round_notification_player_ids = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
     player = db.relationship("Player", back_populates="user_accounts")

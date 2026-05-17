@@ -97,8 +97,23 @@ def ensure_schema_updates(app):
             add_column_if_missing(
                 "users",
                 "notify_version_updates",
-                "notify_version_updates BOOLEAN DEFAULT 0 NOT NULL",
+                "notify_version_updates BOOLEAN DEFAULT 1 NOT NULL",
             )
+            add_column_if_missing(
+                "users",
+                "balletour_round_notification_player_ids",
+                "balletour_round_notification_player_ids TEXT",
+            )
+
+            defaults_marker = Path(app.instance_path) / "email_notification_defaults_v2.lock"
+            if not defaults_marker.exists():
+                with db.engine.begin() as conn:
+                    conn.execute(text("UPDATE users SET email_notifications_enabled = 1"))
+                    conn.execute(text("UPDATE users SET notify_balletour_round_finished = 1"))
+                    conn.execute(text("UPDATE users SET notify_version_updates = 1"))
+                    conn.execute(text("UPDATE users SET balletour_round_notification_player_ids = NULL"))
+                defaults_marker.parent.mkdir(parents=True, exist_ok=True)
+                defaults_marker.write_text("Applied email notification defaults v2.\n", encoding="utf-8")
 
 
 def seed_initial_user(app):

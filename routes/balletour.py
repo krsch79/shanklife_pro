@@ -4,7 +4,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from sqlalchemy import func
 
 from extensions import db
-from models import Club, CourseTee, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
+from models import Club, CourseHole, CourseTee, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
 from routes.auth import login_required
 from routes.rounds import _create_round, _parse_hcp, _parse_tee, _round_weather_summary, build_course_tee_options
 from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
@@ -51,6 +51,18 @@ def _player_display_name(player):
     if player.name == "Kristian S":
         return "Kristian"
     return player.name
+
+
+def _percent(numerator, denominator):
+    if denominator == 0:
+        return None
+    return round((numerator / denominator) * 100, 1)
+
+
+def _avg(values):
+    if not values:
+        return None
+    return round(sum(values) / len(values), 2)
 
 
 def _balletour_new_round_state(series, players):
@@ -819,6 +831,113 @@ def index():
             selected_tee_key=tee_key,
             display_name=_player_display_name,
             app_version=APP_VERSION,
+            **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/me")
+@login_required
+def me():
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        player = g.current_user.player
+        tee_key = selected_tee_key(request.args.get("tee"))
+        round_players = (
+            RoundPlayer.query.filter_by(player_id=player.id)
+            .join(Round)
+            .filter(Round.course_id == series.course_id)
+            .order_by(Round.started_at.desc())
+            .all()
+        )
+        round_players = [
+            round_player for round_player in round_players
+            if round_player_matches_tee(round_player, tee_key)
+        ]
+        finished_rounds = [rp for rp in round_players if rp.round.status == "finished"]
+        completed_round_totals = []
+        scores_by_par = {3: [], 4: [], 5: []}
+        gir_hits = 0
+        gir_attempts = 0
+
+        for round_player in round_players:
+            entries = [entry for entry in round_player.score_entries if entry.strokes is not None]
+            if round_player.round.status == "finished" and entries:
+                completed_round_totals.append(sum(entry.strokes for entry in entries))
+
+        round_player_ids = [round_player.id for round_player in round_players]
+        score_rows = []
+        stats_rows = []
+        if round_player_ids:
+            score_rows = (
+                ScoreEntry.query.join(RoundPlayer, ScoreEntry.round_player_id == RoundPlayer.id)
+                .join(Round, ScoreEntry.round_id == Round.id)
+                .join(
+                    CourseHole,
+                    (CourseHole.course_id == Round.course_id)
+                    & (CourseHole.hole_number == ScoreEntry.hole_number),
+                )
+                .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
+                .filter(Round.course_id == series.course_id)
+                .filter(RoundPlayer.id.in_(round_player_ids))
+                .filter(ScoreEntry.strokes.isnot(None))
+                .with_entities(
+                    ScoreEntry.strokes,
+                    CourseHole.par,
+                    ScoreStat.putts,
+                )
+                .all()
+            )
+
+            stats_rows = (
+                ScoreStat.query.join(ScoreEntry)
+                .join(RoundPlayer, ScoreEntry.round_player_id == RoundPlayer.id)
+                .filter(RoundPlayer.id.in_(round_player_ids))
+                .all()
+            )
+
+        for strokes, par, putts in score_rows:
+            if par in scores_by_par:
+                scores_by_par[par].append(strokes)
+            if putts is not None:
+                gir_attempts += 1
+                if strokes - putts <= par - 2:
+                    gir_hits += 1
+
+        drive_distances = [row.drive_distance_m for row in stats_rows if row.drive_distance_m is not None]
+        putts = [row.putts for row in stats_rows if row.putts is not None]
+        fairway_attempts = [
+            row for row in stats_rows
+            if row.drive_distance_m is not None and row.fairway_result in ("hit", "left", "right")
+        ]
+        fairway_hits = [row for row in fairway_attempts if row.fairway_result == "hit"]
+        fairway_left = [row for row in fairway_attempts if row.fairway_result == "left"]
+        fairway_right = [row for row in fairway_attempts if row.fairway_result == "right"]
+        summary = {
+            "rounds_played": len(round_players),
+            "finished_rounds": len(finished_rounds),
+            "avg_round_score": round(sum(completed_round_totals) / len(completed_round_totals), 1) if completed_round_totals else None,
+            "tracked_holes": len(stats_rows),
+            "avg_drive_distance": round(sum(drive_distances) / len(drive_distances), 1) if drive_distances else None,
+            "fairway_hit_percent": _percent(len(fairway_hits), len(fairway_attempts)),
+            "fairway_left_percent": _percent(len(fairway_left), len(fairway_attempts)),
+            "fairway_right_percent": _percent(len(fairway_right), len(fairway_attempts)),
+            "avg_putts": round(sum(putts) / len(putts), 2) if putts else None,
+            "avg_par_3": _avg(scores_by_par[3]),
+            "avg_par_4": _avg(scores_by_par[4]),
+            "avg_par_5": _avg(scores_by_par[5]),
+            "gir_percent": _percent(gir_hits, gir_attempts),
+        }
+
+        return render_template(
+            "balletour_profile.html",
+            series=series,
+            player=player,
+            round_players=round_players,
+            summary=summary,
+            tee_options=tee_filter_options(series.course),
+            selected_tee_key=tee_key,
+            display_name=_player_display_name,
             **_balletour_database_context(),
         )
 

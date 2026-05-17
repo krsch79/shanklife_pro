@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Min side - BalleTour2026{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Min side</h2>
+        <p class="muted">{{ display_name(player) }} · {{ series.name }}</p>
+    </div>
+    <div class="button-row compact">
+        <a class="button" href="{{ url_for('balletour.new_round') }}">Start ny BalleTour-runde</a>
+        <a class="button secondary" href="{{ url_for('profile.notification_settings') }}">E-postvarsler</a>
+        <a class="button secondary" href="{{ url_for('auth.change_password') }}">Endre passord</a>
+    </div>
+</div>
+
+<div class="tee-tabs">
+    <span class="tee-tabs-label">Tee</span>
+    {% for tee in tee_options %}
+    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('balletour.me', tee=tee.key) }}">{{ tee.label }}</a>
+    {% endfor %}
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card"><strong>{{ summary.rounds_played }}</strong><span>BalleTour-runder</span></div>
+    <div class="stat-card"><strong>{{ summary.finished_rounds }}</strong><span>Fullførte runder</span></div>
+    <div class="stat-card"><strong>{{ summary.avg_round_score if summary.avg_round_score is not none else "—" }}</strong><span>Snittscore</span></div>
+    <div class="stat-card"><strong>{% if summary.gir_percent is not none %}{{ summary.gir_percent }}%{% else %}—{% endif %}</strong><span>GIR</span></div>
+    <div class="stat-card"><strong>{{ summary.avg_drive_distance if summary.avg_drive_distance is not none else "—" }}</strong><span>Snitt utslag</span></div>
+    <div class="stat-card"><strong>{{ summary.avg_putts if summary.avg_putts is not none else "—" }}</strong><span>Snitt putter</span></div>
+    <div class="stat-card"><strong>{% if summary.fairway_hit_percent is not none %}{{ summary.fairway_hit_percent }}%{% else %}—{% endif %}</strong><span>Fairway</span></div>
+    <div class="stat-card"><strong>{{ summary.tracked_holes }}</strong><span>Hull med statistikk</span></div>
+</div>
+
+<h3>Mine BalleTour-runder</h3>
+{% if round_players %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Dato</th>
+                <th>Bane</th>
+                <th>Tee</th>
+                <th>Status</th>
+                <th>HCP</th>
+                <th>Score</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rp in round_players %}
+            {% set entries = rp.score_entries|selectattr("strokes", "ne", none)|list %}
+            <tr>
+                <td>{{ rp.round.started_at|datetime_local }}</td>
+                <td>{{ rp.round.course.name }}</td>
+                <td>{{ rp.selected_tee.name if rp.selected_tee else "—" }}</td>
+                <td>{{ "Fullført" if rp.round.status == "finished" else "Pågår" }}</td>
+                <td>{{ "%.1f"|format(rp.hcp_for_round) }}</td>
+                <td>{% if entries %}{{ entries|sum(attribute="strokes") }}{% else %}—{% endif %}</td>
+                <td>
+                    <a
+                        class="button secondary"
+                        href="{% if rp.round.status == 'ongoing' %}{{ url_for('rounds.continue_round', round_id=rp.round.id) }}{% else %}{{ url_for('rounds.round_score', round_id=rp.round.id) }}{% endif %}"
+                    >
+                        Åpne
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p>Ingen BalleTour-runder registrert ennå.</p>
+{% endif %}
+{% endblock %}

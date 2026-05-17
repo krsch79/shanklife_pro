@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from services.balletour import get_balletour_memberships
 from services.mailer import send_mail
@@ -17,13 +18,38 @@ def _balletour_users():
     return users
 
 
-def balletour_round_finished_recipients():
+def _selected_player_ids(user):
+    raw_value = (user.balletour_round_notification_player_ids or "").strip()
+    if not raw_value:
+        return set()
+    try:
+        values = json.loads(raw_value)
+    except json.JSONDecodeError:
+        return set()
+    return {int(value) for value in values if str(value).isdigit()}
+
+
+def _wants_round_notification_for(user, round_obj):
+    selected_player_ids = _selected_player_ids(user)
+    if not selected_player_ids:
+        return True
+
+    round_player_ids = {
+        round_player.player_id
+        for round_player in round_obj.round_players
+        if round_player.player_id
+    }
+    return bool(selected_player_ids & round_player_ids)
+
+
+def balletour_round_finished_recipients(round_obj):
     return [
         user
         for user in _balletour_users()
         if (user.email or "").strip()
         and user.email_notifications_enabled
         and user.notify_balletour_round_finished
+        and _wants_round_notification_for(user, round_obj)
     ]
 
 
@@ -37,9 +63,9 @@ def version_update_recipients():
     ]
 
 
-def send_balletour_round_finished_notifications(subject, body):
+def send_balletour_round_finished_notifications(round_obj, subject, body):
     sent = 0
-    for user in balletour_round_finished_recipients():
+    for user in balletour_round_finished_recipients(round_obj):
         if send_mail(subject, body, recipient=user.email):
             sent += 1
     return sent

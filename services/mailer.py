@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 DEFAULT_RECIPIENT = "kristian.schiander@gmail.com"
+DEFAULT_SENDER = "noreply@balletour.shanklife.no"
 LOG_PATH = Path(os.environ.get("SHANKLIFE_MAIL_LOG", "/tmp/shanklife_pro_mail.log"))
 
 
@@ -33,7 +34,7 @@ def _mail_config():
     host = os.environ.get("SMTP_HOST", "").strip()
     username = os.environ.get("SMTP_USERNAME", "").strip()
     password = os.environ.get("SMTP_PASSWORD", "").strip()
-    sender = os.environ.get("SMTP_FROM", "").strip() or username
+    sender = DEFAULT_SENDER
     recipient = os.environ.get("TASK_NOTIFY_EMAIL", "").strip() or DEFAULT_RECIPIENT
     port = int(os.environ.get("SMTP_PORT", "587"))
     use_tls = os.environ.get("SMTP_USE_TLS", "1").strip().lower() not in ("0", "false", "no")

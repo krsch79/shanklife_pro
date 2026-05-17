@@ -23,6 +23,28 @@
         <span>Fullførte BalleTour-runder</span>
     </label>
 
+    {% if balletour_memberships %}
+    <fieldset class="notification-player-filter">
+        <legend>Rundevarsler for spillere</legend>
+        <label class="checkbox-line">
+            <input type="radio" name="round_notification_mode" value="all" {% if round_notification_mode != "selected" %}checked{% endif %}>
+            <span>Alle spillere</span>
+        </label>
+        <label class="checkbox-line">
+            <input type="radio" name="round_notification_mode" value="selected" {% if round_notification_mode == "selected" %}checked{% endif %}>
+            <span>Velg spillere</span>
+        </label>
+        <div class="checkbox-grid">
+            {% for membership in balletour_memberships %}
+            <label class="checkbox-line">
+                <input type="checkbox" name="balletour_round_player_id" value="{{ membership.player_id }}" {% if membership.player_id in selected_player_ids %}checked{% endif %}>
+                <span>{{ membership.player.name }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+    {% endif %}
+
     <label class="checkbox-line">
         <input type="checkbox" name="notify_version_updates" value="1" {% if user.notify_version_updates %}checked{% endif %}>
         <span>Versjonsoppdateringer</span>

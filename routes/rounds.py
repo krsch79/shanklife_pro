@@ -558,6 +558,7 @@ def _send_balletour_round_finished_mail(round_obj):
     if not _is_balletour_round(round_obj):
         return
     send_balletour_round_finished_notifications(
+        round_obj,
         f"BalleTour-runde fullført: {round_obj.course.name}",
         _balletour_round_finished_mail_body(round_obj),
     )

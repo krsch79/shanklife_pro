@@ -6,7 +6,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
 from models import BalleTourInvitation, Player, SeriesPlayer, User
-from services.balletour import get_balletour_series
+from services.balletour import get_balletour_series, is_balletour_player
 from services.time import server_now
 
 auth_bp = Blueprint("auth", __name__)
@@ -30,6 +30,8 @@ def login_required(view):
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if g.get("current_user"):
+        if is_balletour_player(g.current_user):
+            return redirect(url_for("balletour.me"))
         return redirect(url_for("profile.me"))
 
     if request.method == "POST":
@@ -44,7 +46,8 @@ def login():
         session.clear()
         session["user_id"] = user.id
         flash("Du er logget inn.", "success")
-        return redirect(request.args.get("next") or url_for("profile.me"))
+        default_next = url_for("balletour.me") if is_balletour_player(user) else url_for("profile.me")
+        return redirect(request.args.get("next") or default_next)
 
     return render_template("login.html", username="")
 

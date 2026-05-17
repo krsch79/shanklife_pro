@@ -1390,6 +1390,25 @@ h2, h3 {
     width: auto;
 }
 
+.notification-player-filter {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin: 12px 0;
+}
+
+.notification-player-filter legend {
+    padding: 0 6px;
+    font-weight: 700;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 4px 12px;
+    margin-top: 8px;
+}
+
 label {
     display: block;
     margin: 10px 0 6px;

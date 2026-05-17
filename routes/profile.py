@@ -1,3 +1,4 @@
+import json
 from email.utils import parseaddr
 
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
@@ -5,6 +6,7 @@ from flask import Blueprint, flash, g, redirect, render_template, request, url_f
 from extensions import db
 from models import CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 from routes.auth import login_required
+from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
 from services.tee_filters import round_player_matches_tee, selected_tee_key, tee_filter_options
 
 profile_bp = Blueprint("profile", __name__)
@@ -25,6 +27,17 @@ def _avg(values):
 def _valid_email(value):
     parsed_name, parsed_email = parseaddr(value)
     return not parsed_name and parsed_email == value and "@" in parsed_email and "." in parsed_email.rsplit("@", 1)[-1]
+
+
+def _selected_balletour_notification_player_ids(user):
+    raw_value = (user.balletour_round_notification_player_ids or "").strip()
+    if not raw_value:
+        return set()
+    try:
+        values = json.loads(raw_value)
+    except json.JSONDecodeError:
+        return set()
+    return {int(value) for value in values if str(value).isdigit()}
 
 
 @profile_bp.route("/me")
@@ -155,20 +168,59 @@ def me():
 @login_required
 def notification_settings():
     user = g.current_user
+    balletour_memberships = get_balletour_memberships() if is_balletour_player(user) else []
+    selected_player_ids = _selected_balletour_notification_player_ids(user)
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         if email and (len(email) > 255 or not _valid_email(email)):
             flash("Skriv inn en gyldig e-postadresse.", "error")
-            return render_template("notification_settings.html", user=user)
+            return render_template(
+                "notification_settings.html",
+                user=user,
+                series=get_balletour_series(),
+                balletour_memberships=balletour_memberships,
+                selected_player_ids=selected_player_ids,
+                round_notification_mode=request.form.get("round_notification_mode", "all"),
+            )
 
         user.email = email or None
         user.email_notifications_enabled = request.form.get("email_notifications_enabled") == "1"
         user.notify_balletour_round_finished = request.form.get("notify_balletour_round_finished") == "1"
         user.notify_version_updates = request.form.get("notify_version_updates") == "1"
+        round_notification_mode = request.form.get("round_notification_mode", "all")
+        if round_notification_mode == "selected":
+            allowed_player_ids = {membership.player_id for membership in balletour_memberships}
+            selected_ids = []
+            for raw_player_id in request.form.getlist("balletour_round_player_id"):
+                if not raw_player_id.isdigit():
+                    continue
+                player_id = int(raw_player_id)
+                if player_id in allowed_player_ids:
+                    selected_ids.append(player_id)
+            if not selected_ids:
+                flash("Velg minst én BalleTour-spiller, eller velg alle spillere.", "error")
+                return render_template(
+                    "notification_settings.html",
+                    user=user,
+                    series=get_balletour_series(),
+                    balletour_memberships=balletour_memberships,
+                    selected_player_ids=set(),
+                    round_notification_mode="selected",
+                )
+            user.balletour_round_notification_player_ids = json.dumps(sorted(set(selected_ids)))
+        else:
+            user.balletour_round_notification_player_ids = None
         db.session.commit()
 
         flash("E-post og varselvalg er lagret.", "success")
         return redirect(url_for("profile.notification_settings"))
 
-    return render_template("notification_settings.html", user=user)
+    return render_template(
+        "notification_settings.html",
+        user=user,
+        series=get_balletour_series(),
+        balletour_memberships=balletour_memberships,
+        selected_player_ids=selected_player_ids,
+        round_notification_mode="selected" if selected_player_ids else "all",
+    )
