@@ -82,6 +82,12 @@
                 </div>
             {% endif %}
         {% endwith %}
+        {% if current_user_missing_balletour_email and request.endpoint != "profile.notification_settings" %}
+        <div class="flash flash-warning">
+            Du mangler registrert e-postadresse for BalleTour-varsler.
+            <a href="{{ url_for('profile.notification_settings') }}">Legg inn e-post og varselvalg</a>.
+        </div>
+        {% endif %}
 
         {% block content %}{% endblock %}
     </main>

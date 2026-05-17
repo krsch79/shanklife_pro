@@ -1,5 +1,8 @@
-from flask import Blueprint, g, render_template, request
+from email.utils import parseaddr
 
+from flask import Blueprint, flash, g, redirect, render_template, request, url_for
+
+from extensions import db
 from models import CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 from routes.auth import login_required
 from services.tee_filters import round_player_matches_tee, selected_tee_key, tee_filter_options
@@ -17,6 +20,11 @@ def _avg(values):
     if not values:
         return None
     return round(sum(values) / len(values), 2)
+
+
+def _valid_email(value):
+    parsed_name, parsed_email = parseaddr(value)
+    return not parsed_name and parsed_email == value and "@" in parsed_email and "." in parsed_email.rsplit("@", 1)[-1]
 
 
 @profile_bp.route("/me")
@@ -141,3 +149,26 @@ def me():
         tee_options=tee_filter_options(),
         selected_tee_key=tee_key,
     )
+
+
+@profile_bp.route("/me/notifications", methods=["GET", "POST"])
+@login_required
+def notification_settings():
+    user = g.current_user
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if email and (len(email) > 255 or not _valid_email(email)):
+            flash("Skriv inn en gyldig e-postadresse.", "error")
+            return render_template("notification_settings.html", user=user)
+
+        user.email = email or None
+        user.email_notifications_enabled = request.form.get("email_notifications_enabled") == "1"
+        user.notify_balletour_round_finished = request.form.get("notify_balletour_round_finished") == "1"
+        user.notify_version_updates = request.form.get("notify_version_updates") == "1"
+        db.session.commit()
+
+        flash("E-post og varselvalg er lagret.", "success")
+        return redirect(url_for("profile.notification_settings"))
+
+    return render_template("notification_settings.html", user=user)

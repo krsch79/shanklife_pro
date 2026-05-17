@@ -1374,6 +1374,22 @@ h2, h3 {
     border-color: var(--flash-error-border);
 }
 
+.flash-warning {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+
+.checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.checkbox-line input {
+    width: auto;
+}
+
 label {
     display: block;
     margin: 10px 0 6px;

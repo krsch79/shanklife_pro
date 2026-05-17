@@ -23,8 +23,8 @@ from models import (
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
 from services.balletour import get_balletour_memberships, get_balletour_series
-from services.mailer import send_mail
-from services.time import server_now
+from services.time import format_server_datetime, server_now
+from services.user_notifications import send_balletour_round_finished_notifications
 from services.weather import summarize_weather_payload
 
 rounds_bp = Blueprint("rounds", __name__)
@@ -557,17 +557,48 @@ def _balletour_round_summary(round_obj):
 def _send_balletour_round_finished_mail(round_obj):
     if not _is_balletour_round(round_obj):
         return
-    send_mail(
+    send_balletour_round_finished_notifications(
         f"BalleTour-runde fullført: {round_obj.course.name}",
-        (
-            "En BalleTour-runde er fullført.\n\n"
-            f"Runde: #{round_obj.id}\n"
-            f"Bane: {round_obj.course.name}\n"
-            f"Fullført: {round_obj.finished_at.strftime('%d.%m.%Y %H:%M') if round_obj.finished_at else '-'}\n\n"
-            "Score:\n"
-            f"{_balletour_round_summary(round_obj)}"
-        ),
+        _balletour_round_finished_mail_body(round_obj),
     )
+
+
+def _balletour_round_finished_mail_body(round_obj):
+    return (
+        "En BalleTour-runde er fullført.\n\n"
+        f"Runde: #{round_obj.id}\n"
+        f"Bane: {round_obj.course.name}\n"
+        f"Start: {format_server_datetime(round_obj.started_at)}\n"
+        f"Slutt: {format_server_datetime(round_obj.finished_at)}\n"
+        f"Vær: {_round_weather_summary(round_obj)}\n\n"
+        "Score:\n"
+        f"{_balletour_round_summary(round_obj)}\n\n"
+        "Scorekort:\n"
+        f"{_balletour_round_scorecard_text(round_obj)}"
+    )
+
+
+def _balletour_round_scorecard_text(round_obj):
+    scorecard = _balletour_round_scorecard(round_obj)
+    holes = scorecard["holes"]
+    header = ["Spiller"] + [str(hole.hole_number) for hole in holes] + ["Tot"]
+    par_row = ["Par"] + [str(hole.par) for hole in holes] + [str(sum(hole.par for hole in holes))]
+    rows = [header, par_row]
+
+    for row in scorecard["rows"]:
+        rows.append(
+            [row["player_name"]]
+            + [str(cell["score"]) if cell["score"] is not None else "-" for cell in row["cells"]]
+            + [str(row["total"]) if row["total"] is not None else "-"]
+        )
+
+    widths = [max(len(item[index]) for item in rows) for index in range(len(header))]
+    lines = []
+    for row_index, row in enumerate(rows):
+        lines.append("  ".join(value.ljust(widths[index]) for index, value in enumerate(row)))
+        if row_index == 1:
+            lines.append("  ".join("-" * width for width in widths))
+    return "\n".join(lines)
 
 
 def _score_shape_class(score, par):

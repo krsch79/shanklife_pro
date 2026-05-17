@@ -49,6 +49,9 @@ nohup ./run.sh > "$LOG_FILE" 2>&1 < /dev/null &
 sleep 3
 ps -ef | grep "/tmp/shanklife_pro_venv/bin/python app.py" | grep -v grep
 
+echo "Sender eventuelle versjonsvarsler..."
+"$PYTHON_BIN" scripts/send_version_update_notifications.py
+
 echo "Tar Shanklife Pro ut av vedlikeholdsmodus..."
 disable_maintenance
 

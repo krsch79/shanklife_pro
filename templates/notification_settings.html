@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}E-postvarsler - Shanklife scoring{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>E-postvarsler</h2>
+        <p class="muted">Velg hvilke BalleTour-varsler du vil motta.</p>
+    </div>
+</div>
+
+<form method="post" class="form-card narrow-form">
+    <label for="email">E-postadresse</label>
+    <input type="email" id="email" name="email" value="{{ user.email or '' }}" maxlength="255" autocomplete="email">
+
+    <label class="checkbox-line">
+        <input type="checkbox" name="email_notifications_enabled" value="1" {% if user.email_notifications_enabled %}checked{% endif %}>
+        <span>Send e-postvarsler til meg</span>
+    </label>
+
+    <label class="checkbox-line">
+        <input type="checkbox" name="notify_balletour_round_finished" value="1" {% if user.notify_balletour_round_finished %}checked{% endif %}>
+        <span>Fullførte BalleTour-runder</span>
+    </label>
+
+    <label class="checkbox-line">
+        <input type="checkbox" name="notify_version_updates" value="1" {% if user.notify_version_updates %}checked{% endif %}>
+        <span>Versjonsoppdateringer</span>
+    </label>
+
+    <div class="button-row">
+        <button type="submit" class="button">Lagre varsler</button>
+        <a class="button secondary" href="{{ url_for('profile.me') }}">Tilbake</a>
+    </div>
+</form>
+{% endblock %}

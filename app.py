@@ -83,6 +83,22 @@ def ensure_schema_updates(app):
 
         if "users" in table_names:
             add_column_if_missing("users", "is_admin", "is_admin BOOLEAN DEFAULT 0 NOT NULL")
+            add_column_if_missing("users", "email", "email VARCHAR(255)")
+            add_column_if_missing(
+                "users",
+                "email_notifications_enabled",
+                "email_notifications_enabled BOOLEAN DEFAULT 1 NOT NULL",
+            )
+            add_column_if_missing(
+                "users",
+                "notify_balletour_round_finished",
+                "notify_balletour_round_finished BOOLEAN DEFAULT 1 NOT NULL",
+            )
+            add_column_if_missing(
+                "users",
+                "notify_version_updates",
+                "notify_version_updates BOOLEAN DEFAULT 0 NOT NULL",
+            )
 
 
 def seed_initial_user(app):
@@ -182,6 +198,11 @@ def create_app():
         return {
             "current_user": current_user,
             "current_user_is_balletour_player": is_balletour_player(current_user),
+            "current_user_missing_balletour_email": (
+                bool(current_user)
+                and is_balletour_player(current_user)
+                and not (current_user.email or "").strip()
+            ),
         }
 
     app.register_blueprint(main_bp)

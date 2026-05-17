@@ -2,6 +2,12 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.18] - 2026-05-17
+- Lar BalleTour-brukere lagre e-postadresse og velge hvilke e-postvarsler de vil motta.
+- Viser BalleTour-brukere uten registrert e-post en påminnelse med lenke til varselinnstillingene etter innlogging.
+- Sender fullført BalleTour-runde til brukere som har valgt rundevarsler, med starttid, sluttid, væroppsummering, totalscore og fullt scorekort.
+- Legger til valgfri e-post ved versjonsoppdateringer og sender versjonsvarsel én gang per deployet versjon.
+
 ## [1.8.17] - 2026-05-15
 - Viser Admin i toppmenyen også på BalleTour-sider for innloggede administratorer.
 - Gjør admin-rollen dynamisk slik at administratorer kan gi og fjerne admin-tilgang for registrerte brukere, uten at Kristian tvinges til admin ved hver oppstart.

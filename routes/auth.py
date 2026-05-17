@@ -123,6 +123,7 @@ def accept_balletour_invitation(token):
             password_hash=generate_password_hash(password),
             player_id=player.id,
             is_admin=False,
+            email=invitation.email,
         )
         db.session.add(user)
         db.session.flush()

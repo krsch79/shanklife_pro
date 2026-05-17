@@ -31,6 +31,10 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     player_id = db.Column(db.Integer, db.ForeignKey("players.id"), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    email = db.Column(db.String(255), nullable=True)
+    email_notifications_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    notify_balletour_round_finished = db.Column(db.Boolean, nullable=False, default=True)
+    notify_version_updates = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
     player = db.relationship("Player", back_populates="user_accounts")
