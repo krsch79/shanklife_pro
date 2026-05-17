@@ -74,7 +74,7 @@ def send_mail(subject, body, *, recipient=None):
                 smtp.starttls()
             if config["username"] or config["password"]:
                 smtp.login(config["username"], config["password"])
-            smtp.send_message(message)
+            smtp.send_message(message, from_addr=config["sender"], to_addrs=[target])
     except Exception as exc:
         _log(f"Mail feilet: {exc}. Subject: {subject}")
         return False
@@ -94,7 +94,7 @@ def _send_with_sendmail(subject, body, sender, target):
     message.set_content(body)
     try:
         subprocess.run(
-            ["sendmail", "-t", "-oi"],
+            ["sendmail", "-f", sender, "-t", "-oi"],
             input=message.as_string(),
             text=True,
             check=True,

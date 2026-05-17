@@ -23,20 +23,13 @@
 </div>
 
 <div class="stat-grid">
-    <div class="stat-card"><strong>{{ round_count }}</strong><span>Runder totalt</span></div>
     <div class="stat-card"><strong>{{ finished_round_count }}</strong><span>Fullførte runder</span></div>
-    <div class="stat-card"><strong>{{ memberships|length }}</strong><span>BalleTour-spillere</span></div>
+    <div class="stat-card"><strong>{{ ongoing_round_count }}</strong><span>Pågående runder</span></div>
+    <div class="stat-card"><strong>{{ score_type_totals.birdies }}</strong><span>Birdies</span></div>
+    <div class="stat-card"><strong>{{ score_type_totals.pars }}</strong><span>Par</span></div>
+    <div class="stat-card"><strong>{{ score_type_totals.bogeys }}</strong><span>Bogeys</span></div>
+    <div class="stat-card"><strong>{{ score_type_totals.double_bogeys_or_worse }}</strong><span>Dobbelbogeys+</span></div>
 </div>
-
-{% if current_user and current_user.is_admin %}
-<form method="post" class="form-card compact-filter-form">
-    <label for="min_qualifying_rounds">Minimum tellende runder</label>
-    <div class="button-row compact">
-        <input type="number" id="min_qualifying_rounds" name="min_qualifying_rounds" min="1" max="200" value="{{ series.min_qualifying_rounds }}" required>
-        <button type="submit" class="button secondary">Lagre</button>
-    </div>
-</form>
-{% endif %}
 
 <h3>Leaderboard</h3>
 <div class="table-wrap">
@@ -49,7 +42,6 @@
                 <th>Totalt</th>
                 <th>Snitt</th>
                 <th>Beste runde</th>
-                <th>Status</th>
             </tr>
         </thead>
         <tbody>
@@ -65,11 +57,10 @@
                 <td>{{ row.total_vs_par_display }}</td>
                 <td>{{ row.avg_round if row.avg_round is not none else "-" }}</td>
                 <td>{{ row.best_round if row.best_round is not none else "-" }}</td>
-                <td>{{ "Tellende" if row.qualified else "Mangler runder" }}</td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="7" class="muted">Ingen BalleTour-spillere funnet.</td>
+                <td colspan="6" class="muted">Ingen BalleTour-spillere funnet.</td>
             </tr>
             {% endfor %}
         </tbody>

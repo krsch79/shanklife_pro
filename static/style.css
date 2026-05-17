@@ -944,20 +944,31 @@ nav a {
     margin-top: 10px;
 }
 
+.best-hole-table {
+    table-layout: fixed;
+}
+
 .best-hole-table th,
 .best-hole-table td {
     text-align: center;
+    width: 38px;
+    min-width: 38px;
+    max-width: 38px;
+    padding-left: 3px;
+    padding-right: 3px;
 }
 
 .best-hole-table th:first-child,
 .best-hole-table td:first-child {
+    width: 92px;
+    min-width: 92px;
+    max-width: 92px;
     text-align: left;
     font-weight: 700;
 }
 
 .best-hole-table .score-shape {
-    min-width: 30px;
-    min-height: 30px;
+    --score-shape-size: 30px;
     background: transparent;
 }
 
@@ -991,12 +1002,16 @@ nav a {
 
 .balletour-compact-scorecard {
     min-width: 620px;
+    table-layout: fixed;
 }
 
 .balletour-compact-scorecard th,
 .balletour-compact-scorecard td {
     text-align: center;
-    padding: 6px;
+    width: 38px;
+    min-width: 38px;
+    max-width: 38px;
+    padding: 6px 3px;
 }
 
 .balletour-compact-scorecard th:first-child,
@@ -1004,7 +1019,9 @@ nav a {
     position: sticky;
     left: 0;
     z-index: 1;
+    width: 120px;
     min-width: 120px;
+    max-width: 120px;
     text-align: left;
     background: var(--card);
     font-weight: 700;
@@ -1016,8 +1033,7 @@ nav a {
 }
 
 .balletour-compact-scorecard .score-shape {
-    min-width: 28px;
-    min-height: 28px;
+    --score-shape-size: 28px;
     background: transparent;
 }
 
@@ -1893,12 +1909,15 @@ th {
 .leaderboard-hole-grid {
     width: max-content;
     min-width: 100%;
+    table-layout: fixed;
 }
 
 .leaderboard-hole-grid th,
 .leaderboard-hole-grid td {
     text-align: center;
+    width: 52px;
     min-width: 52px;
+    max-width: 52px;
     white-space: nowrap;
 }
 
@@ -1908,7 +1927,9 @@ th {
     left: 0;
     z-index: 1;
     background: #eef2f7;
+    width: 72px;
     min-width: 72px;
+    max-width: 72px;
 }
 
 .leaderboard-hole-grid tbody td:first-child {
@@ -1919,27 +1940,29 @@ th {
 .leaderboard-hole-grid .summary-cell {
     background: #eefcf9;
     font-weight: 700;
+    width: 56px;
     min-width: 56px;
+    max-width: 56px;
 }
 
 .score-shape {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 34px;
-    min-height: 34px;
-    padding: 4px;
+    width: var(--score-shape-size, 34px);
+    min-width: var(--score-shape-size, 34px);
+    height: var(--score-shape-size, 34px);
+    min-height: var(--score-shape-size, 34px);
+    padding: 0;
     font-weight: 700;
     color: var(--text);
     position: relative;
     background: #fff;
+    line-height: 1;
 }
 
 .score-shape.plain {
     border: none;
-    min-width: auto;
-    min-height: auto;
-    padding: 0;
 }
 
 .score-shape.circle {
@@ -2120,19 +2143,22 @@ th {
 
     .leaderboard-hole-grid th,
     .leaderboard-hole-grid td {
+        width: 32px;
         min-width: 32px;
+        max-width: 32px;
         font-size: 0.75rem;
         padding: 4px 2px;
     }
 
     .leaderboard-hole-grid th:first-child,
     .leaderboard-hole-grid td:first-child {
+        width: 56px;
         min-width: 56px;
+        max-width: 56px;
     }
 
     .score-shape {
-        min-width: 28px;
-        min-height: 28px;
+        --score-shape-size: 28px;
         font-size: 0.9rem;
     }
 

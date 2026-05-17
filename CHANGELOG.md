@@ -2,6 +2,13 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.21] - 2026-05-17
+- Viser fullførte og pågående BalleTour-runder på forsiden, sammen med totalantall birdies, par, bogeys og dobbelbogeys eller verre for valgt tee.
+- Fjerner BalleTour-spillere-statistikken og Status-kolonnen fra BalleTour-forsiden.
+- Flytter adminvalget for minimum tellende BalleTour-runder fra forsiden til admin-siden.
+- Setter både e-postheader og faktisk SMTP/sendmail-avsender til noreply@balletour.shanklife.no.
+- Gjør BalleTour-scorekortkolonner faste, slik at sirkel- og firkantmarkeringer ikke endrer kolonnebredde på mobil.
+
 ## [1.8.20] - 2026-05-17
 - Flytter knappen for BalleTour default-køller fra Køllestatistikk til Min side.
 - Fjerner Start ny BalleTour-runde fra Min side, slik at siden fokuserer på spillerens egne innstillinger og runder.

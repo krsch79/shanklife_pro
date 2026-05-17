@@ -190,8 +190,34 @@ def admin_home():
         pending_balletour_invitations=BalleTourInvitation.query.filter_by(accepted_at=None)
         .order_by(BalleTourInvitation.created_at.desc())
         .all(),
+        balletour_series=get_balletour_series(),
         users=User.query.order_by(User.username.asc()).all(),
     )
+
+
+@admin_bp.route("/admin/balletour-settings", methods=["POST"])
+@admin_required
+def update_balletour_settings():
+    series = get_balletour_series()
+    if not series:
+        flash("Fant ikke BalleTour-serien.", "error")
+        return redirect(url_for("admin.admin_home"))
+
+    raw_min_rounds = request.form.get("min_qualifying_rounds", "").strip()
+    try:
+        min_rounds = int(raw_min_rounds)
+    except ValueError:
+        flash("Minimum runder må være et heltall.", "error")
+        return redirect(url_for("admin.admin_home"))
+
+    if min_rounds < 1 or min_rounds > 200:
+        flash("Minimum runder må være mellom 1 og 200.", "error")
+        return redirect(url_for("admin.admin_home"))
+
+    series.min_qualifying_rounds = min_rounds
+    db.session.commit()
+    flash("Minimum tellende BalleTour-runder er oppdatert.", "success")
+    return redirect(url_for("admin.admin_home"))
 
 
 @admin_bp.route("/admin/balletour-invitations", methods=["POST"])

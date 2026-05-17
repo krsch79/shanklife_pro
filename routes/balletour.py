@@ -801,47 +801,69 @@ def _round_score_card(round_obj, tee_key=None):
     }
 
 
-@balletour_bp.route("/", methods=["GET", "POST"])
+def _balletour_score_type_totals(series, tee_ids=None):
+    rows = (
+        db.session.query(ScoreEntry.strokes, CourseHole.par)
+        .join(RoundPlayer, ScoreEntry.round_player_id == RoundPlayer.id)
+        .join(Round, ScoreEntry.round_id == Round.id)
+        .join(
+            CourseHole,
+            (CourseHole.course_id == Round.course_id)
+            & (CourseHole.hole_number == ScoreEntry.hole_number),
+        )
+        .filter(Round.course_id == series.course_id)
+        .filter(Round.status == "finished")
+        .filter(ScoreEntry.strokes.isnot(None))
+    )
+    if tee_ids:
+        rows = rows.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+
+    totals = {
+        "birdies": 0,
+        "pars": 0,
+        "bogeys": 0,
+        "double_bogeys_or_worse": 0,
+    }
+    for strokes, par in rows.all():
+        diff = strokes - par
+        if diff == -1:
+            totals["birdies"] += 1
+        elif diff == 0:
+            totals["pars"] += 1
+        elif diff == 1:
+            totals["bogeys"] += 1
+        elif diff >= 2:
+            totals["double_bogeys_or_worse"] += 1
+    return totals
+
+
+@balletour_bp.route("/")
 @login_required
 def index():
     _require_balletour_player()
     with balletour_data_context():
         series = _balletour_or_404()
-        if request.method == "POST":
-            if not g.current_user.is_admin:
-                abort(403)
-            raw_min_rounds = request.form.get("min_qualifying_rounds", "").strip()
-            try:
-                min_rounds = int(raw_min_rounds)
-            except ValueError:
-                flash("Minimum runder må være et heltall.", "error")
-                return redirect(url_for("balletour.index"))
-            if min_rounds < 1 or min_rounds > 200:
-                flash("Minimum runder må være mellom 1 og 200.", "error")
-                return redirect(url_for("balletour.index"))
-            series.min_qualifying_rounds = min_rounds
-            db.session.commit()
-            flash("Minimum tellende runder er oppdatert.", "success")
-            return redirect(url_for("balletour.index"))
-
         memberships = get_balletour_memberships()
         tee_key = selected_tee_key(request.args.get("tee"))
         tee_ids = tee_ids_for_key(series.course, tee_key)
         round_query = Round.query.join(RoundPlayer).filter(Round.course_id == series.course_id)
         finished_round_query = round_query.filter(Round.status == "finished")
+        ongoing_round_query = round_query.filter(Round.status == "ongoing")
         if tee_ids:
             round_query = round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
             finished_round_query = finished_round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
-        round_count = round_query.distinct().count()
+            ongoing_round_query = ongoing_round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
         finished_round_count = finished_round_query.distinct().count()
+        ongoing_round_count = ongoing_round_query.distinct().count()
         best_hole_score_table = _best_hole_score_table(series, memberships, tee_ids)
         leaderboard_rows = _balletour_leaderboard_rows(series, memberships, tee_ids)
         return render_template(
             "balletour_index.html",
             series=series,
             memberships=memberships,
-            round_count=round_count,
             finished_round_count=finished_round_count,
+            ongoing_round_count=ongoing_round_count,
+            score_type_totals=_balletour_score_type_totals(series, tee_ids),
             best_hole_score_table=best_hole_score_table,
             leaderboard_rows=leaderboard_rows,
             tee_options=tee_filter_options(series.course),

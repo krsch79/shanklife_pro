@@ -73,6 +73,23 @@
         </div>
     </form>
 
+    <form method="post" action="{{ url_for('admin.update_balletour_settings') }}" class="form-card">
+        <h3>BalleTour-innstillinger</h3>
+        <label for="min_qualifying_rounds">Minimum tellende runder</label>
+        <input
+            type="number"
+            id="min_qualifying_rounds"
+            name="min_qualifying_rounds"
+            min="1"
+            max="200"
+            value="{{ balletour_series.min_qualifying_rounds if balletour_series else 20 }}"
+            required
+        >
+        <div class="button-row">
+            <button type="submit" class="button" {% if not balletour_series %}disabled{% endif %}>Lagre BalleTour-innstillinger</button>
+        </div>
+    </form>
+
     <form method="post" action="{{ url_for('admin.delete_balletour_testdata') }}" class="form-card" onsubmit="return confirm('Dette sletter kun den separate BalleTour-testdatabasen. Prod-databasen endres ikke. Fortsette?');">
         <h3>Slett BalleTour-testdatabase</h3>
         <p class="muted">Fjerner bare testdatabasen. Alle ekte runder i prod blir liggende urørt.</p>
