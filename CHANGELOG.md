@@ -2,6 +2,12 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.20] - 2026-05-17
+- Flytter knappen for BalleTour default-køller fra Køllestatistikk til Min side.
+- Fjerner Start ny BalleTour-runde fra Min side, slik at siden fokuserer på spillerens egne innstillinger og runder.
+- Rydder BalleTour-forsiden ved å fjerne kortknappene for Spillere, Statistikk og Samlet statistikk.
+- Skjuler Tellende grense som forsidestatistikk og lar administratorer endre minimum tellende runder direkte fra BalleTour-forsiden.
+
 ## [1.8.19] - 2026-05-17
 - Gjør Min side BalleTour-spesifikk for BalleTour-brukere og legger lenken i BalleTour-toppmenyen.
 - Lar brukere velge om rundevarsler skal gjelde alle BalleTour-spillere eller bare valgte spillere.

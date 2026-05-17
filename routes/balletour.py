@@ -801,12 +801,29 @@ def _round_score_card(round_obj, tee_key=None):
     }
 
 
-@balletour_bp.route("/")
+@balletour_bp.route("/", methods=["GET", "POST"])
 @login_required
 def index():
     _require_balletour_player()
     with balletour_data_context():
         series = _balletour_or_404()
+        if request.method == "POST":
+            if not g.current_user.is_admin:
+                abort(403)
+            raw_min_rounds = request.form.get("min_qualifying_rounds", "").strip()
+            try:
+                min_rounds = int(raw_min_rounds)
+            except ValueError:
+                flash("Minimum runder må være et heltall.", "error")
+                return redirect(url_for("balletour.index"))
+            if min_rounds < 1 or min_rounds > 200:
+                flash("Minimum runder må være mellom 1 og 200.", "error")
+                return redirect(url_for("balletour.index"))
+            series.min_qualifying_rounds = min_rounds
+            db.session.commit()
+            flash("Minimum tellende runder er oppdatert.", "success")
+            return redirect(url_for("balletour.index"))
+
         memberships = get_balletour_memberships()
         tee_key = selected_tee_key(request.args.get("tee"))
         tee_ids = tee_ids_for_key(series.course, tee_key)

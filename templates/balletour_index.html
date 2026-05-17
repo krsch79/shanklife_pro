@@ -26,23 +26,17 @@
     <div class="stat-card"><strong>{{ round_count }}</strong><span>Runder totalt</span></div>
     <div class="stat-card"><strong>{{ finished_round_count }}</strong><span>Fullførte runder</span></div>
     <div class="stat-card"><strong>{{ memberships|length }}</strong><span>BalleTour-spillere</span></div>
-    <div class="stat-card"><strong>{{ series.min_qualifying_rounds }}</strong><span>Tellende grense</span></div>
 </div>
 
-<div class="card-grid">
-    <a class="card-link" href="{{ url_for('balletour.stats', tee=selected_tee_key) }}">
-        <h3>Statistikk</h3>
-        <p>Spillerkort, greenkart og nøkkeltall.</p>
-    </a>
-    <a class="card-link" href="{{ url_for('balletour.all_stats', tee=selected_tee_key) }}">
-        <h3>Samlet statistikk</h3>
-        <p>Sammenlign alle BalleTour-spillere i én tabell.</p>
-    </a>
-    <a class="card-link" href="{{ url_for('balletour.players') }}">
-        <h3>Spillere</h3>
-        <p>Registrerte BalleTour-spillere og brukere.</p>
-    </a>
-</div>
+{% if current_user and current_user.is_admin %}
+<form method="post" class="form-card compact-filter-form">
+    <label for="min_qualifying_rounds">Minimum tellende runder</label>
+    <div class="button-row compact">
+        <input type="number" id="min_qualifying_rounds" name="min_qualifying_rounds" min="1" max="200" value="{{ series.min_qualifying_rounds }}" required>
+        <button type="submit" class="button secondary">Lagre</button>
+    </div>
+</form>
+{% endif %}
 
 <h3>Leaderboard</h3>
 <div class="table-wrap">

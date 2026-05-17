@@ -7,14 +7,6 @@
         <h2>{{ series.name }}: Køllestatistikk</h2>
         <p class="muted">Snittscore per kølle per hull</p>
     </div>
-    {% if selected_player %}
-    <a
-        class="button secondary"
-        href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee_key, player_id=selected_player.id, edit_defaults=1) }}#default-clubs"
-    >
-        Default-køller
-    </a>
-    {% endif %}
 </div>
 
 <div class="tee-tabs">

@@ -8,7 +8,7 @@
         <p class="muted">{{ display_name(player) }} · {{ series.name }}</p>
     </div>
     <div class="button-row compact">
-        <a class="button" href="{{ url_for('balletour.new_round') }}">Start ny BalleTour-runde</a>
+        <a class="button" href="{{ url_for('series.club_stats', series_id=series.id, tee=selected_tee_key, player_id=player.id, edit_defaults=1) }}#default-clubs">Default-køller</a>
         <a class="button secondary" href="{{ url_for('profile.notification_settings') }}">E-postvarsler</a>
         <a class="button secondary" href="{{ url_for('auth.change_password') }}">Endre passord</a>
     </div>
