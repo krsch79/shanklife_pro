@@ -109,6 +109,7 @@ def ensure_schema_updates(app):
             add_column_if_missing("users", "golfbox_player_name", "golfbox_player_name VARCHAR(255)")
             add_column_if_missing("users", "golfbox_home_club_name", "golfbox_home_club_name VARCHAR(255)")
             add_column_if_missing("users", "golfbox_member_number", "golfbox_member_number VARCHAR(50)")
+            add_column_if_missing("users", "golfbox_memberships_json", "golfbox_memberships_json TEXT")
             add_column_if_missing("users", "golfbox_credentials_updated_at", "golfbox_credentials_updated_at DATETIME")
 
             defaults_marker = Path(app.instance_path) / "email_notification_defaults_v2.lock"

@@ -49,6 +49,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Tid</th>
+                                                <th>Dato</th>
                                                 <th>Ledige plasser</th>
                                                 <th>Bane</th>
                                             </tr>
@@ -57,6 +58,7 @@
                                             {% for slot in result.available_slots %}
                                             <tr>
                                                 <td>{{ slot.time }}</td>
+                                                <td>{{ slot.date }}</td>
                                                 <td>{{ slot.available_spots }}</td>
                                                 <td>{{ slot.course }}</td>
                                             </tr>
@@ -79,6 +81,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Tid</th>
+                                                <th>Dato</th>
                                                 <th>Ledige plasser</th>
                                                 <th>Bane</th>
                                             </tr>
@@ -87,6 +90,7 @@
                                             {% for slot in result.available_slots %}
                                             <tr>
                                                 <td>{{ slot.time }}</td>
+                                                <td>{{ slot.date }}</td>
                                                 <td>{{ slot.available_spots }}</td>
                                                 <td>{{ slot.course }}</td>
                                             </tr>

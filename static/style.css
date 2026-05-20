@@ -1497,6 +1497,8 @@ th {
 .golfbox-chat-shell {
     display: grid;
     gap: 12px;
+    min-height: calc(100vh - 170px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .golfbox-connection-card {
@@ -1518,7 +1520,10 @@ th {
 
 .golfbox-chat-log {
     display: grid;
+    align-content: end;
     gap: 12px;
+    min-height: 0;
+    padding-bottom: 4px;
 }
 
 .chat-message {
@@ -1556,12 +1561,16 @@ th {
 }
 
 .golfbox-chat-form {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
     display: grid;
     gap: 8px;
     padding: 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--card);
+    box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.08);
 }
 
 .golfbox-chat-form textarea {
@@ -1615,6 +1624,22 @@ th {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     align-items: end;
     gap: 10px;
+}
+
+.membership-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 12px;
+}
+
+.membership-list span {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #f8fafc;
+    color: var(--muted);
+    font-size: 0.88rem;
 }
 
 .player-slots {

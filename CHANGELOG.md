@@ -2,6 +2,14 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.28] - 2026-05-20
+- Bytter GolfBox AI til OpenAI-basert tolkning av spørsmål, med strukturert intent, baner, dato, tidsrom, spillere og spillernavn.
+- Låser meldingsfeltet nederst på GolfBox AI-siden, slik at nye svar vises rett over feltet mens man skroller.
+- Lagrer GolfBox-medlemskap og medlemsnummer per bruker når GolfBox kobles til på Min side.
+- Lar GolfBox AI søke etter ledige starttider på flere baner samtidig, inkludert baner i Oslo-området.
+- Viser dato på hver ledige starttid og sorterer resultatene stigende etter dato og klokkeslett.
+- Klargjør Ballerud-booking for inntil fire spillere når medspillernes lagrede GolfBox-medlemsnummer finnes.
+
 ## [1.8.27] - 2026-05-20
 - Lar innloggede brukere lagre egne GolfBox-detaljer på Min side og bruker disse i GolfBox AI.
 - Viser hvilken GolfBox-klubb og hvilket medlemsnummer BalleTour AI er koblet til.

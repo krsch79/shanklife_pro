@@ -1,11 +1,13 @@
 import base64
 import html
+import json
 import os
 import re
 from datetime import date, datetime
 
 import httpx
 from flask import current_app
+from openai import OpenAI
 
 from services.time import server_now
 
@@ -17,6 +19,16 @@ GOLFBOX_REQUIRED_ENV = ("GOLFBOX_USERNAME", "GOLFBOX_PASSWORD")
 GOLFBOX_BASE_URL = "https://www.golfbox.no"
 BALLERUD_CLUB_GUID = "{FD174477-19BD-4120-BD4F-DF422371C961}"
 BALLERUD_RESSOURCE_GUID = "{82966715-948D-41EB-BCAB-3F7458EDB82E}"
+OSLO_AREA_COURSES = [
+    "Ballerud",
+    "Oslo",
+    "Haga",
+    "Bærum",
+    "Grini",
+    "Asker",
+    "Oppegård",
+    "Drøbak",
+]
 
 
 def _secret_bytes():
@@ -48,6 +60,7 @@ def user_has_golfbox_credentials(user):
 
 
 def golfbox_connection_summary(user):
+    memberships = _user_memberships(user)
     if not user_has_golfbox_credentials(user):
         return {
             "connected": False,
@@ -55,6 +68,7 @@ def golfbox_connection_summary(user):
             "club_name": None,
             "member_number": None,
             "username": None,
+            "memberships": [],
         }
     return {
         "connected": True,
@@ -62,6 +76,7 @@ def golfbox_connection_summary(user):
         "club_name": user.golfbox_home_club_name,
         "member_number": user.golfbox_member_number,
         "username": user.golfbox_username,
+        "memberships": memberships,
     }
 
 
@@ -97,12 +112,14 @@ def save_user_golfbox_credentials(user, username, password):
         headers={"User-Agent": "Mozilla/5.0"},
     ) as client:
         frontpage_html = _login(client, credentials)
+        memberships = _fetch_memberships(client, frontpage_html)
     identity = _parse_identity(frontpage_html)
     user.golfbox_username = credentials["username"]
     user.golfbox_password_token = _encode_password(credentials["password"])
     user.golfbox_player_name = identity.get("player_name")
     user.golfbox_home_club_name = identity.get("club_name")
     user.golfbox_member_number = identity.get("member_number")
+    user.golfbox_memberships_json = json.dumps(memberships, ensure_ascii=False)
     user.golfbox_credentials_updated_at = server_now()
     return identity
 
@@ -113,7 +130,23 @@ def clear_user_golfbox_credentials(user):
     user.golfbox_player_name = None
     user.golfbox_home_club_name = None
     user.golfbox_member_number = None
+    user.golfbox_memberships_json = None
     user.golfbox_credentials_updated_at = None
+
+
+def _user_memberships(user):
+    if not user or not (getattr(user, "golfbox_memberships_json", None) or "").strip():
+        return []
+    try:
+        memberships = json.loads(user.golfbox_memberships_json)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(memberships, list):
+        return []
+    return [
+        membership for membership in memberships
+        if isinstance(membership, dict) and membership.get("member_number") and membership.get("club_name")
+    ]
 
 
 def _load_env_file():
@@ -252,6 +285,53 @@ def find_golfbox_availability(
     }
 
 
+def find_golfbox_availability_for_courses(
+    courses,
+    players=2,
+    play_date=None,
+    time_from="15:00",
+    time_to="17:00",
+    user=None,
+):
+    course_names = courses or [DEFAULT_GOLFBOX_COURSE]
+    results = []
+    unavailable_messages = []
+    for course_name in course_names:
+        result = find_golfbox_availability(
+            course=course_name,
+            players=players,
+            play_date=play_date,
+            time_from=time_from,
+            time_to=time_to,
+            user=user,
+        )
+        if result["status"] == "ok":
+            results.append(result)
+        else:
+            unavailable_messages.append(result.get("message") or f"Fant ikke {course_name}.")
+
+    available_slots = []
+    for result in results:
+        available_slots.extend(result.get("available_slots", []))
+    available_slots = sorted(available_slots, key=lambda slot: (slot["date"], slot["time"], slot["course"]))
+
+    requested_date = _parse_date(play_date)
+    start_time = _parse_time(time_from, "time_from")
+    end_time = _parse_time(time_to, "time_to")
+    return {
+        "status": "ok" if results else "unsupported_course",
+        "course": ", ".join(course_names),
+        "courses": [result["course"] for result in results] or course_names,
+        "players": int(players),
+        "date": requested_date.isoformat(),
+        "time_from": start_time.strftime("%H:%M"),
+        "time_to": end_time.strftime("%H:%M"),
+        "available_slots": available_slots,
+        "booking_enabled": len(results) == 1 and results[0].get("booking_enabled"),
+        "message": " ".join(unavailable_messages),
+    }
+
+
 def _fetch_slots(credentials, club_guid, resource_guid, course_name, requested_date, start_time, end_time, player_count):
     booking_start = f"{requested_date.strftime('%Y%m%d')}T{start_time.strftime('%H%M%S')}"
     with httpx.Client(
@@ -329,7 +409,7 @@ def _parse_grid_slots(html_text, requested_date, start_time, end_time, player_co
                     "source": "GolfBox",
                 }
             )
-    return slots
+    return sorted(slots, key=lambda slot: (slot["date"], slot["time"], slot["course"]))
 
 
 def _parse_identity(frontpage_html):
@@ -350,6 +430,92 @@ def _parse_identity(frontpage_html):
         "club_name": html.unescape(club).strip(),
         "member_number": member_number.strip(),
     }
+
+
+def _fetch_memberships(client, frontpage_html):
+    current_identity = _parse_identity(frontpage_html)
+    current_club_name = current_identity.get("club_name")
+    switch_response = client.get(f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp")
+    switch_response.raise_for_status()
+    clubs = _parse_switch_clubs(switch_response.text)
+    memberships = []
+    original_club_guid = None
+    for club in clubs:
+        if club["selected"]:
+            original_club_guid = club["club_guid"]
+        response = client.post(
+            f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+            data={
+                "command": "switchClub",
+                "commandValue": club["club_guid"],
+            },
+        )
+        response.raise_for_status()
+        identity = _parse_identity(response.text)
+        if identity.get("member_number") and _normalize_name(identity.get("club_name")) == _normalize_name(club["club_name"]):
+            memberships.append(
+                {
+                    "club_name": identity.get("club_name") or club["club_name"],
+                    "club_guid": club["club_guid"],
+                    "member_number": identity["member_number"],
+                    "player_name": identity.get("player_name"),
+                }
+            )
+    if original_club_guid:
+        client.post(
+            f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+            data={
+                "command": "switchClub",
+                "commandValue": original_club_guid,
+            },
+        )
+    elif current_club_name:
+        for membership in memberships:
+            if membership["club_name"] == current_club_name:
+                client.post(
+                    f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+                    data={
+                        "command": "switchClub",
+                        "commandValue": membership["club_guid"],
+                    },
+                )
+                break
+    return _dedupe_memberships(memberships)
+
+
+def _parse_switch_clubs(page_html):
+    clubs = []
+    for row_match in re.finditer(r"<tr>\s*<td>(?P<row>.*?)</td>\s*</tr>", page_html, re.IGNORECASE | re.DOTALL):
+        row = row_match.group("row")
+        club_match = re.search(r"<div class=\"flex-grow-1\">\s*(?P<club>.*?)\s*</div>", row, re.IGNORECASE | re.DOTALL)
+        button_match = re.search(
+            r"_postBack\('switchClub','(?P<guid>\{[^']+\})'\).*?title=\"\s*(?P<title>[^\"]+)",
+            row,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if not club_match or not button_match:
+            continue
+        club_name = " ".join(re.sub(r"<[^>]+>", " ", club_match.group("club")).split())
+        clubs.append(
+            {
+                "club_name": html.unescape(club_name).strip(),
+                "club_guid": html.unescape(button_match.group("guid")).strip(),
+                "selected": "valgt" in button_match.group("title").lower(),
+            }
+        )
+    return clubs
+
+
+def _dedupe_memberships(memberships):
+    seen = set()
+    result = []
+    for membership in memberships:
+        key = (membership.get("club_name"), membership.get("member_number"))
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(membership)
+    return result
 
 
 def _select_options(page_html, select_name):
@@ -431,7 +597,76 @@ def _normalize_name(value):
     return re.sub(r"\s+", " ", re.sub(r"[^0-9a-zæøå]+", " ", (value or "").lower())).strip()
 
 
-def _book_ballerud_slot(credentials, user, booking_date, booking_time):
+def _booking_player_memberships(user, interpretation):
+    requested_names = interpretation.get("player_names") or []
+    memberships = []
+    current_membership = _ballerud_membership_for_user(user)
+    current_name = (getattr(user, "player", None).name if getattr(user, "player", None) else getattr(user, "username", "")) or ""
+    if not requested_names or any(_name_matches(current_name, name) for name in requested_names):
+        if current_membership:
+            memberships.append(current_membership)
+
+    for requested_name in requested_names:
+        if _name_matches(current_name, requested_name):
+            continue
+        membership = _ballerud_membership_for_player_name(requested_name)
+        if membership:
+            memberships.append(membership)
+
+    deduped = []
+    seen_numbers = set()
+    for membership in memberships:
+        number = membership.get("member_number")
+        if number in seen_numbers:
+            continue
+        seen_numbers.add(number)
+        deduped.append(membership)
+    return deduped[:4]
+
+
+def _ballerud_membership_for_user(user):
+    if not user:
+        return None
+    for membership in _user_memberships(user):
+        if "ballerud" in (membership.get("club_name") or "").lower():
+            return {
+                "player_name": membership.get("player_name") or user.player.name,
+                "member_number": membership["member_number"],
+                "club_name": membership["club_name"],
+            }
+    if (user.golfbox_home_club_name or "").lower().find("ballerud") >= 0 and user.golfbox_member_number:
+        return {
+            "player_name": user.golfbox_player_name or user.player.name,
+            "member_number": user.golfbox_member_number,
+            "club_name": user.golfbox_home_club_name,
+        }
+    return None
+
+
+def _ballerud_membership_for_player_name(player_name):
+    from models import User
+
+    users = User.query.all()
+    for user in users:
+        candidate_names = [user.username]
+        if user.player:
+            candidate_names.append(user.player.name)
+        if any(_name_matches(candidate, player_name) for candidate in candidate_names):
+            membership = _ballerud_membership_for_user(user)
+            if membership:
+                return membership
+    return None
+
+
+def _name_matches(candidate, requested):
+    candidate_key = _normalize_name(candidate)
+    requested_key = _normalize_name(requested)
+    if not candidate_key or not requested_key:
+        return False
+    return candidate_key == requested_key or requested_key in candidate_key or candidate_key in requested_key
+
+
+def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_memberships):
     booking_start = f"{booking_date.strftime('%Y%m%d')}T{booking_time.strftime('%H%M%S')}"
     with httpx.Client(
         follow_redirects=True,
@@ -454,6 +689,10 @@ def _book_ballerud_slot(credentials, user, booking_date, booking_time):
             return validation
 
         form_data = _form_inputs(window_response.text)
+        for index, membership in enumerate((player_memberships or [])[1:], start=1):
+            form_data[f"txt_MemberClubID_{index}"] = membership["member_number"]
+            form_data[f"chk_IsGuest_{index}"] = "0"
+            form_data[f"GBDropDown_SelectedOption_ddlUnion_{index}"] = "NO"
         form_data["command"] = "next"
         form_data["commandValue"] = ""
         submit_response = client.post(
@@ -482,7 +721,7 @@ def _book_ballerud_slot(credentials, user, booking_date, booking_time):
         "course": DEFAULT_GOLFBOX_COURSE,
         "date": booking_date.isoformat(),
         "time": booking_time.strftime("%H:%M"),
-        "players": 1,
+        "players": len(player_memberships or []) or 1,
         "message": f"Bookingen er sendt til GolfBox for {DEFAULT_GOLFBOX_COURSE} {booking_date.isoformat()} kl. {booking_time.strftime('%H:%M')}.",
         "available_slots": [],
     }
@@ -577,49 +816,184 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None):
     if pending_booking and _is_confirmation_prompt(prompt_lower):
         return confirm_golfbox_booking(pending_booking, user=user)
 
-    if any(word in prompt_lower for word in ("avbestill", "avbook", "kanseller")):
+    interpretation = _interpret_prompt_with_openai(cleaned_prompt, user)
+    intent = interpretation["intent"]
+    if intent == "cancel_booking":
         return {
             "intent": "cancel_booking",
             "status": "not_enabled",
-            "message": "Avbestilling via AI er ikke aktivert ennå. Første versjon støtter bare ledighetssjekk.",
+            "message": "Avbestilling via AI er ikke aktivert ennå.",
         }
-    booking_requested = any(word in prompt_lower for word in ("bestill", "book"))
 
-    players = _players_from_prompt(prompt_lower)
-    play_date = _date_from_prompt(prompt_lower)
-    time_from, time_to = _time_window_from_prompt(prompt_lower)
-    course = _course_from_prompt(cleaned_prompt)
-    result = find_golfbox_availability(
-        course=course,
+    players = interpretation["players"]
+    play_date = interpretation["date"]
+    time_from = interpretation["time_from"]
+    time_to = interpretation["time_to"]
+    courses = interpretation["courses"]
+    result = find_golfbox_availability_for_courses(
+        courses=courses,
         players=players,
         play_date=play_date,
         time_from=time_from,
         time_to=time_to,
         user=user,
     )
-    result["intent"] = "create_booking" if booking_requested else "find_availability"
+    result["intent"] = intent
     result["prompt"] = cleaned_prompt
-    if booking_requested:
-        result = _booking_confirmation_result(result)
+    result["interpretation"] = interpretation
+    if intent == "create_booking":
+        result = _booking_confirmation_result(result, interpretation, user)
     return result
+
+
+def _interpret_prompt_with_openai(prompt, user):
+    if not os.environ.get("OPENAI_API_KEY"):
+        _load_env_file()
+    if not os.environ.get("OPENAI_API_KEY"):
+        return _fallback_prompt_interpretation(prompt)
+
+    today = server_now().date().isoformat()
+    prompt_text = f"""
+Du tolker norske golfbooking-spørsmål for GolfBox. Returner KUN gyldig JSON.
+
+Dagens dato er {today} i tidssonen Europe/Oslo.
+
+Returner format:
+{{
+  "intent": "find_availability|create_booking|cancel_booking|unknown",
+  "courses": ["Ballerud"],
+  "area": "",
+  "players": 2,
+  "player_names": [],
+  "date": "YYYY-MM-DD",
+  "time_from": "HH:MM",
+  "time_to": "HH:MM"
+}}
+
+Regler:
+- Hvis brukeren spør om ledige tider, bruk intent find_availability.
+- Hvis brukeren ber om å booke/bestille/reservere, bruk create_booking.
+- Hvis brukeren ber om å avbestille/kansellere, bruk cancel_booking.
+- Hvis brukeren skriver "baner i oslo-området", sett area til "oslo" og courses til [].
+- Hvis brukeren nevner flere baner, legg alle i courses, f.eks ["Ballerud","Oslo"].
+- Normaliser Ballerud, Oslo, Haga, Bærum, Grini, Asker, Oppegård og Drøbak som korte banenavn.
+- Hvis dato mangler, bruk {today}.
+- Hvis tidsrom mangler, bruk 06:00 til 22:00.
+- Hvis antall spillere mangler, bruk 2.
+- player_names skal bare inneholde navngitte personer, ikke banenavn.
+
+Brukerens melding: {prompt}
+"""
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    response = client.responses.create(
+        model=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
+        input=[{
+            "role": "user",
+            "content": [{"type": "input_text", "text": prompt_text}],
+        }],
+    )
+    try:
+        data = _extract_json(response.output_text)
+    except (ValueError, json.JSONDecodeError):
+        return _fallback_prompt_interpretation(prompt)
+    try:
+        return _normalize_interpretation(data, prompt)
+    except ValueError:
+        return _fallback_prompt_interpretation(prompt)
+
+
+def _extract_json(text):
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1:
+        raise ValueError("Fant ikke JSON i AI-respons.")
+    return json.loads(text[start:end + 1])
+
+
+def _normalize_interpretation(data, prompt):
+    fallback = _fallback_prompt_interpretation(prompt)
+    intent = str(data.get("intent") or fallback["intent"]).strip()
+    if intent not in {"find_availability", "create_booking", "cancel_booking", "unknown"}:
+        intent = fallback["intent"]
+
+    courses = data.get("courses")
+    if not isinstance(courses, list):
+        courses = fallback["courses"]
+    courses = [str(course).strip() for course in courses if str(course).strip()]
+    area = str(data.get("area") or "").strip().lower()
+    if not courses and area == "oslo":
+        courses = list(OSLO_AREA_COURSES)
+    if not courses:
+        courses = fallback["courses"]
+
+    player_names = data.get("player_names")
+    if not isinstance(player_names, list):
+        player_names = []
+    player_names = [str(name).strip() for name in player_names if str(name).strip()]
+
+    try:
+        players = int(data.get("players") or fallback["players"])
+    except (TypeError, ValueError):
+        players = fallback["players"]
+    players = max(1, min(4, players))
+
+    play_date = str(data.get("date") or fallback["date"]).strip()
+    time_from = str(data.get("time_from") or fallback["time_from"]).strip()
+    time_to = str(data.get("time_to") or fallback["time_to"]).strip()
+    _parse_date(play_date)
+    _parse_time(time_from, "time_from")
+    _parse_time(time_to, "time_to")
+
+    return {
+        "intent": intent if intent != "unknown" else "find_availability",
+        "courses": courses,
+        "area": area,
+        "players": players,
+        "player_names": player_names,
+        "date": play_date,
+        "time_from": time_from,
+        "time_to": time_to,
+    }
+
+
+def _fallback_prompt_interpretation(prompt):
+    prompt_lower = prompt.lower()
+    if any(word in prompt_lower for word in ("avbestill", "avbook", "kanseller")):
+        intent = "cancel_booking"
+    elif any(word in prompt_lower for word in ("bestill", "book", "reserver")):
+        intent = "create_booking"
+    else:
+        intent = "find_availability"
+    courses = _courses_from_prompt(prompt)
+    return {
+        "intent": intent,
+        "courses": courses,
+        "area": "oslo" if "oslo-området" in prompt_lower or "osloområdet" in prompt_lower else "",
+        "players": _players_from_prompt(prompt_lower),
+        "player_names": [],
+        "date": _date_from_prompt(prompt_lower),
+        "time_from": _time_window_from_prompt(prompt_lower)[0],
+        "time_to": _time_window_from_prompt(prompt_lower)[1],
+    }
 
 
 def _is_confirmation_prompt(prompt_lower):
     return prompt_lower in {"ja", "ja takk", "bekreft", "book", "bestill", "ok", "kjør"} or "bekreft booking" in prompt_lower
 
 
-def _booking_confirmation_result(availability_result):
+def _booking_confirmation_result(availability_result, interpretation, user):
     if availability_result["status"] != "ok":
         return availability_result
     if not availability_result.get("booking_enabled"):
         availability_result["status"] = "booking_unsupported_course"
         availability_result["message"] = "Booking er foreløpig bare aktivert for Ballerud. Jeg kan sjekke ledighet på denne banen."
         return availability_result
-    if availability_result["players"] != 1:
+    player_memberships = _booking_player_memberships(user, interpretation)
+    if len(player_memberships) != availability_result["players"]:
         availability_result["status"] = "needs_player_details"
         availability_result["message"] = (
-            "Jeg kan klargjøre Ballerud-booking for én innlogget bruker nå. "
-            "For flere spillere trenger jeg en trygg spiller-/medlemsnummerflyt før jeg legger dem til i GolfBox."
+            "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemsnummer på Min side. "
+            "Skriv for eksempel: Book Ballerud for Kristian og Erik i morgen mellom 15 og 17."
         )
         return availability_result
     if not availability_result.get("available_slots"):
@@ -630,13 +1004,15 @@ def _booking_confirmation_result(availability_result):
         "date": selected_slot["date"],
         "time": selected_slot["time"],
         "players": availability_result["players"],
+        "player_memberships": player_memberships,
         "club_guid": BALLERUD_CLUB_GUID,
         "resource_guid": BALLERUD_RESSOURCE_GUID,
     }
     availability_result["status"] = "confirmation_required"
     availability_result["message"] = (
         f"Jeg kan booke {DEFAULT_GOLFBOX_COURSE} {selected_slot['date']} kl. {selected_slot['time']} "
-        "for deg. Bekreft før jeg sender bookingen til GolfBox."
+        f"for {', '.join(player['player_name'] for player in player_memberships)}. "
+        "Bekreft før jeg sender bookingen til GolfBox."
     )
     availability_result["pending_booking"] = pending
     return availability_result
@@ -660,7 +1036,7 @@ def confirm_golfbox_booking(pending_booking, user=None):
         }
     booking_date = date.fromisoformat(pending_booking["date"])
     booking_time = _parse_time(pending_booking["time"], "booking_time")
-    return _book_ballerud_slot(credentials, user, booking_date, booking_time)
+    return _book_ballerud_slot(credentials, user, booking_date, booking_time, pending_booking.get("player_memberships", []))
 
 
 def _players_from_prompt(prompt_lower):
@@ -715,10 +1091,30 @@ def _format_prompt_time(hour, minute=None):
     return f"{int(hour):02d}:{int(minute or 0):02d}"
 
 
-def _course_from_prompt(prompt):
+def _courses_from_prompt(prompt):
+    prompt_lower = prompt.lower()
+    if "oslo-området" in prompt_lower or "osloområdet" in prompt_lower or "baner i oslo" in prompt_lower:
+        return list(OSLO_AREA_COURSES)
+    known_courses = {
+        "ballerud": "Ballerud",
+        "oslo": "Oslo",
+        "haga": "Haga",
+        "bærum": "Bærum",
+        "baerum": "Bærum",
+        "grini": "Grini",
+        "asker": "Asker",
+        "oppegård": "Oppegård",
+        "oppegard": "Oppegård",
+        "drøbak": "Drøbak",
+        "drobak": "Drøbak",
+    }
+    courses = []
+    for key, course in known_courses.items():
+        if key in prompt_lower and course not in courses:
+            courses.append(course)
+    if courses:
+        return courses
     match = re.search(r"\bp[åa]\s+([A-ZÆØÅa-zæøå][A-ZÆØÅa-zæøå -]+?)(?:\s+for|\s+i dag|\s+mellom|\s+fra|$)", prompt)
     if match:
-        return match.group(1).strip()
-    if "ballerud" in prompt.lower():
-        return DEFAULT_GOLFBOX_COURSE
-    return DEFAULT_GOLFBOX_COURSE
+        return [match.group(1).strip()]
+    return [DEFAULT_GOLFBOX_COURSE]

@@ -22,6 +22,13 @@
         {% if golfbox_connection.club_name %} · {{ golfbox_connection.club_name }}{% endif %}
         {% if golfbox_connection.member_number %} · {{ golfbox_connection.member_number }}{% endif %}
     </p>
+    {% if golfbox_connection.memberships %}
+    <div class="membership-list">
+        {% for membership in golfbox_connection.memberships %}
+        <span>{{ membership.club_name }} · {{ membership.member_number }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% else %}
     <p class="muted">Legg inn GolfBox-innlogging for å bruke GolfBox AI.</p>
     {% endif %}

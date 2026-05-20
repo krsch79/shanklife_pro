@@ -41,6 +41,7 @@ class User(db.Model):
     golfbox_player_name = db.Column(db.String(255), nullable=True)
     golfbox_home_club_name = db.Column(db.String(255), nullable=True)
     golfbox_member_number = db.Column(db.String(50), nullable=True)
+    golfbox_memberships_json = db.Column(db.Text, nullable=True)
     golfbox_credentials_updated_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
 
