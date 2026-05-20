@@ -62,6 +62,23 @@ stop_maintenance_server() {
     MAINTENANCE_SERVER_PID=""
 }
 
+install_golfbox_scheduler() {
+    scheduler_line="* * * * * cd $APP_DIR && $PYTHON_BIN scripts/run_scheduled_golfbox_bookings.py >> /tmp/shanklife_pro_golfbox_scheduler.log 2>&1"
+    tmp_cron="$(mktemp)"
+    crontab -l 2>/dev/null | awk '
+        /# shanklife-golfbox-scheduler-start/ {skip=1; next}
+        /# shanklife-golfbox-scheduler-end/ {skip=0; next}
+        !skip {print}
+    ' > "$tmp_cron"
+    {
+        echo "# shanklife-golfbox-scheduler-start"
+        echo "$scheduler_line"
+        echo "# shanklife-golfbox-scheduler-end"
+    } >> "$tmp_cron"
+    crontab "$tmp_cron"
+    rm -f "$tmp_cron"
+}
+
 echo "Setter Shanklife Pro i vedlikeholdsmodus..."
 mkdir -p "$(dirname "$MAINTENANCE_FILE")"
 printf 'Deploy startet %s\n' "$(date -Is)" > "$MAINTENANCE_FILE"
@@ -80,6 +97,9 @@ echo "Installerer avhengigheter..."
 
 echo "Kjører syntakssjekk..."
 "$PYTHON_BIN" -m py_compile $(git ls-files '*.py')
+
+echo "Installerer planlagt GolfBox-booking-kjører..."
+install_golfbox_scheduler
 
 echo "Restarter Shanklife Pro..."
 pids="$(app_pids)"

@@ -24,6 +24,51 @@
         {% endif %}
     </div>
 
+    <div class="golfbox-scheduled-card">
+        <div class="section-heading-row">
+            <h3>Kommende bookinger</h3>
+        </div>
+        {% if scheduled_bookings %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hvem</th>
+                        <th>Bane</th>
+                        <th>Dato</th>
+                        <th>Tid</th>
+                        <th>Gjennomføres</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in scheduled_bookings %}
+                    <tr>
+                        <td>{{ booking.players|join(", ") }}</td>
+                        <td>{{ booking.course }}</td>
+                        <td>{{ booking.play_date }}</td>
+                        <td>{{ booking.play_time }}</td>
+                        <td>{{ booking.execute_at }}</td>
+                        <td>
+                            {% if booking.can_cancel %}
+                            <form method="post" class="inline-form">
+                                <input type="hidden" name="scheduled_booking_id" value="{{ booking.id }}">
+                                <button type="submit" name="action" value="cancel_scheduled_booking" class="button secondary">Kanseller</button>
+                            </form>
+                            {% else %}
+                            <span class="muted">Låst</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="muted">Ingen planlagte GolfBox-bookinger.</p>
+        {% endif %}
+    </div>
+
     <div class="golfbox-chat-log" aria-live="polite">
         {% if chat_messages %}
             {% for message in chat_messages %}
@@ -74,7 +119,7 @@
                                 <form method="post" class="inline-form">
                                     <button type="submit" name="action" value="confirm_booking" class="button">Bekreft booking</button>
                                 </form>
-                            {% elif result.status == "booking_created" %}
+                            {% elif result.status in ["booking_created", "scheduled_booking_created", "scheduled_booking_cancelled"] %}
                                 <p>{{ result.message }}</p>
                             {% elif result.available_slots %}
                                 <p>Jeg fant {{ result.available_slots|length }} ledige tider for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>

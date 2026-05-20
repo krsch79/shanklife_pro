@@ -9,6 +9,7 @@ import httpx
 from flask import current_app
 from openai import OpenAI
 
+from extensions import db
 from services.time import server_now
 
 
@@ -184,6 +185,26 @@ def _parse_time(value, field_name):
         except ValueError:
             continue
     raise ValueError(f"{field_name} må være HH:MM eller HH.")
+
+
+def _parse_execute_at(value):
+    raw_value = (value or "").strip()
+    if not raw_value:
+        return None
+    normalized = raw_value.replace("T", " ")
+    try:
+        parsed = datetime.fromisoformat(raw_value)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone().replace(tzinfo=None)
+        return parsed.replace(second=0, microsecond=0)
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d %H"):
+        try:
+            return datetime.strptime(normalized, fmt)
+        except ValueError:
+            continue
+    raise ValueError("Tidspunkt for gjennomføring må være YYYY-MM-DD HH:MM.")
 
 
 def _missing_configuration():
@@ -834,6 +855,9 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None):
     time_from = interpretation["time_from"]
     time_to = interpretation["time_to"]
     courses = interpretation["courses"]
+    if intent == "create_booking" and interpretation.get("execute_at"):
+        return _scheduled_booking_result(interpretation, cleaned_prompt, user)
+
     result = find_golfbox_availability_for_courses(
         courses=courses,
         players=players,
@@ -861,13 +885,16 @@ def _interpret_prompt_with_openai(prompt, user):
         f"I dag er {today}. Tolk golfmelding til JSON: "
         '{"intent":"find_availability|create_booking|cancel_booking|unknown",'
         '"courses":[],"area":"","players":2,"player_names":[],'
-        '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM"}. '
+        '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM",'
+        '"execute_at":""}. '
         "Regler: book/bestill/reserver=create_booking, ledig=find_availability, "
         "avbestill/kanseller=cancel_booking. Oslo-området: area=oslo og courses=[]. "
         "Flere baner listes i courses. Kjente korte banenavn: Ballerud, Oslo, Haga, "
         "Bærum, Grini, Asker, Oppegård, Drøbak. Mangler dato: i dag. "
         "Mangler tidsrom: 06:00-22:00. Enkelt klokkeslett: time_from=klokkeslett "
-        "og time_to=30 minutter senere. Mangler spillere: 2. Bare JSON. "
+        "og time_to=30 minutter senere. Mangler spillere: 2. "
+        "Hvis brukeren ber om at bookingen skal gjennomføres senere, sett execute_at "
+        "til lokal ISO-dato og tid for selve gjennomføringen, ikke spilletiden. Bare JSON. "
         f"Melding: {prompt}"
     )
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -929,11 +956,14 @@ def _normalize_interpretation(data, prompt, user=None):
     play_date = str(data.get("date") or fallback["date"]).strip()
     time_from = str(data.get("time_from") or fallback["time_from"]).strip()
     time_to = str(data.get("time_to") or fallback["time_to"]).strip()
+    execute_at = str(data.get("execute_at") or fallback.get("execute_at") or "").strip()
     _parse_date(play_date)
     parsed_from = _parse_time(time_from, "time_from")
     parsed_to = _parse_time(time_to, "time_to")
     if parsed_to <= parsed_from:
         time_to = _time_after(parsed_from, minutes=30)
+    if execute_at:
+        _parse_execute_at(execute_at)
 
     return {
         "intent": intent if intent != "unknown" else "find_availability",
@@ -944,6 +974,7 @@ def _normalize_interpretation(data, prompt, user=None):
         "date": play_date,
         "time_from": time_from,
         "time_to": time_to,
+        "execute_at": execute_at,
     }
 
 
@@ -969,6 +1000,7 @@ def _fallback_prompt_interpretation(prompt):
         "date": _date_from_prompt(prompt_lower),
         "time_from": time_from,
         "time_to": time_to,
+        "execute_at": _execute_at_from_prompt(prompt_lower),
     }
 
 
@@ -1067,6 +1099,78 @@ def _booking_confirmation_result(availability_result, interpretation, user):
     return availability_result
 
 
+def _scheduled_booking_result(interpretation, prompt, user):
+    if not _credentials_for_user(user):
+        return {
+            "intent": "create_booking",
+            "status": "configuration_required",
+            "message": "Legg GolfBox-innlogging inn på Min side før du planlegger booking.",
+            "available_slots": [],
+        }
+    courses = interpretation.get("courses") or [DEFAULT_GOLFBOX_COURSE]
+    if len(courses) != 1 or "ballerud" not in courses[0].lower():
+        return {
+            "intent": "create_booking",
+            "status": "booking_unsupported_course",
+            "message": "Planlagt booking er foreløpig bare aktivert for Ballerud.",
+            "available_slots": [],
+        }
+    player_memberships = _booking_player_memberships(user, interpretation)
+    if len(player_memberships) != interpretation["players"]:
+        return {
+            "intent": "create_booking",
+            "status": "needs_player_details",
+            "message": (
+                "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemsnummer på Min side "
+                "før jeg kan planlegge en booking."
+            ),
+            "available_slots": [],
+        }
+    execute_at = _parse_execute_at(interpretation.get("execute_at"))
+    if not execute_at or execute_at <= server_now():
+        return {
+            "intent": "create_booking",
+            "status": "booking_failed",
+            "message": "Tidspunktet for gjennomføring må være frem i tid.",
+            "available_slots": [],
+        }
+    play_date = _parse_date(interpretation["date"])
+    play_time = _parse_time(interpretation["time_from"], "time_from")
+
+    from models import GolfBoxScheduledBooking
+
+    scheduled = GolfBoxScheduledBooking(
+        created_by_user_id=user.id,
+        status="scheduled",
+        course=DEFAULT_GOLFBOX_COURSE,
+        play_date=play_date,
+        play_time=play_time.strftime("%H:%M"),
+        execute_at=execute_at,
+        players_json=json.dumps(player_memberships, ensure_ascii=False),
+        requested_prompt=prompt,
+    )
+    db.session.add(scheduled)
+    db.session.commit()
+    player_text = ", ".join(player["player_name"] for player in player_memberships)
+    return {
+        "intent": "create_booking",
+        "status": "scheduled_booking_created",
+        "scheduled_booking_id": scheduled.id,
+        "course": scheduled.course,
+        "date": scheduled.play_date.isoformat(),
+        "time": scheduled.play_time,
+        "execute_at": scheduled.execute_at.strftime("%Y-%m-%d %H:%M"),
+        "players": len(player_memberships),
+        "player_names": [player["player_name"] for player in player_memberships],
+        "message": (
+            f"Jeg har lagt inn en planlagt booking: {scheduled.course} {scheduled.play_date.isoformat()} "
+            f"kl. {scheduled.play_time} for {player_text}. Den gjennomføres {scheduled.execute_at.strftime('%Y-%m-%d %H:%M')} "
+            "uten ny bekreftelse."
+        ),
+        "available_slots": [],
+    }
+
+
 def confirm_golfbox_booking(pending_booking, user=None):
     credentials = _credentials_for_user(user)
     if not credentials:
@@ -1088,6 +1192,94 @@ def confirm_golfbox_booking(pending_booking, user=None):
     return _book_ballerud_slot(credentials, user, booking_date, booking_time, pending_booking.get("player_memberships", []))
 
 
+def upcoming_golfbox_scheduled_bookings(user):
+    from models import GolfBoxScheduledBooking
+
+    bookings = (
+        GolfBoxScheduledBooking.query
+        .filter_by(created_by_user_id=user.id)
+        .filter(GolfBoxScheduledBooking.status == "scheduled")
+        .order_by(GolfBoxScheduledBooking.execute_at.asc(), GolfBoxScheduledBooking.play_date.asc(), GolfBoxScheduledBooking.play_time.asc())
+        .all()
+    )
+    return [_scheduled_booking_view(booking) for booking in bookings]
+
+
+def cancel_golfbox_scheduled_booking(booking_id, user):
+    from models import GolfBoxScheduledBooking
+
+    booking = GolfBoxScheduledBooking.query.filter_by(id=booking_id, created_by_user_id=user.id).first()
+    if not booking:
+        raise ValueError("Fant ikke den planlagte bookingen.")
+    if booking.status != "scheduled":
+        raise ValueError("Denne bookingen kan ikke kanselleres lenger.")
+    if server_now() >= booking.execute_at - timedelta(minutes=1):
+        raise ValueError("Bookingen kan bare kanselleres frem til ett minutt før gjennomføring.")
+    booking.status = "cancelled"
+    booking.cancelled_at = server_now()
+    db.session.commit()
+    return booking
+
+
+def run_due_golfbox_scheduled_bookings(limit=10):
+    from models import GolfBoxScheduledBooking
+
+    due_bookings = (
+        GolfBoxScheduledBooking.query
+        .filter(GolfBoxScheduledBooking.status == "scheduled")
+        .filter(GolfBoxScheduledBooking.execute_at <= server_now())
+        .order_by(GolfBoxScheduledBooking.execute_at.asc())
+        .limit(limit)
+        .all()
+    )
+    results = []
+    for booking in due_bookings:
+        booking.status = "running"
+        booking.updated_at = server_now()
+        db.session.commit()
+        try:
+            player_memberships = json.loads(booking.players_json or "[]")
+            pending_booking = {
+                "course": booking.course,
+                "date": booking.play_date.isoformat(),
+                "time": booking.play_time,
+                "players": len(player_memberships),
+                "player_memberships": player_memberships,
+                "club_guid": BALLERUD_CLUB_GUID,
+                "resource_guid": BALLERUD_RESSOURCE_GUID,
+            }
+            result = confirm_golfbox_booking(pending_booking, user=booking.created_by_user)
+            booking.executed_at = server_now()
+            booking.result_message = result.get("message")
+            booking.error_message = None if result.get("status") == "booking_created" else result.get("message")
+            booking.status = "completed" if result.get("status") == "booking_created" else "failed"
+            results.append({"id": booking.id, "status": booking.status, "message": result.get("message")})
+        except Exception as exc:
+            booking.executed_at = server_now()
+            booking.status = "failed"
+            booking.error_message = str(exc)
+            results.append({"id": booking.id, "status": "failed", "message": str(exc)})
+        db.session.commit()
+    return results
+
+
+def _scheduled_booking_view(booking):
+    try:
+        players = json.loads(booking.players_json or "[]")
+    except json.JSONDecodeError:
+        players = []
+    return {
+        "id": booking.id,
+        "status": booking.status,
+        "course": booking.course,
+        "play_date": booking.play_date.isoformat(),
+        "play_time": booking.play_time,
+        "execute_at": booking.execute_at.strftime("%Y-%m-%d %H:%M"),
+        "players": [player.get("player_name") or player.get("member_number") for player in players],
+        "can_cancel": booking.status == "scheduled" and server_now() < booking.execute_at - timedelta(minutes=1),
+    }
+
+
 def _players_from_prompt(prompt_lower):
     match = re.search(r"(\d+)\s*(person|personer|spiller|spillere)", prompt_lower)
     if match:
@@ -1102,6 +1294,25 @@ def _date_from_prompt(prompt_lower):
     if iso_match:
         return iso_match.group(1)
     return "today"
+
+
+def _execute_at_from_prompt(prompt_lower):
+    if not any(word in prompt_lower for word in ("gjennomfør", "gjennomfoer", "utfør", "utfor", "senere", "når bookingen", "nar bookingen")):
+        return ""
+    schedule_match = re.search(
+        r"(?:gjennomfør|gjennomfoer|utfør|utfor|senere|når bookingen|nar bookingen)[^,.;]*?"
+        r"(?:(\d{4}-\d{2}-\d{2})|(i morgen|imorgen|i dag|idag))[^,.;]*?"
+        r"(?:kl\.?\s*)?(\d{1,2})(?::?(\d{2}))?",
+        prompt_lower,
+    )
+    if not schedule_match:
+        return ""
+    iso_date, relative_date, hour, minute = schedule_match.groups()
+    if iso_date:
+        execute_date = iso_date
+    else:
+        execute_date = _parse_date(relative_date).isoformat()
+    return f"{execute_date} {_format_prompt_time(hour, minute)}"
 
 
 def _time_window_from_prompt(prompt_lower):

@@ -22,7 +22,12 @@ from services.tee_filters import (
 )
 from services.version import APP_VERSION
 from services.weather import fetch_bekkestua_weather, summarize_weather_payload
-from services.golfbox import golfbox_connection_summary, process_golfbox_prompt
+from services.golfbox import (
+    cancel_golfbox_scheduled_booking,
+    golfbox_connection_summary,
+    process_golfbox_prompt,
+    upcoming_golfbox_scheduled_bookings,
+)
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
 
@@ -1002,6 +1007,17 @@ def ai_tools():
                 chat_messages = []
                 pending_booking = None
                 session.pop("golfbox_pending_booking", None)
+            elif request.form.get("action") == "cancel_scheduled_booking":
+                booking_id = request.form.get("scheduled_booking_id", "").strip()
+                try:
+                    cancel_golfbox_scheduled_booking(int(booking_id), g.current_user)
+                    chat_messages.append({"role": "assistant", "result": {
+                        "status": "scheduled_booking_cancelled",
+                        "message": "Den planlagte bookingen er kansellert.",
+                        "available_slots": [],
+                    }})
+                except (TypeError, ValueError) as exc:
+                    chat_messages.append({"role": "assistant", "error": str(exc)})
             elif request.form.get("action") == "confirm_booking":
                 if pending_booking:
                     chat_messages.append({"role": "user", "text": "Bekreft booking"})
@@ -1033,6 +1049,7 @@ def ai_tools():
             chat_messages=chat_messages,
             pending_booking=pending_booking,
             golfbox_connection=golfbox_connection_summary(g.current_user),
+            scheduled_bookings=upcoming_golfbox_scheduled_bookings(g.current_user),
             **_balletour_database_context(),
         )
 

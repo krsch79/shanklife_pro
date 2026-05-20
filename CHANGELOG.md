@@ -2,6 +2,12 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.31] - 2026-05-20
+- Legger til planlagte GolfBox-bookinger for Ballerud, slik at en booking kan gjennomføres automatisk på et valgt tidspunkt uten ny bekreftelse.
+- Viser kommende planlagte GolfBox-bookinger på BalleTour AI-siden med spillere, bane, spilledato, spilletid og gjennomføringstidspunkt.
+- Lar brukeren kansellere en planlagt GolfBox-booking frem til ett minutt før gjennomføring.
+- Installerer en minuttvis Raspberry Pi-kjører ved deploy som utfører planlagte GolfBox-bookinger når tidspunktet kommer.
+
 ## [1.8.30] - 2026-05-20
 - Lar GolfBox AI svare direkte på spørsmål om brukerens lagrede GolfBox-medlemsnummer uten å gjøre et nytt ledighetssøk.
 - Tolker “meg”, “jeg” og “mitt” som innlogget bruker i bookingprompter, slik at egen booking bruker lagret medlemsnummer automatisk.

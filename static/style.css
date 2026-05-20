@@ -1518,6 +1518,21 @@ th {
     font-size: 0.92rem;
 }
 
+.golfbox-scheduled-card {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+}
+
+.golfbox-scheduled-card h3 {
+    margin: 0 0 10px;
+}
+
+.golfbox-scheduled-card p {
+    margin: 0;
+}
+
 .golfbox-chat-log {
     display: grid;
     align-content: end;
