@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.30] - 2026-05-20
+- Lar GolfBox AI svare direkte på spørsmål om brukerens lagrede GolfBox-medlemsnummer uten å gjøre et nytt ledighetssøk.
+- Tolker “meg”, “jeg” og “mitt” som innlogget bruker i bookingprompter, slik at egen booking bruker lagret medlemsnummer automatisk.
+
 ## [1.8.29] - 2026-05-20
 - Retter GolfBox AI-booking når brukeren oppgir ett bestemt klokkeslett, slik at tidspunktet tolkes som et kort søkevindu i stedet for et ugyldig nullintervall.
 - Korter ned OpenAI-konteksten for GolfBox AI, slik at bare nødvendig prompttolkning sendes til modellen.

@@ -815,6 +815,10 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None):
     prompt_lower = cleaned_prompt.lower()
     if pending_booking and _is_confirmation_prompt(prompt_lower):
         return confirm_golfbox_booking(pending_booking, user=user)
+    profile_result = _profile_info_result(prompt_lower, user)
+    if profile_result:
+        profile_result["prompt"] = cleaned_prompt
+        return profile_result
 
     interpretation = _interpret_prompt_with_openai(cleaned_prompt, user)
     intent = interpretation["intent"]
@@ -879,7 +883,7 @@ def _interpret_prompt_with_openai(prompt, user):
     except (ValueError, json.JSONDecodeError):
         return _fallback_prompt_interpretation(prompt)
     try:
-        return _normalize_interpretation(data, prompt)
+        return _normalize_interpretation(data, prompt, user)
     except ValueError:
         return _fallback_prompt_interpretation(prompt)
 
@@ -892,8 +896,9 @@ def _extract_json(text):
     return json.loads(text[start:end + 1])
 
 
-def _normalize_interpretation(data, prompt):
+def _normalize_interpretation(data, prompt, user=None):
     fallback = _fallback_prompt_interpretation(prompt)
+    prompt_lower = prompt.lower()
     intent = str(data.get("intent") or fallback["intent"]).strip()
     if intent not in {"find_availability", "create_booking", "cancel_booking", "unknown"}:
         intent = fallback["intent"]
@@ -911,13 +916,15 @@ def _normalize_interpretation(data, prompt):
     player_names = data.get("player_names")
     if not isinstance(player_names, list):
         player_names = []
-    player_names = [str(name).strip() for name in player_names if str(name).strip()]
+    player_names = _clean_player_names(player_names, user)
 
     try:
         players = int(data.get("players") or fallback["players"])
     except (TypeError, ValueError):
         players = fallback["players"]
     players = max(1, min(4, players))
+    if _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
+        players = min(4, max(1, len(player_names) + 1))
 
     play_date = str(data.get("date") or fallback["date"]).strip()
     time_from = str(data.get("time_from") or fallback["time_from"]).strip()
@@ -950,16 +957,73 @@ def _fallback_prompt_interpretation(prompt):
         intent = "find_availability"
     courses = _courses_from_prompt(prompt)
     time_from, time_to = _time_window_from_prompt(prompt_lower)
+    players = _players_from_prompt(prompt_lower)
+    if _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
+        players = 1
     return {
         "intent": intent,
         "courses": courses,
         "area": "oslo" if "oslo-området" in prompt_lower or "osloområdet" in prompt_lower else "",
-        "players": _players_from_prompt(prompt_lower),
+        "players": players,
         "player_names": [],
         "date": _date_from_prompt(prompt_lower),
         "time_from": time_from,
         "time_to": time_to,
     }
+
+
+def _profile_info_result(prompt_lower, user):
+    membership_words = ("medlemsnummer", "medlems nr", "medlemskap", "golfbox")
+    own_words = ("mitt", "min", "meg", "jeg")
+    if not any(word in prompt_lower for word in membership_words) or not any(word in prompt_lower for word in own_words):
+        return None
+    summary = golfbox_connection_summary(user)
+    if not summary["connected"]:
+        return {
+            "intent": "profile_info",
+            "status": "profile_info",
+            "message": "Jeg har ikke GolfBox-innlogging lagret på brukeren din ennå. Legg den inn på Min side først.",
+            "available_slots": [],
+        }
+    memberships = summary.get("memberships") or []
+    if memberships:
+        membership_text = ", ".join(f"{item['club_name']}: {item['member_number']}" for item in memberships)
+    elif summary.get("member_number"):
+        membership_text = f"{summary.get('club_name')}: {summary.get('member_number')}"
+    else:
+        membership_text = "Jeg har GolfBox-innloggingen din, men fant ikke medlemsnummer på profilen."
+    return {
+        "intent": "profile_info",
+        "status": "profile_info",
+        "message": f"Ja. Du er koblet til som {summary.get('player_name') or summary.get('username')}. Lagret medlemskap: {membership_text}.",
+        "available_slots": [],
+    }
+
+
+def _prompt_references_current_user(prompt_lower):
+    return bool(re.search(r"\b(jeg|meg|mitt|min)\b", prompt_lower))
+
+
+def _prompt_has_explicit_player_count(prompt_lower):
+    return bool(re.search(r"\b\d+\s*(person|personer|spiller|spillere)\b", prompt_lower))
+
+
+def _clean_player_names(player_names, user=None):
+    ignored = {"jeg", "meg", "mitt", "min", "myself", "me"}
+    current_names = []
+    if user:
+        current_names.append(getattr(user, "username", ""))
+        if getattr(user, "player", None):
+            current_names.append(user.player.name)
+    cleaned = []
+    for name in player_names:
+        value = str(name).strip()
+        if not value or _normalize_name(value) in ignored:
+            continue
+        if any(_name_matches(current_name, value) for current_name in current_names if current_name):
+            continue
+        cleaned.append(value)
+    return cleaned
 
 
 def _is_confirmation_prompt(prompt_lower):

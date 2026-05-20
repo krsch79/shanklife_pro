@@ -41,6 +41,8 @@
                             {% if result.status == "configuration_required" %}
                                 <p>GolfBox-innlogging mangler.</p>
                                 <p class="muted">{{ result.next_step }}</p>
+                            {% elif result.status == "profile_info" %}
+                                <p>{{ result.message }}</p>
                             {% elif result.status in ["not_enabled", "needs_player_details", "booking_unsupported_course", "booking_failed", "payment_required", "wrong_club", "wrong_membership"] %}
                                 <p>{{ result.message }}</p>
                                 {% if result.available_slots %}
