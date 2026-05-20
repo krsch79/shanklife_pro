@@ -7,3 +7,4 @@
 - When deployment or updates require the app process to stop or restart, the static maintenance HTML page must be shown for the whole downtime/restart window.
 - Production runs on a Raspberry Pi at `192.168.50.116`.
 - SSH user for the Raspberry Pi is `kristian`; do not store SSH passwords or other secrets in this repository.
+- Default delivery expectation: code changes should be committed, pushed to GitHub, and deployed to the Raspberry Pi unless the user explicitly asks not to deploy.

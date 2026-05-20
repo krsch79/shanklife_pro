@@ -981,6 +981,42 @@ def me():
         )
 
 
+@balletour_bp.route("/ai")
+@login_required
+def ai_tools():
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        return render_template(
+            "balletour_ai.html",
+            series=series,
+            tools=[
+                {
+                    "name": "balletour_overview",
+                    "description": "Leaderboard, rundetall og basisinfo for BalleTour.",
+                },
+                {
+                    "name": "balletour_players",
+                    "description": "BalleTour-spillere med handicap og basisdata.",
+                },
+                {
+                    "name": "balletour_rounds",
+                    "description": "Pågående, avsluttede eller alle runder, med valgfritt spillerfilter.",
+                },
+                {
+                    "name": "balletour_player_summary",
+                    "description": "Personlig BalleTour-sammendrag med snitt, beste runde og nøkkelstatistikk.",
+                },
+                {
+                    "name": "golfbox_find_tee_times",
+                    "description": "Sjekker GolfBox-ledighet for bane, dato, tidsrom og antall spillere.",
+                },
+            ],
+            command="/tmp/shanklife_pro_venv/bin/python /home/kristian/shanklife_pro/mcp_server.py",
+            **_balletour_database_context(),
+        )
+
+
 @balletour_bp.route("/new-round", methods=["GET", "POST"])
 @login_required
 def new_round():

@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.23] - 2026-05-20
+- Legger til en read-only MCP-MVP for BalleTour, slik at AI-klienter kan hente leaderboard, spillere, runder og spilleroppsummeringer uten a endre score eller tilgang.
+- Legger til en AI-side i BalleTour-menyen med oversikt over tilgjengelige MCP-verktøy og lokal kjørekommando for Raspberry Pi.
+- Legger til et GolfBox-verktøy i MCP som kan motta spørsmål om ledige starttider for bane, antall spillere, dato og tidsrom, og som tydelig varsler når GolfBox-credentials mangler på Pi-en.
+
 ## [1.8.22] - 2026-05-17
 - Bygger logoene og golfillustrasjonen direkte inn i vedlikeholdssiden, slik at de vises også når appens statiske filserver ikke er tilgjengelig under deploy.
 

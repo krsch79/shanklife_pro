@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}AI-verktøy - BalleTour2026{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>AI-verktøy</h2>
+        <p class="muted">Read-only MCP-tilgang til BalleTour-data.</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('balletour.index') }}">BalleTour2026</a>
+</div>
+
+<section class="form-card">
+    <h3>MVP</h3>
+    <p>
+        BalleTour har nå en egen MCP-server som kan brukes av en AI-klient til å lese leaderboard,
+        spillere, runder og spilleroppsummeringer. Den endrer ikke eksisterende innlogging,
+        webtilgang eller scoreføring.
+    </p>
+    <div class="info-strip">
+        Serveren er laget for lokal/SSH-basert bruk og skal ikke eksponeres åpent på internett.
+    </div>
+</section>
+
+<section class="form-card">
+    <h3>Tilgjengelige tools</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tool</th>
+                    <th>Hva den henter</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tool in tools %}
+                <tr>
+                    <td><code>{{ tool.name }}</code></td>
+                    <td>{{ tool.description }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="form-card">
+    <h3>Kjøring på Pi</h3>
+    <p>Bruk samme virtuelle miljø som appen og start MCP-serveren som en lokal stdio-prosess.</p>
+    <pre class="prompt-preview compact">{{ command }}</pre>
+</section>
+
+<section class="form-card">
+    <h3>Eksempelprompt</h3>
+    <p>En MCP-klient kan nå bruke GolfBox-verktøyet med en vanlig prompt.</p>
+    <pre class="prompt-preview compact">Er det noe ledig på Ballerud for 2 personer i dag mellom 15 og 17?</pre>
+    <p class="muted">Live-oppslag krever at GolfBox-bruker og passord settes som miljøvariabler på Pi-en.</p>
+</section>
+{% endblock %}

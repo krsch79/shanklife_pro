@@ -15,6 +15,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.6
 jiter==0.14.0
 MarkupSafe==3.0.3
+mcp[cli]==1.27.1
 openai==2.32.0
 pydantic==2.13.2
 pydantic_core==2.46.2
