@@ -195,6 +195,41 @@ def admin_home():
     )
 
 
+@admin_bp.route("/admin/mcp")
+@admin_required
+def mcp_tools():
+    return render_template(
+        "admin_mcp.html",
+        tools=[
+            {
+                "name": "balletour_overview",
+                "description": "Leaderboard, rundetall og basisinfo for BalleTour.",
+            },
+            {
+                "name": "balletour_players",
+                "description": "BalleTour-spillere med handicap og basisdata.",
+            },
+            {
+                "name": "balletour_rounds",
+                "description": "Pågående, avsluttede eller alle runder, med valgfritt spillerfilter.",
+            },
+            {
+                "name": "balletour_player_summary",
+                "description": "Personlig BalleTour-sammendrag med snitt, beste runde og nøkkelstatistikk.",
+            },
+            {
+                "name": "golfbox_find_tee_times",
+                "description": "Sjekker GolfBox-ledighet for bane, dato, tidsrom og antall spillere.",
+            },
+            {
+                "name": "golfbox_prompt",
+                "description": "Tolker en vanlig GolfBox-prompt og kjører støttet handling.",
+            },
+        ],
+        command="/tmp/shanklife_pro_venv/bin/python /home/kristian/shanklife_pro/mcp_server.py",
+    )
+
+
 @admin_bp.route("/admin/balletour-settings", methods=["POST"])
 @admin_required
 def update_balletour_settings():

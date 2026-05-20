@@ -22,6 +22,7 @@ from services.tee_filters import (
 )
 from services.version import APP_VERSION
 from services.weather import fetch_bekkestua_weather, summarize_weather_payload
+from services.golfbox import process_golfbox_prompt
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
 
@@ -981,38 +982,24 @@ def me():
         )
 
 
-@balletour_bp.route("/ai")
+@balletour_bp.route("/ai", methods=["GET", "POST"])
 @login_required
 def ai_tools():
     _require_balletour_player()
     with balletour_data_context():
         series = _balletour_or_404()
+        prompt = request.form.get("prompt", "").strip()
+        prompt_result = None
+        if request.method == "POST":
+            try:
+                prompt_result = process_golfbox_prompt(prompt)
+            except ValueError as exc:
+                flash(str(exc), "error")
         return render_template(
             "balletour_ai.html",
             series=series,
-            tools=[
-                {
-                    "name": "balletour_overview",
-                    "description": "Leaderboard, rundetall og basisinfo for BalleTour.",
-                },
-                {
-                    "name": "balletour_players",
-                    "description": "BalleTour-spillere med handicap og basisdata.",
-                },
-                {
-                    "name": "balletour_rounds",
-                    "description": "Pågående, avsluttede eller alle runder, med valgfritt spillerfilter.",
-                },
-                {
-                    "name": "balletour_player_summary",
-                    "description": "Personlig BalleTour-sammendrag med snitt, beste runde og nøkkelstatistikk.",
-                },
-                {
-                    "name": "golfbox_find_tee_times",
-                    "description": "Sjekker GolfBox-ledighet for bane, dato, tidsrom og antall spillere.",
-                },
-            ],
-            command="/tmp/shanklife_pro_venv/bin/python /home/kristian/shanklife_pro/mcp_server.py",
+            prompt=prompt,
+            prompt_result=prompt_result,
             **_balletour_database_context(),
         )
 

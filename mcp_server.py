@@ -8,6 +8,7 @@ from services.balletour_mcp import (
     list_balletour_rounds,
 )
 from services.golfbox import find_golfbox_availability
+from services.golfbox import process_golfbox_prompt
 
 mcp = FastMCP("Shanklife Pro BalleTour", json_response=True)
 
@@ -64,6 +65,12 @@ def golfbox_find_tee_times(
         time_from=time_from,
         time_to=time_to,
     )
+
+
+@mcp.tool()
+def golfbox_prompt(prompt: str) -> dict:
+    """Tolke en vanlig GolfBox-prompt og utfør støttet handling."""
+    return _with_app_context(process_golfbox_prompt, prompt=prompt)
 
 
 if __name__ == "__main__":

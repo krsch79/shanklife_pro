@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}MCP-verktøy - Admin{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>MCP-verktøy</h2>
+        <p class="muted">Teknisk oversikt for BalleTour og GolfBox AI.</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('admin.admin_home') }}">Admin</a>
+</div>
+
+<section class="form-card">
+    <h3>MCP-server</h3>
+    <p>
+        Serveren kjører som en lokal stdio-prosess for AI-klienter. Den skal ikke eksponeres åpent på internett.
+    </p>
+    <pre class="prompt-preview compact">{{ command }}</pre>
+</section>
+
+<section class="form-card">
+    <h3>Tilgjengelige tools</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tool</th>
+                    <th>Hva den henter</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tool in tools %}
+                <tr>
+                    <td><code>{{ tool.name }}</code></td>
+                    <td>{{ tool.description }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

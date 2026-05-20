@@ -10,6 +10,11 @@
         <p>Legg inn prompt for feilretting og følg status på forespørsler.</p>
     </a>
 
+    <a class="card-link" href="{{ url_for('admin.mcp_tools') }}">
+        <h3>MCP-verktøy</h3>
+        <p>Se teknisk oversikt over BalleTour- og GolfBox-verktøy for AI-klienter.</p>
+    </a>
+
     <form method="post" action="{{ url_for('admin.invite_balletour_player') }}" class="form-card">
         <h3>Inviter BalleTour-spiller</h3>
         <label for="invite_name">Navn</label>

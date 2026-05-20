@@ -2,6 +2,12 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.24] - 2026-05-20
+- Gjør BalleTour AI-siden om til et enkelt GolfBox-promptfelt for vanlige BalleTour-brukere.
+- Flytter den tekniske MCP-verktøyoversikten fra BalleTour-menyen til Admin.
+- Kobler GolfBox-ledighetssjekk til innlogget lesing av Ballerud-starttider, slik at promptfeltet kan vise ledige tider når GolfBox-innlogging er konfigurert.
+- Leser GolfBox-innlogging trygt fra lokal `.env`, slik at tilgangen kan konfigureres på Raspberry Pi uten a lagres i repoet.
+
 ## [1.8.23] - 2026-05-20
 - Legger til en read-only MCP-MVP for BalleTour, slik at AI-klienter kan hente leaderboard, spillere, runder og spilleroppsummeringer uten a endre score eller tilgang.
 - Legger til en AI-side i BalleTour-menyen med oversikt over tilgjengelige MCP-verktøy og lokal kjørekommando for Raspberry Pi.
