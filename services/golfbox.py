@@ -8,6 +8,8 @@ from services.time import server_now
 
 
 DEFAULT_GOLFBOX_COURSE = "Ballerud"
+DEFAULT_TIME_FROM = "06:00"
+DEFAULT_TIME_TO = "22:00"
 GOLFBOX_REQUIRED_ENV = ("GOLFBOX_USERNAME", "GOLFBOX_PASSWORD")
 GOLFBOX_BASE_URL = "https://www.golfbox.no"
 BALLERUD_CLUB_GUID = "{FD174477-19BD-4120-BD4F-DF422371C961}"
@@ -267,7 +269,7 @@ def _date_from_prompt(prompt_lower):
 
 def _time_window_from_prompt(prompt_lower):
     between_match = re.search(
-        r"(?:mellom|fra)\s+(\d{1,2})(?::?(\d{2}))?\s+(?:og|til|-)\s+(\d{1,2})(?::?(\d{2}))?",
+        r"(?:mellom|fra)\s+(\d{1,2})(?::?(\d{2}))?\s*(?:og|til|-)\s*(\d{1,2})(?::?(\d{2}))?",
         prompt_lower,
     )
     if between_match:
@@ -276,7 +278,25 @@ def _time_window_from_prompt(prompt_lower):
             _format_prompt_time(start_hour, start_minute),
             _format_prompt_time(end_hour, end_minute),
         )
-    return "15:00", "17:00"
+
+    after_match = re.search(r"(?:etter|fra)\s+(?:kl\.?\s*)?(\d{1,2})(?::?(\d{2}))?", prompt_lower)
+    if after_match:
+        hour, minute = after_match.groups()
+        return _format_prompt_time(hour, minute), DEFAULT_TIME_TO
+
+    before_match = re.search(r"(?:før|til)\s+(?:kl\.?\s*)?(\d{1,2})(?::?(\d{2}))?", prompt_lower)
+    if before_match:
+        hour, minute = before_match.groups()
+        return DEFAULT_TIME_FROM, _format_prompt_time(hour, minute)
+
+    at_match = re.search(r"(?:kl\.?|rundt)\s*(\d{1,2})(?::?(\d{2}))?", prompt_lower)
+    if at_match:
+        hour, minute = at_match.groups()
+        start_hour = max(0, int(hour) - 1)
+        end_hour = min(23, int(hour) + 1)
+        return _format_prompt_time(start_hour, minute), _format_prompt_time(end_hour, minute)
+
+    return DEFAULT_TIME_FROM, DEFAULT_TIME_TO
 
 
 def _format_prompt_time(hour, minute=None):

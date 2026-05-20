@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.25] - 2026-05-20
+- Endrer GolfBox-prompten slik at spørsmål uten tidsrom sjekker hele spilldagen, ikke bare standardvinduet 15-17.
+- Lar GolfBox-prompten forstå enkle tidsuttrykk som etter, før, fra og rundt klokkeslett.
+
 ## [1.8.24] - 2026-05-20
 - Gjør BalleTour AI-siden om til et enkelt GolfBox-promptfelt for vanlige BalleTour-brukere.
 - Flytter den tekniske MCP-verktøyoversikten fra BalleTour-menyen til Admin.
