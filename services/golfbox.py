@@ -10,6 +10,7 @@ from flask import current_app
 from openai import OpenAI
 
 from extensions import db
+from services.golfbox_notifications import send_golfbox_booking_email
 from services.time import server_now
 
 
@@ -1152,6 +1153,14 @@ def _scheduled_booking_result(interpretation, prompt, user):
     db.session.add(scheduled)
     db.session.commit()
     player_text = ", ".join(player["player_name"] for player in player_memberships)
+    execute_text = scheduled.execute_at.strftime("%Y-%m-%d %H:%M")
+    send_golfbox_booking_email(user, "scheduled", {
+        "course": scheduled.course,
+        "date": scheduled.play_date.isoformat(),
+        "time": scheduled.play_time,
+        "execute_at": execute_text,
+        "player_memberships": player_memberships,
+    })
     return {
         "intent": "create_booking",
         "status": "scheduled_booking_created",
@@ -1159,19 +1168,19 @@ def _scheduled_booking_result(interpretation, prompt, user):
         "course": scheduled.course,
         "date": scheduled.play_date.isoformat(),
         "time": scheduled.play_time,
-        "execute_at": scheduled.execute_at.strftime("%Y-%m-%d %H:%M"),
+        "execute_at": execute_text,
         "players": len(player_memberships),
         "player_names": [player["player_name"] for player in player_memberships],
         "message": (
             f"Jeg har lagt inn en planlagt booking: {scheduled.course} {scheduled.play_date.isoformat()} "
-            f"kl. {scheduled.play_time} for {player_text}. Den gjennomføres {scheduled.execute_at.strftime('%Y-%m-%d %H:%M')} "
+            f"kl. {scheduled.play_time} for {player_text}. Den gjennomføres {execute_text} "
             "uten ny bekreftelse."
         ),
         "available_slots": [],
     }
 
 
-def confirm_golfbox_booking(pending_booking, user=None):
+def confirm_golfbox_booking(pending_booking, user=None, notification_event="confirmed"):
     credentials = _credentials_for_user(user)
     if not credentials:
         return {
@@ -1189,7 +1198,15 @@ def confirm_golfbox_booking(pending_booking, user=None):
         }
     booking_date = date.fromisoformat(pending_booking["date"])
     booking_time = _parse_time(pending_booking["time"], "booking_time")
-    return _book_ballerud_slot(credentials, user, booking_date, booking_time, pending_booking.get("player_memberships", []))
+    result = _book_ballerud_slot(credentials, user, booking_date, booking_time, pending_booking.get("player_memberships", []))
+    if result.get("status") == "booking_created":
+        send_golfbox_booking_email(user, notification_event, {
+            "course": pending_booking.get("course") or result.get("course") or DEFAULT_GOLFBOX_COURSE,
+            "date": result.get("date") or pending_booking.get("date"),
+            "time": result.get("time") or pending_booking.get("time"),
+            "player_memberships": pending_booking.get("player_memberships", []),
+        })
+    return result
 
 
 def upcoming_golfbox_scheduled_bookings(user):
@@ -1248,7 +1265,11 @@ def run_due_golfbox_scheduled_bookings(limit=10):
                 "club_guid": BALLERUD_CLUB_GUID,
                 "resource_guid": BALLERUD_RESSOURCE_GUID,
             }
-            result = confirm_golfbox_booking(pending_booking, user=booking.created_by_user)
+            result = confirm_golfbox_booking(
+                pending_booking,
+                user=booking.created_by_user,
+                notification_event="scheduled_executed",
+            )
             booking.executed_at = server_now()
             booking.result_message = result.get("message")
             booking.error_message = None if result.get("status") == "booking_created" else result.get("message")

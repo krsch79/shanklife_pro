@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.32] - 2026-05-20
+- Sender e-post til brukeren når en GolfBox-booking er bekreftet, når en fremtidig booking legges inn, og når en planlagt booking er gjennomført.
+- Legger bane, dato, tidspunkt, spillere, gjennomføringstidspunkt og forventet vær inn i GolfBox-bookingmailene.
+
 ## [1.8.31] - 2026-05-20
 - Legger til planlagte GolfBox-bookinger for Ballerud, slik at en booking kan gjennomføres automatisk på et valgt tidspunkt uten ny bekreftelse.
 - Viser kommende planlagte GolfBox-bookinger på BalleTour AI-siden med spillere, bane, spilledato, spilletid og gjennomføringstidspunkt.
