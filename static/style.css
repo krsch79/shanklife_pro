@@ -1493,6 +1493,66 @@ th {
     background: #475569;
 }
 
+.golfbox-chat-shell {
+    display: grid;
+    gap: 12px;
+}
+
+.golfbox-chat-log {
+    display: grid;
+    gap: 12px;
+}
+
+.chat-message {
+    display: flex;
+}
+
+.assistant-message {
+    justify-content: flex-start;
+}
+
+.user-message {
+    justify-content: flex-end;
+}
+
+.chat-bubble {
+    width: min(100%, 840px);
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+}
+
+.user-message .chat-bubble {
+    width: min(100%, 720px);
+    background: #e0f2f1;
+    border-color: #99f6e4;
+}
+
+.chat-bubble p:first-child {
+    margin-top: 0;
+}
+
+.chat-bubble p:last-child {
+    margin-bottom: 0;
+}
+
+.golfbox-chat-form {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+}
+
+.golfbox-chat-form textarea {
+    width: 100%;
+    min-height: clamp(92px, 18vh, 170px);
+    max-height: min(42vh, 320px);
+    resize: vertical;
+}
+
 .button.secondary:hover {
     background: #334155;
 }
@@ -2060,6 +2120,16 @@ th {
     .button {
         padding: 10px 10px;
         font-size: 0.9rem;
+    }
+
+    .chat-bubble,
+    .user-message .chat-bubble {
+        width: 100%;
+    }
+
+    .golfbox-chat-form textarea {
+        min-height: 88px;
+        max-height: 34vh;
     }
 
     .hole-entry-top {

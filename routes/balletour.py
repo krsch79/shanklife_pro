@@ -1,6 +1,6 @@
 import json
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 from sqlalchemy import func
 
 from extensions import db
@@ -988,18 +988,25 @@ def ai_tools():
     _require_balletour_player()
     with balletour_data_context():
         series = _balletour_or_404()
+        chat_messages = session.get("golfbox_ai_chat", [])
         prompt = request.form.get("prompt", "").strip()
-        prompt_result = None
         if request.method == "POST":
-            try:
-                prompt_result = process_golfbox_prompt(prompt)
-            except ValueError as exc:
-                flash(str(exc), "error")
+            if request.form.get("action") == "clear":
+                chat_messages = []
+            elif prompt:
+                chat_messages.append({"role": "user", "text": prompt})
+                try:
+                    prompt_result = process_golfbox_prompt(prompt)
+                    chat_messages.append({"role": "assistant", "result": prompt_result})
+                except ValueError as exc:
+                    chat_messages.append({"role": "assistant", "error": str(exc)})
+            else:
+                flash("Skriv hva du vil sjekke i GolfBox.", "error")
+            session["golfbox_ai_chat"] = chat_messages[-12:]
         return render_template(
             "balletour_ai.html",
             series=series,
-            prompt=prompt,
-            prompt_result=prompt_result,
+            chat_messages=chat_messages,
             **_balletour_database_context(),
         )
 

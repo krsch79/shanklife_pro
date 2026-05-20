@@ -10,57 +10,83 @@
     <a class="button secondary" href="{{ url_for('balletour.index') }}">BalleTour2026</a>
 </div>
 
-<form method="post" class="form-card">
-    <label for="prompt">Hva vil du sjekke?</label>
-    <textarea
-        id="prompt"
-        name="prompt"
-        rows="4"
-        placeholder="Er det noe ledig på Ballerud for 2 personer i dag mellom 15 og 17?"
-        required
-    >{{ prompt or "" }}</textarea>
-    <div class="button-row">
-        <button type="submit" class="button">Sjekk GolfBox</button>
+<section class="golfbox-chat-shell">
+    <div class="golfbox-chat-log" aria-live="polite">
+        {% if chat_messages %}
+            {% for message in chat_messages %}
+                {% if message.role == "user" %}
+                <div class="chat-message user-message">
+                    <div class="chat-bubble">{{ message.text }}</div>
+                </div>
+                {% else %}
+                <div class="chat-message assistant-message">
+                    <div class="chat-bubble">
+                        {% if message.error %}
+                            <p>{{ message.error }}</p>
+                        {% else %}
+                            {% set result = message.result %}
+                            {% if result.status == "configuration_required" %}
+                                <p>GolfBox-innlogging er ikke ferdig konfigurert på serveren ennå.</p>
+                                <p class="muted">{{ result.next_step }}</p>
+                            {% elif result.status == "not_enabled" %}
+                                <p>{{ result.message }}</p>
+                            {% elif result.available_slots %}
+                                <p>Jeg fant {{ result.available_slots|length }} ledige tider for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Tid</th>
+                                                <th>Ledige plasser</th>
+                                                <th>Bane</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for slot in result.available_slots %}
+                                            <tr>
+                                                <td>{{ slot.time }}</td>
+                                                <td>{{ slot.available_spots }}</td>
+                                                <td>{{ slot.course }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p>Ingen ledige tider funnet for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>
+                                {% if result.message %}
+                                <p class="muted">{{ result.message }}</p>
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+        <div class="chat-message assistant-message">
+            <div class="chat-bubble">
+                <p>Hva vil du sjekke i GolfBox?</p>
+                <p class="muted">Eksempel: Er det noen ledige starttider for 2 personer på Ballerud i dag?</p>
+            </div>
+        </div>
+        {% endif %}
     </div>
-</form>
 
-{% if prompt_result %}
-<section class="form-card">
-    <h3>Resultat</h3>
-    {% if prompt_result.status == "configuration_required" %}
-    <div class="flash flash-warning">
-        GolfBox-innlogging er ikke ferdig konfigurert på serveren ennå.
-    </div>
-    <p class="muted">{{ prompt_result.next_step }}</p>
-    {% elif prompt_result.status == "not_enabled" %}
-    <div class="flash flash-warning">{{ prompt_result.message }}</div>
-    {% elif prompt_result.available_slots %}
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Tid</th>
-                    <th>Ledige plasser</th>
-                    <th>Bane</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for slot in prompt_result.available_slots %}
-                <tr>
-                    <td>{{ slot.time }}</td>
-                    <td>{{ slot.available_spots }}</td>
-                    <td>{{ slot.course }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <p>Ingen ledige tider funnet for {{ prompt_result.players }} personer på {{ prompt_result.course }} {{ prompt_result.date }} mellom {{ prompt_result.time_from }} og {{ prompt_result.time_to }}.</p>
-    {% if prompt_result.message %}
-    <p class="muted">{{ prompt_result.message }}</p>
-    {% endif %}
-    {% endif %}
+    <form method="post" class="golfbox-chat-form">
+        <label for="prompt">Melding</label>
+        <textarea
+            id="prompt"
+            name="prompt"
+            placeholder="Spør om ledige tider, f.eks. Ballerud for 2 personer i dag etter kl 16"
+            required
+        ></textarea>
+        <div class="button-row compact">
+            <button type="submit" class="button">Send</button>
+            {% if chat_messages %}
+            <button type="submit" name="action" value="clear" class="button secondary">Tøm chat</button>
+            {% endif %}
+        </div>
+</form>
 </section>
-{% endif %}
 {% endblock %}

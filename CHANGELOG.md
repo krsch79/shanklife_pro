@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.26] - 2026-05-20
+- Gjør GolfBox AI-siden om til en chatvisning med spørsmål og svar.
+- Tilpasser promptfeltet på GolfBox AI-siden etter skjermstørrelse, slik at det fungerer bedre på mobil og desktop.
+
 ## [1.8.25] - 2026-05-20
 - Endrer GolfBox-prompten slik at spørsmål uten tidsrom sjekker hele spilldagen, ikke bare standardvinduet 15-17.
 - Lar GolfBox-prompten forstå enkle tidsuttrykk som etter, før, fra og rundt klokkeslett.
