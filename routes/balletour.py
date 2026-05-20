@@ -992,6 +992,11 @@ def ai_tools():
         chat_messages = session.get("golfbox_ai_chat", [])
         pending_booking = session.get("golfbox_pending_booking")
         prompt = request.form.get("prompt", "").strip()
+        if request.method == "GET":
+            chat_messages = []
+            pending_booking = None
+            session.pop("golfbox_ai_chat", None)
+            session.pop("golfbox_pending_booking", None)
         if request.method == "POST":
             if request.form.get("action") == "clear":
                 chat_messages = []

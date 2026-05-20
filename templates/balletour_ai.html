@@ -135,4 +135,14 @@
         </div>
 </form>
 </section>
+
+<script>
+    window.addEventListener("load", function () {
+        window.scrollTo(0, document.body.scrollHeight);
+        var promptField = document.getElementById("prompt");
+        if (promptField) {
+            promptField.focus();
+        }
+    });
+</script>
 {% endblock %}

@@ -2,6 +2,12 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.29] - 2026-05-20
+- Retter GolfBox AI-booking når brukeren oppgir ett bestemt klokkeslett, slik at tidspunktet tolkes som et kort søkevindu i stedet for et ugyldig nullintervall.
+- Korter ned OpenAI-konteksten for GolfBox AI, slik at bare nødvendig prompttolkning sendes til modellen.
+- Nullstiller GolfBox AI-chatten hver gang AI-siden åpnes på nytt.
+- Skroller GolfBox AI-siden automatisk ned til siste svar etter innsending.
+
 ## [1.8.28] - 2026-05-20
 - Bytter GolfBox AI til OpenAI-basert tolkning av spørsmål, med strukturert intent, baner, dato, tidsrom, spillere og spillernavn.
 - Låser meldingsfeltet nederst på GolfBox AI-siden, slik at nye svar vises rett over feltet mens man skroller.

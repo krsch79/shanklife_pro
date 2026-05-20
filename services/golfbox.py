@@ -3,7 +3,7 @@ import html
 import json
 import os
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import httpx
 from flask import current_app
@@ -853,37 +853,19 @@ def _interpret_prompt_with_openai(prompt, user):
         return _fallback_prompt_interpretation(prompt)
 
     today = server_now().date().isoformat()
-    prompt_text = f"""
-Du tolker norske golfbooking-spørsmål for GolfBox. Returner KUN gyldig JSON.
-
-Dagens dato er {today} i tidssonen Europe/Oslo.
-
-Returner format:
-{{
-  "intent": "find_availability|create_booking|cancel_booking|unknown",
-  "courses": ["Ballerud"],
-  "area": "",
-  "players": 2,
-  "player_names": [],
-  "date": "YYYY-MM-DD",
-  "time_from": "HH:MM",
-  "time_to": "HH:MM"
-}}
-
-Regler:
-- Hvis brukeren spør om ledige tider, bruk intent find_availability.
-- Hvis brukeren ber om å booke/bestille/reservere, bruk create_booking.
-- Hvis brukeren ber om å avbestille/kansellere, bruk cancel_booking.
-- Hvis brukeren skriver "baner i oslo-området", sett area til "oslo" og courses til [].
-- Hvis brukeren nevner flere baner, legg alle i courses, f.eks ["Ballerud","Oslo"].
-- Normaliser Ballerud, Oslo, Haga, Bærum, Grini, Asker, Oppegård og Drøbak som korte banenavn.
-- Hvis dato mangler, bruk {today}.
-- Hvis tidsrom mangler, bruk 06:00 til 22:00.
-- Hvis antall spillere mangler, bruk 2.
-- player_names skal bare inneholde navngitte personer, ikke banenavn.
-
-Brukerens melding: {prompt}
-"""
+    prompt_text = (
+        f"I dag er {today}. Tolk golfmelding til JSON: "
+        '{"intent":"find_availability|create_booking|cancel_booking|unknown",'
+        '"courses":[],"area":"","players":2,"player_names":[],'
+        '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM"}. '
+        "Regler: book/bestill/reserver=create_booking, ledig=find_availability, "
+        "avbestill/kanseller=cancel_booking. Oslo-området: area=oslo og courses=[]. "
+        "Flere baner listes i courses. Kjente korte banenavn: Ballerud, Oslo, Haga, "
+        "Bærum, Grini, Asker, Oppegård, Drøbak. Mangler dato: i dag. "
+        "Mangler tidsrom: 06:00-22:00. Enkelt klokkeslett: time_from=klokkeslett "
+        "og time_to=30 minutter senere. Mangler spillere: 2. Bare JSON. "
+        f"Melding: {prompt}"
+    )
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     response = client.responses.create(
         model=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
@@ -941,8 +923,10 @@ def _normalize_interpretation(data, prompt):
     time_from = str(data.get("time_from") or fallback["time_from"]).strip()
     time_to = str(data.get("time_to") or fallback["time_to"]).strip()
     _parse_date(play_date)
-    _parse_time(time_from, "time_from")
-    _parse_time(time_to, "time_to")
+    parsed_from = _parse_time(time_from, "time_from")
+    parsed_to = _parse_time(time_to, "time_to")
+    if parsed_to <= parsed_from:
+        time_to = _time_after(parsed_from, minutes=30)
 
     return {
         "intent": intent if intent != "unknown" else "find_availability",
@@ -965,6 +949,7 @@ def _fallback_prompt_interpretation(prompt):
     else:
         intent = "find_availability"
     courses = _courses_from_prompt(prompt)
+    time_from, time_to = _time_window_from_prompt(prompt_lower)
     return {
         "intent": intent,
         "courses": courses,
@@ -972,8 +957,8 @@ def _fallback_prompt_interpretation(prompt):
         "players": _players_from_prompt(prompt_lower),
         "player_names": [],
         "date": _date_from_prompt(prompt_lower),
-        "time_from": _time_window_from_prompt(prompt_lower)[0],
-        "time_to": _time_window_from_prompt(prompt_lower)[1],
+        "time_from": time_from,
+        "time_to": time_to,
     }
 
 
@@ -1080,15 +1065,19 @@ def _time_window_from_prompt(prompt_lower):
     at_match = re.search(r"(?:kl\.?|rundt)\s*(\d{1,2})(?::?(\d{2}))?", prompt_lower)
     if at_match:
         hour, minute = at_match.groups()
-        start_hour = max(0, int(hour) - 1)
-        end_hour = min(23, int(hour) + 1)
-        return _format_prompt_time(start_hour, minute), _format_prompt_time(end_hour, minute)
+        parsed_time = datetime.strptime(_format_prompt_time(hour, minute), "%H:%M").time()
+        return parsed_time.strftime("%H:%M"), _time_after(parsed_time, minutes=30)
 
     return DEFAULT_TIME_FROM, DEFAULT_TIME_TO
 
 
 def _format_prompt_time(hour, minute=None):
     return f"{int(hour):02d}:{int(minute or 0):02d}"
+
+
+def _time_after(value, minutes=30):
+    dt = datetime.combine(server_now().date(), value) + timedelta(minutes=minutes)
+    return dt.time().strftime("%H:%M")
 
 
 def _courses_from_prompt(prompt):
