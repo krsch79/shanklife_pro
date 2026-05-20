@@ -7,6 +7,7 @@ Alle merkbare endringer i Shanklife Pro loggfores her.
 - Viser kommende planlagte GolfBox-bookinger på BalleTour AI-siden med spillere, bane, spilledato, spilletid og gjennomføringstidspunkt.
 - Lar brukeren kansellere en planlagt GolfBox-booking frem til ett minutt før gjennomføring.
 - Installerer en minuttvis Raspberry Pi-kjører ved deploy som utfører planlagte GolfBox-bookinger når tidspunktet kommer.
+- Retter den planlagte GolfBox-kjøreren slik at den kan startes direkte fra cron på Raspberry Pi.
 
 ## [1.8.30] - 2026-05-20
 - Lar GolfBox AI svare direkte på spørsmål om brukerens lagrede GolfBox-medlemsnummer uten å gjøre et nytt ledighetssøk.
