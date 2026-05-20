@@ -22,7 +22,7 @@ from services.tee_filters import (
 )
 from services.version import APP_VERSION
 from services.weather import fetch_bekkestua_weather, summarize_weather_payload
-from services.golfbox import process_golfbox_prompt
+from services.golfbox import golfbox_connection_summary, process_golfbox_prompt
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
 
@@ -978,6 +978,7 @@ def me():
             tee_options=tee_filter_options(series.course),
             selected_tee_key=tee_key,
             display_name=_player_display_name,
+            golfbox_connection=golfbox_connection_summary(g.current_user),
             **_balletour_database_context(),
         )
 
@@ -989,14 +990,32 @@ def ai_tools():
     with balletour_data_context():
         series = _balletour_or_404()
         chat_messages = session.get("golfbox_ai_chat", [])
+        pending_booking = session.get("golfbox_pending_booking")
         prompt = request.form.get("prompt", "").strip()
         if request.method == "POST":
             if request.form.get("action") == "clear":
                 chat_messages = []
+                pending_booking = None
+                session.pop("golfbox_pending_booking", None)
+            elif request.form.get("action") == "confirm_booking":
+                if pending_booking:
+                    chat_messages.append({"role": "user", "text": "Bekreft booking"})
+                    prompt_result = process_golfbox_prompt("bekreft", user=g.current_user, pending_booking=pending_booking)
+                    chat_messages.append({"role": "assistant", "result": prompt_result})
+                    pending_booking = None
+                    session.pop("golfbox_pending_booking", None)
+                else:
+                    chat_messages.append({"role": "assistant", "error": "Jeg fant ingen booking som venter på bekreftelse."})
             elif prompt:
                 chat_messages.append({"role": "user", "text": prompt})
                 try:
-                    prompt_result = process_golfbox_prompt(prompt)
+                    prompt_result = process_golfbox_prompt(prompt, user=g.current_user, pending_booking=pending_booking)
+                    if prompt_result.get("status") == "confirmation_required":
+                        pending_booking = prompt_result.get("pending_booking")
+                        session["golfbox_pending_booking"] = pending_booking
+                    elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required"}:
+                        pending_booking = None
+                        session.pop("golfbox_pending_booking", None)
                     chat_messages.append({"role": "assistant", "result": prompt_result})
                 except ValueError as exc:
                     chat_messages.append({"role": "assistant", "error": str(exc)})
@@ -1007,6 +1026,8 @@ def ai_tools():
             "balletour_ai.html",
             series=series,
             chat_messages=chat_messages,
+            pending_booking=pending_booking,
+            golfbox_connection=golfbox_connection_summary(g.current_user),
             **_balletour_database_context(),
         )
 

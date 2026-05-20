@@ -2,6 +2,12 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.27] - 2026-05-20
+- Lar innloggede brukere lagre egne GolfBox-detaljer på Min side og bruker disse i GolfBox AI.
+- Viser hvilken GolfBox-klubb og hvilket medlemsnummer BalleTour AI er koblet til.
+- Legger til ledighetssøk for andre GolfBox-baner, foreløpig uten booking på andre baner enn Ballerud.
+- Legger til en bekreftet Ballerud-bookingflyt som stopper før booking hvis GolfBox viser betaling, feil klubb eller feil medlemskap.
+
 ## [1.8.26] - 2026-05-20
 - Gjør GolfBox AI-siden om til en chatvisning med spørsmål og svar.
 - Tilpasser promptfeltet på GolfBox AI-siden etter skjermstørrelse, slik at det fungerer bedre på mobil og desktop.

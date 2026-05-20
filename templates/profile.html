@@ -14,6 +14,36 @@
     </div>
 </div>
 
+<section class="form-card">
+    <h3>GolfBox</h3>
+    {% if golfbox_connection.connected %}
+    <p class="muted">
+        Koblet til {{ golfbox_connection.player_name or golfbox_connection.username }}
+        {% if golfbox_connection.club_name %} · {{ golfbox_connection.club_name }}{% endif %}
+        {% if golfbox_connection.member_number %} · {{ golfbox_connection.member_number }}{% endif %}
+    </p>
+    {% else %}
+    <p class="muted">Legg inn GolfBox-innlogging for å bruke GolfBox AI.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('profile.golfbox_settings') }}" class="settings-grid">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <div>
+            <label for="golfbox_username">GolfBox-brukernavn</label>
+            <input type="email" id="golfbox_username" name="golfbox_username" value="{{ golfbox_connection.username or '' }}" autocomplete="username" required>
+        </div>
+        <div>
+            <label for="golfbox_password">GolfBox-passord</label>
+            <input type="password" id="golfbox_password" name="golfbox_password" autocomplete="current-password" required>
+        </div>
+        <div class="button-row compact">
+            <button type="submit" class="button">Lagre GolfBox</button>
+            {% if golfbox_connection.connected %}
+            <button type="submit" name="action" value="clear" class="button secondary" formnovalidate>Fjern</button>
+            {% endif %}
+        </div>
+    </form>
+</section>
+
 <div class="tee-tabs">
     <span class="tee-tabs-label">Tee</span>
     {% for tee in tee_options %}

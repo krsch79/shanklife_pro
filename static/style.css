@@ -1432,6 +1432,7 @@ label {
 }
 
 input[type="text"],
+input[type="email"],
 input[type="number"],
 input[type="password"],
 select,
@@ -1496,6 +1497,23 @@ th {
 .golfbox-chat-shell {
     display: grid;
     gap: 12px;
+}
+
+.golfbox-connection-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+}
+
+.golfbox-connection-card span,
+.golfbox-connection-card a {
+    color: var(--muted);
+    font-size: 0.92rem;
 }
 
 .golfbox-chat-log {
@@ -1590,6 +1608,13 @@ th {
 .inline-form {
     display: inline;
     margin: 0;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
 }
 
 .player-slots {
@@ -2115,6 +2140,10 @@ th {
 
     .form-card {
         padding: 10px;
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr;
     }
 
     .button {

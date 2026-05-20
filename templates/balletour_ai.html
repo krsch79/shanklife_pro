@@ -11,6 +11,19 @@
 </div>
 
 <section class="golfbox-chat-shell">
+    <div class="golfbox-connection-card">
+        {% if golfbox_connection.connected %}
+        <strong>{{ golfbox_connection.club_name or "GolfBox" }}</strong>
+        <span>{{ golfbox_connection.player_name or golfbox_connection.username }}</span>
+        {% if golfbox_connection.member_number %}
+        <span>Medlemsnummer {{ golfbox_connection.member_number }}</span>
+        {% endif %}
+        {% else %}
+        <strong>GolfBox er ikke koblet til</strong>
+        <a href="{{ url_for('balletour.me') }}">Legg inn innlogging på Min side</a>
+        {% endif %}
+    </div>
+
     <div class="golfbox-chat-log" aria-live="polite">
         {% if chat_messages %}
             {% for message in chat_messages %}
@@ -26,9 +39,38 @@
                         {% else %}
                             {% set result = message.result %}
                             {% if result.status == "configuration_required" %}
-                                <p>GolfBox-innlogging er ikke ferdig konfigurert på serveren ennå.</p>
+                                <p>GolfBox-innlogging mangler.</p>
                                 <p class="muted">{{ result.next_step }}</p>
-                            {% elif result.status == "not_enabled" %}
+                            {% elif result.status in ["not_enabled", "needs_player_details", "booking_unsupported_course", "booking_failed", "payment_required", "wrong_club", "wrong_membership"] %}
+                                <p>{{ result.message }}</p>
+                                {% if result.available_slots %}
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Tid</th>
+                                                <th>Ledige plasser</th>
+                                                <th>Bane</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for slot in result.available_slots %}
+                                            <tr>
+                                                <td>{{ slot.time }}</td>
+                                                <td>{{ slot.available_spots }}</td>
+                                                <td>{{ slot.course }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+                            {% elif result.status == "confirmation_required" %}
+                                <p>{{ result.message }}</p>
+                                <form method="post" class="inline-form">
+                                    <button type="submit" name="action" value="confirm_booking" class="button">Bekreft booking</button>
+                                </form>
+                            {% elif result.status == "booking_created" %}
                                 <p>{{ result.message }}</p>
                             {% elif result.available_slots %}
                                 <p>Jeg fant {{ result.available_slots|length }} ledige tider for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>

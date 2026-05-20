@@ -7,6 +7,7 @@ from extensions import db
 from models import CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 from routes.auth import login_required
 from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
+from services.golfbox import clear_user_golfbox_credentials, golfbox_connection_summary, save_user_golfbox_credentials
 from services.tee_filters import round_player_matches_tee, selected_tee_key, tee_filter_options
 
 profile_bp = Blueprint("profile", __name__)
@@ -161,7 +162,32 @@ def me():
         fairway_summary=fairway_summary,
         tee_options=tee_filter_options(),
         selected_tee_key=tee_key,
+        golfbox_connection=golfbox_connection_summary(g.current_user),
     )
+
+
+@profile_bp.route("/me/golfbox", methods=["POST"])
+@login_required
+def golfbox_settings():
+    user = g.current_user
+    if request.form.get("action") == "clear":
+        clear_user_golfbox_credentials(user)
+        db.session.commit()
+        flash("GolfBox-innloggingen er fjernet.", "success")
+    else:
+        username = request.form.get("golfbox_username", "").strip()
+        password = request.form.get("golfbox_password", "")
+        try:
+            identity = save_user_golfbox_credentials(user, username, password)
+        except ValueError as exc:
+            flash(str(exc), "error")
+        else:
+            db.session.commit()
+            player_name = identity.get("player_name") or "GolfBox-brukeren"
+            club_name = identity.get("club_name") or "ukjent klubb"
+            flash(f"GolfBox er koblet til {player_name} i {club_name}.", "success")
+    next_url = request.form.get("next") or url_for("profile.me")
+    return redirect(next_url)
 
 
 @profile_bp.route("/me/notifications", methods=["GET", "POST"])
