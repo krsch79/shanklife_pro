@@ -50,7 +50,7 @@
                     </select>
                 </label>
 
-                {% if club_tracking_enabled %}
+                {% if club_tracking_enabled and (is_balletour_scoring_page or hole.par in [4, 5]) %}
                 <label class="club-mini-field">
                     <span>Kølle</span>
                     {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
@@ -91,6 +91,7 @@
                     {% endif %}
 
                     {% if hole.par in [4, 5] %}
+                    {% if is_balletour_scoring_page %}
                     <label>
                         <span>Utslag</span>
                         <input
@@ -104,6 +105,7 @@
                             {% if round.status == 'finished' %}disabled{% endif %}
                         >
                     </label>
+                    {% endif %}
                     <label>
                         <span>FW</span>
                         <select name="stat_fairway{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>

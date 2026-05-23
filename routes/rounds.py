@@ -524,6 +524,8 @@ def _save_score_stat(
 
 
 def _round_uses_club_tracking(round_obj):
+    if round_obj.stats_user_id:
+        return True
     balletour_series = get_balletour_series()
     if balletour_series and round_obj.course_id == balletour_series.course_id:
         return True
@@ -738,7 +740,8 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
 
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
-    scoped_stats = _is_balletour_round(round_obj)
+    balletour_round = _is_balletour_round(round_obj)
+    scoped_stats = balletour_round
 
     for rp in round_players:
         raw_value = request.form.get(f"score_{rp.id}", "").strip()
@@ -753,7 +756,7 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
 
         entry.strokes = _parse_score_for_hole(raw_value, hole, rp.player_name_snapshot)
 
-        if club_tracking_enabled:
+        if club_tracking_enabled and (balletour_round or hole.par in (4, 5)):
             _save_tee_club(
                 entry,
                 request.form.get(f"tee_club_{rp.id}", ""),
@@ -779,7 +782,8 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None):
     missing_by_player = []
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
-    scoped_stats = _is_balletour_round(round_obj)
+    balletour_round = _is_balletour_round(round_obj)
+    scoped_stats = balletour_round
 
     for rp in round_players:
         missing = []
@@ -787,7 +791,7 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None):
             missing.append("score")
             missing_by_player.append(f"{rp.player_name_snapshot}: {', '.join(missing)}")
             continue
-        if club_tracking_enabled and not request.form.get(f"tee_club_{rp.id}", "").strip():
+        if club_tracking_enabled and (balletour_round or hole.par in (4, 5)) and not request.form.get(f"tee_club_{rp.id}", "").strip():
             missing.append("kølle")
 
         if _round_player_tracks_stats(round_obj, rp, stats_rp):

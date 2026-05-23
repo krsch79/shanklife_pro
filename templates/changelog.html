@@ -5,10 +5,11 @@
 <div class="page-title-row">
     <div>
         <h2>Changelog</h2>
-        <p class="muted">Endringer i Shanklife Pro og BalleTour.</p>
+        <p class="muted">Endringer i Shanklife Pro og BalleTour vises hver for seg.</p>
     </div>
 </div>
 
+<h3>Shanklife Pro</h3>
 <div class="changelog-list">
     {% for entry in changelog_entries %}
     <section class="changelog-entry">
@@ -22,6 +23,23 @@
     </section>
     {% else %}
     <p class="muted">Ingen endringer er loggfort enna.</p>
+    {% endfor %}
+</div>
+
+<h3>BalleTour</h3>
+<div class="changelog-list">
+    {% for entry in balletour_changelog_entries %}
+    <section class="changelog-entry">
+        <h3>Versjon {{ entry.version }}</h3>
+        <p class="muted">{{ entry.date }}</p>
+        <ul>
+            {% for change in entry.changes %}
+            <li>{{ change }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% else %}
+    <p class="muted">Ingen BalleTour-endringer er loggfort i separat changelog enna.</p>
     {% endfor %}
 </div>
 {% endblock %}

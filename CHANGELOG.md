@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.33] - 2026-05-23
+- Legger til egen Shanklife Pro-statistikkside for fullførte statistikkrunder med greentreff, putting, scorefordeling og utslag på par 4/5.
+- Lar Shanklife Pro-statistikkrunder registrere kølle og fairwaytreff, venstre eller høyre miss på utslag på par 4 og 5 uten å registrere utslagslengde.
+- Viser produktspesifikke changelog-lister hver for seg på changelog-siden.
+
 ## [1.8.32] - 2026-05-20
 - Sender e-post til brukeren når en GolfBox-booking er bekreftet, når en fremtidig booking legges inn, og når en planlagt booking er gjennomført.
 - Legger bane, dato, tidspunkt, spillere, gjennomføringstidspunkt og forventet vær inn i GolfBox-bookingmailene.

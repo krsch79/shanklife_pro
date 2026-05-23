@@ -1,0 +1,316 @@
+from collections import defaultdict
+
+from flask import Blueprint, g, render_template, request
+
+from extensions import db
+from models import Club, CourseHole, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
+from routes.auth import login_required
+
+stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
+
+
+def _percent(numerator, denominator):
+    if denominator == 0:
+        return None
+    return round((numerator / denominator) * 100, 1)
+
+
+def _avg(values):
+    values = [value for value in values if value is not None]
+    if not values:
+        return None
+    return round(sum(values) / len(values), 2)
+
+
+def _green_parts(raw_value):
+    raw_value = (raw_value or "hit").strip()
+    status, separator, direction_text = raw_value.partition(":")
+    if status not in ("hit", "miss", "bunker"):
+        if status in ("left", "right", "short", "long"):
+            return "miss", {status}
+        return "hit", set()
+    directions = set()
+    if separator:
+        directions = {
+            item for item in direction_text.split(",")
+            if item in ("pin", "left", "right", "short", "long")
+        }
+    return status, directions
+
+
+def _green_bucket(status, directions):
+    if status == "hit":
+        return "hit"
+    if status == "bunker":
+        return "bunker"
+    vertical = "short" if "short" in directions else "long" if "long" in directions else ""
+    horizontal = "left" if "left" in directions else "right" if "right" in directions else ""
+    if vertical and horizontal:
+        return f"miss_{horizontal}_{vertical}"
+    if horizontal:
+        return f"miss_{horizontal}"
+    if vertical:
+        return f"miss_{vertical}"
+    return "miss"
+
+
+def _green_point(status, directions, index):
+    vertical = "long" if "long" in directions else "short" if "short" in directions else ""
+    horizontal = "left" if "left" in directions else "right" if "right" in directions else ""
+    key = "_".join(part for part in (vertical, horizontal) if part) or "center"
+    anchors = {
+        "hit": {
+            "center": (50, 50),
+            "long": (50, 39),
+            "short": (50, 61),
+            "left": (39, 50),
+            "right": (61, 50),
+            "long_left": (41, 41),
+            "long_right": (59, 41),
+            "short_left": (41, 60),
+            "short_right": (59, 60),
+        },
+        "bunker": {
+            "center": (50, 19),
+            "long": (50, 19),
+            "short": (50, 81),
+            "left": (20, 50),
+            "right": (80, 50),
+            "long_left": (30, 20),
+            "long_right": (70, 20),
+            "short_left": (30, 80),
+            "short_right": (70, 80),
+        },
+        "miss": {
+            "center": (50, 91),
+            "long": (50, 10),
+            "short": (50, 91),
+            "left": (10, 50),
+            "right": (90, 50),
+            "long_left": (22, 10),
+            "long_right": (78, 10),
+            "short_left": (22, 90),
+            "short_right": (78, 90),
+        },
+    }
+    if key == "center" and status in ("bunker", "miss"):
+        key = ("long", "right", "short", "left")[index % 4]
+    x, y = anchors.get(status, anchors["hit"]).get(key, anchors["hit"]["center"])
+    jitter_range = 5 if status == "hit" else 3
+    return {
+        "status": status,
+        "x": max(8, min(92, x + ((index * 17) % jitter_range) - (jitter_range // 2))),
+        "y": max(8, min(92, y + ((index * 29) % jitter_range) - (jitter_range // 2))),
+    }
+
+
+def _stats_players():
+    tracked_player_ids = {
+        player_id
+        for (player_id,) in (
+            db.session.query(User.player_id)
+            .join(Round, Round.stats_user_id == User.id)
+            .filter(Round.status == "finished")
+            .distinct()
+            .all()
+        )
+        if player_id
+    }
+    if g.current_user and g.current_user.player_id:
+        tracked_player_ids.add(g.current_user.player_id)
+    if not tracked_player_ids:
+        return []
+    return Player.query.filter(Player.id.in_(tracked_player_ids)).order_by(Player.name.asc()).all()
+
+
+def _tracked_round_players(player):
+    if not player:
+        return []
+    return (
+        RoundPlayer.query.join(Round)
+        .join(User, Round.stats_user_id == User.id)
+        .filter(Round.status == "finished")
+        .filter(User.player_id == player.id)
+        .filter(RoundPlayer.player_id == player.id)
+        .order_by(Round.started_at.desc())
+        .all()
+    )
+
+
+def _completed_rounds(round_players):
+    completed = []
+    for round_player in round_players:
+        holes = list(round_player.round.course.holes)
+        entries = [entry for entry in round_player.score_entries if entry.strokes is not None]
+        if len(entries) != len(holes):
+            continue
+        completed.append({
+            "round_player": round_player,
+            "total": sum(entry.strokes for entry in entries),
+            "par": sum(hole.par for hole in holes),
+        })
+    return completed
+
+
+def _par_by_entry_id(round_player_ids):
+    rows = (
+        db.session.query(ScoreEntry.id, CourseHole.par)
+        .join(Round, Round.id == ScoreEntry.round_id)
+        .join(
+            CourseHole,
+            (CourseHole.course_id == Round.course_id)
+            & (CourseHole.hole_number == ScoreEntry.hole_number),
+        )
+        .filter(ScoreEntry.round_player_id.in_(round_player_ids))
+        .all()
+        if round_player_ids else []
+    )
+    return {entry_id: par for entry_id, par in rows}
+
+
+def _player_stats(player):
+    round_players = _tracked_round_players(player)
+    round_player_ids = [round_player.id for round_player in round_players]
+    completed = _completed_rounds(round_players)
+    entries = (
+        ScoreEntry.query.filter(ScoreEntry.round_player_id.in_(round_player_ids))
+        .filter(ScoreEntry.strokes.isnot(None))
+        .all()
+        if round_player_ids else []
+    )
+    par_by_entry_id = _par_by_entry_id(round_player_ids)
+    diffs = [entry.strokes - par_by_entry_id.get(entry.id, 3) for entry in entries]
+
+    stats_rows = (
+        db.session.query(ScoreStat, ScoreEntry)
+        .join(ScoreEntry, ScoreStat.score_entry_id == ScoreEntry.id)
+        .filter(ScoreEntry.round_player_id.in_(round_player_ids))
+        .all()
+        if round_player_ids else []
+    )
+    green_rows = [(stat, entry) for stat, entry in stats_rows if par_by_entry_id.get(entry.id) == 3]
+    tee_rows = [(stat, entry) for stat, entry in stats_rows if par_by_entry_id.get(entry.id) in (4, 5)]
+
+    green_bucket_labels = [
+        ("hit", "Greentreff"),
+        ("miss_right_short", "Miss høyre kort"),
+        ("miss_right_long", "Miss høyre lang"),
+        ("miss_right", "Miss høyre"),
+        ("miss_left_short", "Miss venstre kort"),
+        ("miss_left_long", "Miss venstre lang"),
+        ("miss_left", "Miss venstre"),
+        ("miss_short", "Miss kort"),
+        ("miss_long", "Miss lang"),
+        ("miss", "Miss uten retning"),
+        ("bunker", "Bunker"),
+    ]
+    green_bucket_counts = {key: 0 for key, label in green_bucket_labels}
+    green_points = []
+    sand_save_attempts = 0
+    sand_saves = 0
+    for index, (stat, entry) in enumerate(green_rows):
+        status, directions = _green_parts(stat.fairway_result)
+        bucket = _green_bucket(status, directions)
+        green_bucket_counts[bucket] = green_bucket_counts.get(bucket, 0) + 1
+        green_points.append(_green_point(status, directions, index))
+        if status == "bunker":
+            sand_save_attempts += 1
+            if entry.strokes is not None and entry.strokes <= par_by_entry_id.get(entry.id, 3):
+                sand_saves += 1
+
+    fairway_counts = {"hit": 0, "left": 0, "right": 0}
+    for stat, _entry in tee_rows:
+        if stat.fairway_result in fairway_counts:
+            fairway_counts[stat.fairway_result] += 1
+    fairway_attempts = sum(fairway_counts.values())
+
+    club_rows = []
+    by_club = defaultdict(lambda: {"count": 0, "strokes": [], "hit": 0, "left": 0, "right": 0})
+    club_names = {}
+    for stat, entry in tee_rows:
+        if not entry.tee_club_id:
+            continue
+        bucket = by_club[entry.tee_club_id]
+        bucket["count"] += 1
+        bucket["strokes"].append(entry.strokes)
+        if stat.fairway_result in ("hit", "left", "right"):
+            bucket[stat.fairway_result] += 1
+    clubs = Club.query.filter(Club.id.in_(by_club.keys())).all() if by_club else []
+    club_names = {club.id: club.name for club in clubs}
+    for club_id, row in by_club.items():
+        club_rows.append({
+            "name": club_names.get(club_id, "Ukjent"),
+            "count": row["count"],
+            "avg": _avg(row["strokes"]),
+            "fairway_percent": _percent(row["hit"], row["count"]),
+            "left_percent": _percent(row["left"], row["count"]),
+            "right_percent": _percent(row["right"], row["count"]),
+        })
+    club_rows.sort(key=lambda row: (-(row["count"] or 0), row["name"]))
+
+    putt_distance_by_round = {row["round_player"].round_id: 0 for row in completed}
+    for stat, entry in stats_rows:
+        if entry.round_id in putt_distance_by_round and stat.last_putt_distance_m is not None:
+            putt_distance_by_round[entry.round_id] += stat.last_putt_distance_m
+
+    best_vs_par = min((row["total"] - row["par"] for row in completed), default=None)
+    return {
+        "round_count": len(round_players),
+        "completed_round_count": len(completed),
+        "avg_round": round(sum(row["total"] for row in completed) / len(completed), 1) if completed else None,
+        "best_round": min((row["total"] for row in completed), default=None),
+        "best_round_vs_par": best_vs_par,
+        "scored_holes": len(entries),
+        "birdies_or_better": sum(1 for diff in diffs if diff < 0),
+        "pars": sum(1 for diff in diffs if diff == 0),
+        "bogeys_or_worse": sum(1 for diff in diffs if diff > 0),
+        "green_hit_percent": _percent(green_bucket_counts["hit"], len(green_rows)),
+        "bunker_percent": _percent(green_bucket_counts["bunker"], len(green_rows)),
+        "sand_save_attempts": sand_save_attempts,
+        "sand_saves": sand_saves,
+        "sand_save_percent": _percent(sand_saves, sand_save_attempts),
+        "avg_putts": _avg([stat.putts for stat, _entry in stats_rows]),
+        "avg_last_putt_distance": _avg([stat.last_putt_distance_m for stat, _entry in stats_rows]),
+        "avg_putt_meters_per_round": _avg(list(putt_distance_by_round.values())),
+        "green_points": green_points[-160:],
+        "green_distribution": [
+            {
+                "key": key,
+                "label": label,
+                "count": green_bucket_counts.get(key, 0),
+                "percent": _percent(green_bucket_counts.get(key, 0), len(green_rows)),
+            }
+            for key, label in green_bucket_labels
+            if green_bucket_counts.get(key, 0) or key in ("hit", "bunker")
+        ],
+        "fairway_attempts": fairway_attempts,
+        "fairway_hit_percent": _percent(fairway_counts["hit"], fairway_attempts),
+        "fairway_left_percent": _percent(fairway_counts["left"], fairway_attempts),
+        "fairway_right_percent": _percent(fairway_counts["right"], fairway_attempts),
+        "club_rows": club_rows,
+    }
+
+
+@stats_bp.route("/")
+@login_required
+def index():
+    players = _stats_players()
+    selected_player_id = request.args.get("player_id", "").strip()
+    selected_player = None
+    if selected_player_id:
+        try:
+            selected_player = next((player for player in players if player.id == int(selected_player_id)), None)
+        except ValueError:
+            selected_player = None
+    if not selected_player and g.current_user:
+        selected_player = next((player for player in players if player.id == g.current_user.player_id), None)
+    if not selected_player and players:
+        selected_player = players[0]
+    if not selected_player:
+        return render_template("stats.html", players=players, selected_player=None, stats={})
+    return render_template(
+        "stats.html",
+        players=players,
+        selected_player=selected_player,
+        stats=_player_stats(selected_player),
+    )

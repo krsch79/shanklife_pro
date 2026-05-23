@@ -19,6 +19,7 @@ from routes.auth import auth_bp
 from routes.profile import profile_bp
 from routes.admin import admin_bp
 from routes.series import series_bp
+from routes.stats import stats_bp
 from routes.balletour import balletour_bp
 from services.balletour import is_balletour_player
 from services.time import format_server_datetime
@@ -236,6 +237,7 @@ def create_app():
     app.register_blueprint(profile_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(series_bp)
+    app.register_blueprint(stats_bp)
     app.register_blueprint(balletour_bp)
 
     return app

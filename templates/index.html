@@ -19,6 +19,11 @@
         <p>Før score og detaljstatistikk for eget spill.</p>
     </a>
 
+    <a class="card-link" href="{{ url_for('stats.index') }}">
+        <h3>Statistikk</h3>
+        <p>Se greentreff, putting og utslag på par 4/5.</p>
+    </a>
+
     {% if current_user_is_balletour_player %}
     <a class="card-link" href="{{ url_for('balletour.index') }}">
         <h3>BalleTour2026</h3>

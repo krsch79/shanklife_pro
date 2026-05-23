@@ -114,6 +114,7 @@
                             {% endif %}
 
                             {% if hole.par in [4, 5] %}
+                            {% if is_balletour_scoring_page|default(false) %}
                             <input
                                 type="number"
                                 min="1"
@@ -126,6 +127,7 @@
                                 data-stat-field="drive_distance"
                                 {% if round.status == 'finished' %}disabled{% endif %}
                             >
+                            {% endif %}
                             <select
                                 name="stat_fairway_{{ hole.hole_number }}"
                                 class="autosave-stat stat-select"

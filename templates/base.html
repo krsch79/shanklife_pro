@@ -52,6 +52,7 @@
                 <a href="{{ url_for('rounds.new_round') }}">Ny runde</a>
                 {% if current_user %}
                 <a href="{{ url_for('rounds.new_stats_round') }}">Ny runde med statistikk</a>
+                <a href="{{ url_for('stats.index') }}">Statistikk</a>
                 <a href="{{ url_for('profile.me') }}">Min side</a>
                 {% if current_user.is_admin %}
                 <a href="{{ url_for('admin.admin_home') }}">Admin</a>
