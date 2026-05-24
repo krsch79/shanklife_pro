@@ -2,6 +2,9 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.37] - 2026-05-24
+- Endrer teksten over stillingen mot par i hullføringen til Score.
+
 ## [1.8.36] - 2026-05-24
 - Krever innlogging for Shanklife Pro-sider, med live leaderboard som eneste åpne Shanklife-visning.
 - Rydder startside og meny til én knapp for å starte ny runde, siden statistikk velges per spiller i rundeopprettelsen.
