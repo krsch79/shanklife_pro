@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.46] - 2026-05-24
+- Skjuler BalleTour-spillere uten registrerte runder fra leaderboard, beste-score-tabellen, statistikkvalg, samlet statistikk og spillerlisten.
+
 ## [1.8.45] - 2026-05-24
 - Legger til valgfrie e-postvarsler når BalleTour-runder startes.
 - Fargelegger scorekortscore med grønt for birdie eller bedre og rødt for bogey eller verre.

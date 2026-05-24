@@ -64,6 +64,30 @@ def _has_posted_extra_balletour_slots(max_players=MAX_BALLETOUR_ROUND_PLAYERS):
     return False
 
 
+def _balletour_memberships_with_rounds(series, memberships, tee_ids=None, statuses=None):
+    player_ids = [membership.player_id for membership in memberships]
+    if not player_ids:
+        return []
+
+    query = (
+        db.session.query(RoundPlayer.player_id)
+        .join(Round, Round.id == RoundPlayer.round_id)
+        .filter(Round.course_id == series.course_id)
+        .filter(RoundPlayer.player_id.in_(player_ids))
+    )
+    if statuses:
+        query = query.filter(Round.status.in_(statuses))
+    if tee_ids:
+        query = query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
+
+    player_ids_with_rounds = {player_id for (player_id,) in query.distinct().all()}
+    return [
+        membership
+        for membership in memberships
+        if membership.player_id in player_ids_with_rounds
+    ]
+
+
 def _player_display_name(player):
     if player.name == "Christian H":
         return "Christian"
@@ -898,12 +922,18 @@ def index():
             ongoing_round_query = ongoing_round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
         finished_round_count = finished_round_query.distinct().count()
         ongoing_round_count = ongoing_round_query.distinct().count()
-        best_hole_score_table = _best_hole_score_table(series, memberships, tee_ids)
-        leaderboard_rows = _balletour_leaderboard_rows(series, memberships, tee_ids)
+        leaderboard_memberships = _balletour_memberships_with_rounds(
+            series,
+            memberships,
+            tee_ids,
+            statuses=("finished",),
+        )
+        best_hole_score_table = _best_hole_score_table(series, leaderboard_memberships, tee_ids)
+        leaderboard_rows = _balletour_leaderboard_rows(series, leaderboard_memberships, tee_ids)
         return render_template(
             "balletour_index.html",
             series=series,
-            memberships=memberships,
+            memberships=leaderboard_memberships,
             finished_round_count=finished_round_count,
             ongoing_round_count=ongoing_round_count,
             score_type_totals=_balletour_score_type_totals(series, tee_ids),
@@ -1289,7 +1319,13 @@ def finished_rounds():
         memberships = get_balletour_memberships()
         tee_key = selected_tee_key(request.args.get("tee"))
         tee_ids = tee_ids_for_key(series.course, tee_key)
-        players = [membership.player for membership in memberships]
+        memberships_with_rounds = _balletour_memberships_with_rounds(
+            series,
+            memberships,
+            tee_ids,
+            statuses=("finished",),
+        )
+        players = [membership.player for membership in memberships_with_rounds]
         player_ids = {player.id for player in players}
         selected_player_ids = []
         for raw_id in request.args.getlist("player_id"):
@@ -1332,7 +1368,13 @@ def stats():
         memberships = get_balletour_memberships()
         tee_key = selected_tee_key(request.args.get("tee"))
         tee_ids = tee_ids_for_key(series.course, tee_key)
-        players = [membership.player for membership in memberships]
+        memberships_with_rounds = _balletour_memberships_with_rounds(
+            series,
+            memberships,
+            tee_ids,
+            statuses=("finished",),
+        )
+        players = [membership.player for membership in memberships_with_rounds]
         player_by_id = {player.id: player for player in players}
 
         selected_player = None
@@ -1357,11 +1399,11 @@ def stats():
             if candidate_hole and any(hole.hole_number == candidate_hole for hole in series.course.holes):
                 selected_hole_number = candidate_hole
 
-        player_stats = _balletour_player_stats(series, memberships, selected_player, selected_hole_number, tee_ids)
+        player_stats = _balletour_player_stats(series, memberships_with_rounds, selected_player, selected_hole_number, tee_ids)
         return render_template(
             "balletour_stats.html",
             series=series,
-            memberships=memberships,
+            memberships=memberships_with_rounds,
             players=players,
             selected_player=selected_player,
             selected_hole_number=selected_hole_number,
@@ -1382,7 +1424,13 @@ def all_stats():
         memberships = get_balletour_memberships()
         tee_key = selected_tee_key(request.args.get("tee"))
         tee_ids = tee_ids_for_key(series.course, tee_key)
-        rows = _balletour_all_player_stats(series, memberships, tee_ids)
+        memberships_with_rounds = _balletour_memberships_with_rounds(
+            series,
+            memberships,
+            tee_ids,
+            statuses=("finished",),
+        )
+        rows = _balletour_all_player_stats(series, memberships_with_rounds, tee_ids)
         return render_template(
             "balletour_all_stats.html",
             series=series,
@@ -1400,7 +1448,11 @@ def players():
     _require_balletour_player()
     with balletour_data_context():
         series = _balletour_or_404()
-        memberships = get_balletour_memberships()
+        memberships = _balletour_memberships_with_rounds(
+            series,
+            get_balletour_memberships(),
+            statuses=("finished", "ongoing"),
+        )
         users_by_player_id = {}
         for user in User.query.join(Player).order_by(func.lower(User.username)).all():
             users_by_player_id.setdefault(user.player_id, []).append(user)
