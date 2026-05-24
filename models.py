@@ -278,6 +278,7 @@ class RoundPlayer(db.Model):
     selected_tee_id = db.Column(db.Integer, db.ForeignKey("course_tees.id"), nullable=True)
     player_name_snapshot = db.Column(db.String(120), nullable=False)
     hcp_for_round = db.Column(db.Float, nullable=False)
+    tracks_stats = db.Column(db.Boolean, nullable=False, default=False)
 
     round = db.relationship("Round", back_populates="round_players")
     player = db.relationship("Player", back_populates="round_players")

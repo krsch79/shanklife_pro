@@ -1680,6 +1680,19 @@ th {
     margin-bottom: 8px;
 }
 
+.stats-toggle {
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 0;
+    color: var(--text);
+}
+
+.stats-toggle input {
+    width: auto;
+    margin: 0;
+}
+
 .new-player-fields,
 .existing-player-fields {
     display: grid;

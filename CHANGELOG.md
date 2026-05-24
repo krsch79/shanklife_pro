@@ -2,6 +2,11 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.34] - 2026-05-24
+- Lar hver spiller velge score eller full statistikk når en vanlig Shanklife-runde opprettes.
+- Krever at statistikkspillere fyller ut alle statistikkfelt før neste hull eller fullføring.
+- Legger køllevalg på utslag for statistikkspillere, med fairwaytreff eller venstre/høyre miss på par 4 og 5.
+
 ## [1.8.33] - 2026-05-23
 - Legger til egen Shanklife Pro-statistikkside for fullførte statistikkrunder med greentreff, putting, scorefordeling og utslag på par 4/5.
 - Lar Shanklife Pro-statistikkrunder registrere kølle og fairwaytreff, venstre eller høyre miss på utslag på par 4 og 5 uten å registrere utslagslengde.

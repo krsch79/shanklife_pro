@@ -47,6 +47,11 @@ def ensure_schema_updates(app):
 
         if "round_players" in table_names:
             add_column_if_missing("round_players", "selected_tee_id", "selected_tee_id INTEGER")
+            add_column_if_missing(
+                "round_players",
+                "tracks_stats",
+                "tracks_stats BOOLEAN DEFAULT 0 NOT NULL",
+            )
 
         if "players" in table_names:
             add_column_if_missing("players", "gender", "gender VARCHAR(10) DEFAULT 'male'")

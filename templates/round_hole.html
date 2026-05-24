@@ -50,7 +50,7 @@
                     </select>
                 </label>
 
-                {% if club_tracking_enabled and (is_balletour_scoring_page or hole.par in [4, 5]) %}
+                {% if club_tracking_enabled and (is_balletour_scoring_page or (stat_values and hole.par in [4, 5])) %}
                 <label class="club-mini-field">
                     <span>Kølle</span>
                     {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
@@ -68,7 +68,7 @@
                     {% if hole.par == 3 %}
                     <label>
                         <span>Green</span>
-                        <select name="stat_green_status{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" data-green-status data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_green_status{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" data-green-status data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="hit" {% if stat_values.green_status == 'hit' %}selected{% endif %}>Greentreff</option>
                             <option value="miss" {% if stat_values.green_status == 'miss' %}selected{% endif %}>Miss</option>
                             <option value="bunker" {% if stat_values.green_status == 'bunker' %}selected{% endif %}>Bunker</option>
@@ -77,15 +77,15 @@
                     <div class="green-direction-grid">
                         <div class="green-radio-group">
                             <span>Retning</span>
-                            <label class="green-pin-option"><input type="radio" name="stat_green_horizontal{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="pin" data-green-pin data-after-score {% if 'pin' in stat_values.green_directions or (stat_values.green_status == 'hit' and not stat_values.green_directions) %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> På flagget</label>
-                            <label><input type="radio" name="stat_green_horizontal{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="left" data-green-direction data-after-score {% if stat_values.green_horizontal == 'left' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Venstre</label>
-                            <label><input type="radio" name="stat_green_horizontal{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="right" data-green-direction data-after-score {% if stat_values.green_horizontal == 'right' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Høyre</label>
+                            <label class="green-pin-option"><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="pin" data-green-pin data-after-score {% if 'pin' in stat_values.green_directions or (stat_values.green_status == 'hit' and not stat_values.green_directions) %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> På flagget</label>
+                            <label><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="left" data-green-direction data-after-score {% if stat_values.green_horizontal == 'left' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Venstre</label>
+                            <label><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="right" data-green-direction data-after-score {% if stat_values.green_horizontal == 'right' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Høyre</label>
                         </div>
                         <div class="green-radio-group">
                             <span>Lengde</span>
-                            <label><input type="radio" name="stat_green_vertical{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="" data-green-direction data-after-score {% if not stat_values.green_vertical %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Pin high</label>
-                            <label><input type="radio" name="stat_green_vertical{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="short" data-green-direction data-after-score {% if stat_values.green_vertical == 'short' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Kort</label>
-                            <label><input type="radio" name="stat_green_vertical{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" value="long" data-green-direction data-after-score {% if stat_values.green_vertical == 'long' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Lang</label>
+                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="" data-green-direction data-after-score {% if not stat_values.green_vertical %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Pin high</label>
+                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="short" data-green-direction data-after-score {% if stat_values.green_vertical == 'short' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Kort</label>
+                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="long" data-green-direction data-after-score {% if stat_values.green_vertical == 'long' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Lang</label>
                         </div>
                     </div>
                     {% endif %}
@@ -98,7 +98,7 @@
                             type="number"
                             min="1"
                             max="500"
-                            name="stat_drive{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}"
+                            name="stat_drive{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}"
                             data-after-score
                             value="{{ stat_values.drive_distance_m if stat_values.drive_distance_m is not none else '' }}"
                             placeholder="m"
@@ -108,7 +108,7 @@
                     {% endif %}
                     <label>
                         <span>FW</span>
-                        <select name="stat_fairway{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_fairway{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if not stat_values.fairway_result %}selected{% endif %}>—</option>
                             <option value="hit" {% if stat_values.fairway_result == 'hit' %}selected{% endif %}>Treff</option>
                             <option value="left" {% if stat_values.fairway_result == 'left' %}selected{% endif %}>Venstre</option>
@@ -118,7 +118,7 @@
                     {% endif %}
                     <label>
                         <span>Putter</span>
-                        <select name="stat_putts{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" class="stat-putts-select" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_putts{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" class="stat-putts-select" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if stat_values.putts is none %}selected{% endif %}>—</option>
                             {% for putt_option in range(0, 6) %}
                             <option value="{{ putt_option }}" {% if stat_values.putts == putt_option %}selected{% endif %}>{{ putt_option }}</option>
@@ -127,7 +127,7 @@
                     </label>
                     <label>
                         <span>Siste putt</span>
-                        <select name="stat_last_putt_distance{% if is_balletour_scoring_page %}_{{ rp.id }}{% endif %}" class="last-putt-distance-select" data-after-score aria-label="Siste putt" {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_last_putt_distance{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" class="last-putt-distance-select" data-after-score aria-label="Siste putt" {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if stat_values.last_putt_distance is none %}selected{% endif %}>—</option>
                             {% for distance in last_putt_distance_options %}
                             <option value="{{ distance }}" {% if stat_values.last_putt_distance == distance %}selected{% endif %}>{{ "%.1f"|format(distance) }} m</option>
@@ -346,6 +346,7 @@
             const verticalChoices = Array.from(statGrid.querySelectorAll('input[name^="stat_green_vertical"]'));
             const checkedHorizontal = horizontalChoices.find((input) => input.checked);
             const checkedVertical = verticalChoices.find((input) => input.checked);
+            const fairwaySelect = statGrid.querySelector('select[name^="stat_fairway"]');
             const puttsSelect = statGrid.querySelector(".stat-putts-select");
             const lastPuttSelect = statGrid.querySelector(".last-putt-distance-select");
             const score = parseInt(scoreSelect.value, 10);
@@ -354,6 +355,7 @@
             if (greenStatus && !greenStatus.value) errors.push(`${playerName}: greenvalg mangler.`);
             if (horizontalChoices.length && !checkedHorizontal) errors.push(`${playerName}: retning mangler.`);
             if (verticalChoices.length && !checkedVertical) errors.push(`${playerName}: lengde mangler.`);
+            if (fairwaySelect && !fairwaySelect.value) errors.push(`${playerName}: fairway mangler.`);
             if (puttsSelect && puttsSelect.value === "") {
                 errors.push(`${playerName}: putter mangler.`);
             } else if (putts !== null) {

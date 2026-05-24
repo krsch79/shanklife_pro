@@ -48,6 +48,11 @@
                 </select>
                 <div class="received-strokes-display muted" aria-live="polite"></div>
             </div>
+
+            <label class="stats-toggle" style="display: none;">
+                <input type="checkbox" name="track_stats_{{ slot.slot }}" value="1" {% if slot.tracks_stats %}checked{% endif %}>
+                Før statistikk for denne spilleren
+            </label>
         </div>
         {% endfor %}
     </div>
@@ -191,20 +196,26 @@
         const select = slotEl.querySelector(".player-select");
         const newFields = slotEl.querySelector(".new-player-fields");
         const existingFields = slotEl.querySelector(".existing-player-fields");
+        const statsToggle = slotEl.querySelector(".stats-toggle");
         const value = select.value;
 
         if (value === "new") {
             newFields.style.display = "grid";
             existingFields.style.display = "none";
+            statsToggle.style.display = "flex";
         } else if (value && value !== "") {
             newFields.style.display = "none";
             existingFields.style.display = "grid";
+            statsToggle.style.display = "flex";
             // Fill HCP for existing player
             const hcpInput = slotEl.querySelector(".existing-player-hcp");
             hcpInput.value = playerHcps[value] || "";
         } else {
             newFields.style.display = "none";
             existingFields.style.display = "none";
+            statsToggle.style.display = "none";
+            const statsCheckbox = statsToggle.querySelector("input");
+            if (statsCheckbox) statsCheckbox.checked = false;
         }
 
         updateReceivedStrokes(slotEl);

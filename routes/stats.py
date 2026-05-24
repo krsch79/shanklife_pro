@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from flask import Blueprint, g, render_template, request
+from sqlalchemy import or_
 
 from extensions import db
 from models import Club, CourseHole, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
@@ -116,6 +117,18 @@ def _stats_players():
         )
         if player_id
     }
+    tracked_player_ids.update({
+        player_id
+        for (player_id,) in (
+            db.session.query(RoundPlayer.player_id)
+            .join(Round)
+            .filter(Round.status == "finished")
+            .filter(RoundPlayer.tracks_stats.is_(True))
+            .distinct()
+            .all()
+        )
+        if player_id
+    })
     if g.current_user and g.current_user.player_id:
         tracked_player_ids.add(g.current_user.player_id)
     if not tracked_player_ids:
@@ -128,10 +141,13 @@ def _tracked_round_players(player):
         return []
     return (
         RoundPlayer.query.join(Round)
-        .join(User, Round.stats_user_id == User.id)
+        .outerjoin(User, Round.stats_user_id == User.id)
         .filter(Round.status == "finished")
-        .filter(User.player_id == player.id)
         .filter(RoundPlayer.player_id == player.id)
+        .filter(or_(
+            RoundPlayer.tracks_stats.is_(True),
+            User.player_id == player.id,
+        ))
         .order_by(Round.started_at.desc())
         .all()
     )
