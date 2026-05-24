@@ -30,6 +30,7 @@ from services.golfbox import (
 )
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
+MAX_BALLETOUR_ROUND_PLAYERS = 4
 
 
 def _balletour_or_404():
@@ -49,6 +50,16 @@ def _balletour_database_context():
         "balletour_database_view": current_balletour_database_view(),
         "balletour_test_database_available": test_database_exists(),
     }
+
+
+def _has_posted_extra_balletour_slots(max_players=MAX_BALLETOUR_ROUND_PLAYERS):
+    for key, value in request.form.items():
+        if not key.startswith("player_slot_") or not value.strip():
+            continue
+        slot_raw = key.removeprefix("player_slot_")
+        if slot_raw.isdigit() and int(slot_raw) > max_players:
+            return True
+    return False
 
 
 def _player_display_name(player):
@@ -87,7 +98,7 @@ def _balletour_new_round_state(series, players):
         weather_payload = None
 
     other_slots = []
-    for i in range(2, len(players) + 1):
+    for i in range(2, min(len(players), MAX_BALLETOUR_ROUND_PLAYERS) + 1):
         other_slots.append({
             "slot": i,
             "selected_player": request.form.get(f"player_slot_{i}", "").strip(),
@@ -1069,6 +1080,10 @@ def new_round():
         return redirect(url_for("balletour.index"))
 
     if request.method == "POST":
+        if _has_posted_extra_balletour_slots():
+            flash("En BalleTour-runde kan ha maks 4 spillere.", "error")
+            return _balletour_new_round_state(series, players)
+
         current_player = g.current_user.player
         try:
             self_hcp = _parse_hcp(request.form.get("self_hcp", "").strip(), current_player.name)
@@ -1089,7 +1104,7 @@ def new_round():
         if self_hcp != current_player.default_hcp:
             current_player.default_hcp = self_hcp
 
-        for i in range(2, len(players) + 1):
+        for i in range(2, min(len(players), MAX_BALLETOUR_ROUND_PLAYERS) + 1):
             player_id_raw = request.form.get(f"player_slot_{i}", "").strip()
             if not player_id_raw:
                 continue
@@ -1130,6 +1145,10 @@ def new_round():
             )
             if round_hcp != player.default_hcp:
                 player.default_hcp = round_hcp
+
+        if len(round_players_payload) > MAX_BALLETOUR_ROUND_PLAYERS:
+            flash("En BalleTour-runde kan ha maks 4 spillere.", "error")
+            return _balletour_new_round_state(series, players)
 
         names_lower = [payload["player_name"].lower() for payload in round_players_payload]
         if len(names_lower) != len(set(names_lower)):

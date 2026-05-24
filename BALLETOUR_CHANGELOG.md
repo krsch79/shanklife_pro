@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.39] - 2026-05-24
+- Begrenser nye BalleTour-runder til maks 4 spillere.
+
 ## [1.8.38] - 2026-05-24
 - Holder BalleTour-endringer i en egen changelog-fil ved siden av Shanklife Pro-changeloggen.
 
