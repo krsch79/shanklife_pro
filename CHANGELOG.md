@@ -2,6 +2,10 @@
 
 Alle merkbare endringer i Shanklife Pro loggfores her.
 
+## [1.8.36] - 2026-05-24
+- Krever innlogging for Shanklife Pro-sider, med live leaderboard som eneste åpne Shanklife-visning.
+- Rydder startside og meny til én knapp for å starte ny runde, siden statistikk velges per spiller i rundeopprettelsen.
+
 ## [1.8.35] - 2026-05-24
 - Tydeliggjør køllefeltet som utslagskølle på par 4 og 5 når score føres hull for hull.
 - Viser hvordan spillerne ligger an mot par før hullet som skal føres.

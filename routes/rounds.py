@@ -1154,6 +1154,9 @@ def new_stats_round_form_state(courses, players):
 @rounds_bp.route("/rounds/new-with-stats", methods=["GET", "POST"])
 @login_required
 def new_stats_round():
+    if request.method == "GET":
+        return redirect(url_for("rounds.new_round"))
+
     courses = Course.query.order_by(Course.name.asc()).all()
     players = Player.query.order_by(Player.name.asc()).all()
     current_player = g.current_user.player

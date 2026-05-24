@@ -4,7 +4,7 @@
 import os
 from pathlib import Path
 
-from flask import Flask, g, request, send_file, session
+from flask import Flask, g, redirect, request, send_file, session, url_for
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
@@ -219,6 +219,23 @@ def create_app():
     def load_current_user():
         user_id = session.get("user_id")
         g.current_user = User.query.get(user_id) if user_id else None
+
+    @app.before_request
+    def require_login_for_shanklife():
+        if g.get("current_user"):
+            return None
+        endpoint = request.endpoint or ""
+        public_endpoints = {
+            "auth.login",
+            "auth.accept_balletour_invitation",
+            "leaderboard.live_leaderboard",
+            "leaderboard.live_leaderboard_partial",
+            "leaderboard.leaderboard_player_modal",
+            "static",
+        }
+        if endpoint in public_endpoints:
+            return None
+        return redirect(url_for("auth.login", next=request.path))
 
     @app.context_processor
     def inject_current_user():
