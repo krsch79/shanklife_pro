@@ -583,7 +583,7 @@ nav a {
 
 .hole-info-strip {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
     margin-bottom: 6px;
 }
@@ -600,6 +600,14 @@ nav a {
     display: block;
     font-size: 1.15rem;
     line-height: 1.1;
+}
+
+.hole-info-strip small {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
 }
 
 .hole-info-strip span {

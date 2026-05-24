@@ -466,6 +466,49 @@ def _score_options_for_par(par):
     return list(range(min_score, max_score + 1))
 
 
+def _vs_par_display(value):
+    if value == 0:
+        return "E"
+    return f"+{value}" if value > 0 else str(value)
+
+
+def _previous_vs_par_rows(round_obj, round_players, hole_number):
+    previous_holes = [
+        hole for hole in round_obj.course.holes
+        if hole.hole_number < hole_number
+    ]
+    par_by_hole = {hole.hole_number: hole.par for hole in previous_holes}
+    previous_par = sum(par_by_hole.values())
+    entries = (
+        ScoreEntry.query.filter_by(round_id=round_obj.id)
+        .filter(ScoreEntry.hole_number < hole_number)
+        .all()
+        if previous_holes else []
+    )
+    entries_by_player = {}
+    for entry in entries:
+        entries_by_player.setdefault(entry.round_player_id, []).append(entry)
+
+    rows = []
+    for round_player in round_players:
+        player_entries = [
+            entry for entry in entries_by_player.get(round_player.id, [])
+            if entry.strokes is not None
+        ]
+        if not previous_holes:
+            value = 0
+        elif len(player_entries) != len(previous_holes):
+            value = None
+        else:
+            value = sum(entry.strokes for entry in player_entries) - previous_par
+        rows.append({
+            "player": round_player,
+            "value": value,
+            "display": "-" if value is None else _vs_par_display(value),
+        })
+    return rows
+
+
 def _parse_score_for_hole(raw_value, hole, player_name):
     raw_value = (raw_value or "").strip()
     if raw_value == "":
@@ -1352,6 +1395,7 @@ def round_hole(round_id, hole_number):
         course=course,
         hole=hole,
         round_players=round_players,
+        previous_vs_par_rows=_previous_vs_par_rows(round_obj, round_players, hole_number),
         score_entries=score_entries,
         stats_round_player_id=stats_rp.id if stats_rp else None,
         stats_values=stats_values,

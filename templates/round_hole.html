@@ -19,6 +19,18 @@
     <div class="hole-info-strip">
         <div><strong>{{ hole.hole_number }}</strong><span>Hull</span></div>
         <div><strong>{{ hole.par }}</strong><span>Par</span></div>
+        <div class="hole-vs-par-cell">
+            {% if previous_vs_par_rows|length == 1 %}
+            <strong>{{ previous_vs_par_rows[0].display }}</strong>
+            {% else %}
+            <strong>
+                {% for row in previous_vs_par_rows %}
+                <small>{{ row.player.player_name_snapshot }} {{ row.display }}</small>{% if not loop.last %}<br>{% endif %}
+                {% endfor %}
+            </strong>
+            {% endif %}
+            <span>Mot par før hullet</span>
+        </div>
         <div><strong>{{ hole.stroke_index }}</strong><span>Index</span></div>
     </div>
 
@@ -52,7 +64,7 @@
 
                 {% if club_tracking_enabled and (is_balletour_scoring_page or (stat_values and hole.par in [4, 5])) %}
                 <label class="club-mini-field">
-                    <span>Kølle</span>
+                    <span>{% if hole.par in [4, 5] %}Utslagskølle{% else %}Kølle{% endif %}</span>
                     {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
                     <select name="tee_club_{{ rp.id }}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
                         <option value="" {% if not selected_club_id %}selected{% endif %}>—</option>
