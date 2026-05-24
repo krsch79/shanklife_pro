@@ -7,7 +7,7 @@
         <h2>BalleTour2026</h2>
         <p class="muted">{{ series.course.name }} · {{ series.course.hole_count }} hull</p>
     </div>
-    <a class="version-link" href="{{ url_for('main.changelog') }}">v{{ app_version }}</a>
+    <a class="version-link" href="{{ url_for('balletour.changelog') }}">v{{ app_version }}</a>
 </div>
 <div class="button-row compact balletour-home-actions">
     <a class="button" href="{{ url_for('balletour.new_round') }}">Start ny BalleTour-runde</a>

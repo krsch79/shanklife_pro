@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Changelog - BalleTour2026{% endblock %}
+
+{% block content %}
+<div class="page-title-row balletour-title-row">
+    <div>
+        <h2>BalleTour changelog</h2>
+        <p class="muted">Endringer i BalleTour2026.</p>
+    </div>
+    <span class="version-link">v{{ app_version }}</span>
+</div>
+
+<div class="changelog-list">
+    {% for entry in changelog_entries %}
+    <section class="changelog-entry">
+        <h3>Versjon {{ entry.version }}</h3>
+        <p class="muted">{{ entry.date }}</p>
+        <ul>
+            {% for change in entry.changes %}
+            <li>{{ change }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% else %}
+    <p class="muted">Ingen BalleTour-endringer er loggfort enna.</p>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -20,7 +20,7 @@ from services.tee_filters import (
     tee_filter_options,
     tee_ids_for_key,
 )
-from services.version import APP_VERSION
+from services.version import APP_VERSION, get_balletour_changelog_entries
 from services.weather import fetch_bekkestua_weather, summarize_weather_payload
 from services.golfbox import (
     cancel_golfbox_scheduled_booking,
@@ -887,6 +887,21 @@ def index():
             selected_tee_key=tee_key,
             display_name=_player_display_name,
             app_version=APP_VERSION,
+            **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/changelog")
+@login_required
+def changelog():
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        return render_template(
+            "balletour_changelog.html",
+            series=series,
+            app_version=APP_VERSION,
+            changelog_entries=get_balletour_changelog_entries(),
             **_balletour_database_context(),
         )
 
