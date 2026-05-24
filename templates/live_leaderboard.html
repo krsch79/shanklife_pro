@@ -21,7 +21,7 @@
     Oppdateres automatisk hvert 10. sekund.
 </div>
 
-<div id="live-leaderboard-container" data-view-mode="{{ view_mode }}" data-tee-key="{{ selected_tee_key }}">
+<div id="live-leaderboard-container" data-view-mode="{{ view_mode }}" data-tee-key="{{ selected_tee_key or '' }}">
     {% include "live_leaderboard_content.html" %}
 </div>
 
@@ -47,7 +47,7 @@
     async function refreshLeaderboard() {
         try {
             const currentView = container.dataset.viewMode || "gross";
-            const currentTee = container.dataset.teeKey || "gul";
+            const currentTee = container.dataset.teeKey || "";
             const response = await fetch(`{{ leaderboard_partial_url }}?view=${encodeURIComponent(currentView)}&tee=${encodeURIComponent(currentTee)}`, {
                 headers: { "X-Requested-With": "XMLHttpRequest" },
                 cache: "no-store"

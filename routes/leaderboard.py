@@ -6,6 +6,17 @@ from services.tee_filters import selected_tee_key, tee_filter_options
 leaderboard_bp = Blueprint("leaderboard", __name__)
 
 
+def _selected_live_tee_key(raw_value):
+    normalized = (raw_value or "").strip().lower()
+    if normalized in ("gul", "rød", "rod", "red"):
+        return selected_tee_key(normalized)
+    return None
+
+
+def _live_tee_options():
+    return [{"key": "", "label": "Alle"}] + tee_filter_options()
+
+
 @leaderboard_bp.route("/live-leaderboard")
 @leaderboard_bp.route("/leaderboard/live")
 def live_leaderboard():
@@ -13,14 +24,14 @@ def live_leaderboard():
     if view_mode not in ("gross", "net"):
         view_mode = "gross"
 
-    tee_key = selected_tee_key(request.args.get("tee"))
+    tee_key = _selected_live_tee_key(request.args.get("tee"))
     boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key)
     return render_template(
         "live_leaderboard.html",
         boards=boards,
         view_mode=view_mode,
         selected_tee_key=tee_key,
-        tee_options=tee_filter_options(),
+        tee_options=_live_tee_options(),
         leaderboard_route="leaderboard.live_leaderboard",
         leaderboard_partial_url="/leaderboard/live/partial",
         balletour_mode=False,
@@ -33,7 +44,7 @@ def live_leaderboard_partial():
     if view_mode not in ("gross", "net"):
         view_mode = "gross"
 
-    tee_key = selected_tee_key(request.args.get("tee"))
+    tee_key = _selected_live_tee_key(request.args.get("tee"))
     boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key)
     return render_template(
         "live_leaderboard_content.html",

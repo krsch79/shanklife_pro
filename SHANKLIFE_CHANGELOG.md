@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.43] - 2026-05-24
+- Viser alle tees som standard på Shanklife live leaderboard, slik at pågående runder med tee-navn uten gul/rød ikke skjules.
+
 ## [1.8.42] - 2026-05-24
 - Retter Shanklife live leaderboard slik at den gamle `/live-leaderboard`-adressen også fungerer uten innlogging.
 
