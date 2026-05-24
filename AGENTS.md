@@ -1,7 +1,7 @@
 # Repository Instructions
 
-- Update `CHANGELOG.md` for every code change, including bug fixes, UI changes, behavior changes, deploy-flow changes, and schema changes.
-- Bump `APP_VERSION` in `services/version.py` whenever `CHANGELOG.md` gets a new release entry.
+- Update the product-specific changelog for every code change: `SHANKLIFE_CHANGELOG.md` for Shanklife Pro changes and `BALLETOUR_CHANGELOG.md` for BalleTour changes.
+- Bump `APP_VERSION` in `services/version.py` whenever a product changelog gets a new release entry.
 - Keep changelog entries user-facing and specific enough to explain what changed in Shanklife Pro or BalleTour.
 - For server code changes and deploys, enable maintenance mode before touching the running server and disable it only after deploy and verification are done. Use the app's maintenance flag file/deploy script flow.
 - When deployment or updates require the app process to stop or restart, the static maintenance HTML page must be shown for the whole downtime/restart window.

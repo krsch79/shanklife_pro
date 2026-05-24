@@ -213,7 +213,7 @@ def run_codex(issue, prompt_path):
         f"Du jobber i Shanklife Pro-repoet med GitHub issue #{issue['number']}.\n"
         f"Les arbeidsbeskrivelsen i {prompt_path}.\n"
         "Gjør nødvendige kodeendringer. Hold endringen smal.\n"
-        "Hvis du endrer kode, bump versjon etter SemVer og oppdater CHANGELOG.md med dato og klokkeslett.\n"
+        "Hvis du endrer kode, bump versjon etter SemVer og oppdater riktig produkt-changelog med dato og klokkeslett: SHANKLIFE_CHANGELOG.md eller BALLETOUR_CHANGELOG.md.\n"
         "Kjør relevante kontroller før du avslutter.\n"
     )
     codex_bin = os.environ.get("CODEX_BIN") or (DEFAULT_CODEX_BIN if Path(DEFAULT_CODEX_BIN).exists() else "codex")

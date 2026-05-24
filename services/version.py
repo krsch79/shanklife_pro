@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-APP_VERSION = "1.8.37"
+APP_VERSION = "1.8.38"
 
 
 def _read_changelog_entries(filename):
@@ -32,38 +32,12 @@ def _read_changelog_entries(filename):
 
 
 def get_changelog_entries():
-    return _read_changelog_entries("CHANGELOG.md")
-
-
-def _filtered_entries(entries, keep_change):
-    filtered = []
-    for entry in entries:
-        changes = [change for change in entry["changes"] if keep_change(change)]
-        if not changes:
-            continue
-        filtered.append({
-            "version": entry["version"],
-            "date": entry["date"],
-            "changes": changes,
-        })
-    return filtered
-
-
-def _is_balletour_change(change):
-    return "balletour" in change.lower()
+    return get_shanklife_changelog_entries()
 
 
 def get_shanklife_changelog_entries():
-    return _filtered_entries(
-        _read_changelog_entries("CHANGELOG.md"),
-        lambda change: not _is_balletour_change(change),
-    )
+    return _read_changelog_entries("SHANKLIFE_CHANGELOG.md")
 
 
 def get_balletour_changelog_entries():
-    dedicated_entries = _read_changelog_entries("BALLETOUR_CHANGELOG.md")
-    legacy_entries = _filtered_entries(
-        _read_changelog_entries("CHANGELOG.md"),
-        _is_balletour_change,
-    )
-    return dedicated_entries + legacy_entries
+    return _read_changelog_entries("BALLETOUR_CHANGELOG.md")
