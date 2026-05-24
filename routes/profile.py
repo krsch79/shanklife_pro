@@ -212,7 +212,10 @@ def notification_settings():
 
         user.email = email or None
         user.email_notifications_enabled = request.form.get("email_notifications_enabled") == "1"
+        user.notify_balletour_round_started = request.form.get("notify_balletour_round_started") == "1"
         user.notify_balletour_round_finished = request.form.get("notify_balletour_round_finished") == "1"
+        user.notify_shanklife_round_started = request.form.get("notify_shanklife_round_started") == "1"
+        user.notify_shanklife_round_finished = request.form.get("notify_shanklife_round_finished") == "1"
         user.notify_version_updates = request.form.get("notify_version_updates") == "1"
         round_notification_mode = request.form.get("round_notification_mode", "all")
         if round_notification_mode == "selected":

@@ -97,8 +97,23 @@ def ensure_schema_updates(app):
             )
             add_column_if_missing(
                 "users",
+                "notify_balletour_round_started",
+                "notify_balletour_round_started BOOLEAN DEFAULT 1 NOT NULL",
+            )
+            add_column_if_missing(
+                "users",
                 "notify_balletour_round_finished",
                 "notify_balletour_round_finished BOOLEAN DEFAULT 1 NOT NULL",
+            )
+            add_column_if_missing(
+                "users",
+                "notify_shanklife_round_started",
+                "notify_shanklife_round_started BOOLEAN DEFAULT 1 NOT NULL",
+            )
+            add_column_if_missing(
+                "users",
+                "notify_shanklife_round_finished",
+                "notify_shanklife_round_finished BOOLEAN DEFAULT 1 NOT NULL",
             )
             add_column_if_missing(
                 "users",

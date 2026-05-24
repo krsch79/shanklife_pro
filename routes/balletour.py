@@ -22,6 +22,8 @@ from services.tee_filters import (
 )
 from services.version import APP_VERSION, get_balletour_changelog_entries
 from services.weather import fetch_bekkestua_weather, summarize_weather_payload
+from services.time import format_server_datetime
+from services.user_notifications import send_balletour_round_started_notifications
 from services.golfbox import (
     cancel_golfbox_scheduled_booking,
     golfbox_connection_summary,
@@ -143,6 +145,30 @@ def _score_vs_par(total, par):
     if diff == 0:
         return "E"
     return f"+{diff}" if diff > 0 else str(diff)
+
+
+def _round_players_text(round_obj):
+    return "\n".join(
+        f"- {round_player.player_name_snapshot} (hcp {round_player.hcp_for_round:.1f}, tee {round_player.selected_tee.name if round_player.selected_tee else '—'})"
+        for round_player in sorted(round_obj.round_players, key=lambda item: item.id)
+    )
+
+
+def _send_balletour_round_started_mail(round_obj):
+    body = (
+        "En ny BalleTour-runde er startet.\n\n"
+        f"Runde: #{round_obj.id}\n"
+        f"Bane: {round_obj.course.name}\n"
+        f"Start: {format_server_datetime(round_obj.started_at)}\n"
+        f"Vær: {summarize_weather_payload(round_obj.weather_json)}\n\n"
+        "Spillere:\n"
+        f"{_round_players_text(round_obj)}"
+    )
+    send_balletour_round_started_notifications(
+        round_obj,
+        f"BalleTour-runde startet: {round_obj.course.name}",
+        body,
+    )
 
 
 def _best_hole_score_table(series, memberships, tee_ids=None):
@@ -1177,6 +1203,7 @@ def new_round():
         except Exception:
             round_obj.weather_json = None
         db.session.commit()
+        _send_balletour_round_started_mail(round_obj)
         flash("BalleTour-runde opprettet.", "success")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
 

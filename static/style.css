@@ -1854,6 +1854,18 @@ th {
     font-size: 16px;
 }
 
+.compact-score-input.score-birdie {
+    color: #047857;
+    -webkit-text-fill-color: #047857;
+    font-weight: 700;
+}
+
+.compact-score-input.score-bogey {
+    color: #b91c1c;
+    -webkit-text-fill-color: #b91c1c;
+    font-weight: 700;
+}
+
 .score-stat-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2112,12 +2124,14 @@ th {
 }
 
 .score-shape.circle {
-    border: 2px solid var(--text);
+    color: #047857;
+    border: 2px solid currentColor;
     border-radius: 999px;
 }
 
 .score-shape.double-circle {
-    border: 2px solid var(--text);
+    color: #047857;
+    border: 2px solid currentColor;
     border-radius: 999px;
 }
 
@@ -2125,18 +2139,20 @@ th {
     content: "";
     position: absolute;
     inset: 4px;
-    border: 2px solid var(--text);
+    border: 2px solid currentColor;
     border-radius: 999px;
     pointer-events: none;
 }
 
 .score-shape.square {
-    border: 2px solid var(--text);
+    color: #b91c1c;
+    border: 2px solid currentColor;
     border-radius: 2px;
 }
 
 .score-shape.double-square {
-    border: 2px solid var(--text);
+    color: #b91c1c;
+    border: 2px solid currentColor;
     border-radius: 2px;
 }
 
@@ -2144,7 +2160,7 @@ th {
     content: "";
     position: absolute;
     inset: 4px;
-    border: 2px solid var(--text);
+    border: 2px solid currentColor;
     border-radius: 2px;
     pointer-events: none;
 }

@@ -5,7 +5,7 @@
 <div class="page-header">
     <div>
         <h2>E-postvarsler</h2>
-        <p class="muted">Velg hvilke BalleTour-varsler du vil motta.</p>
+        <p class="muted">Velg hvilke varsler du vil motta.</p>
     </div>
 </div>
 
@@ -19,8 +19,23 @@
     </label>
 
     <label class="checkbox-line">
+        <input type="checkbox" name="notify_balletour_round_started" value="1" {% if user.notify_balletour_round_started %}checked{% endif %}>
+        <span>Ny BalleTour-runde startet</span>
+    </label>
+
+    <label class="checkbox-line">
         <input type="checkbox" name="notify_balletour_round_finished" value="1" {% if user.notify_balletour_round_finished %}checked{% endif %}>
-        <span>Fullførte BalleTour-runder</span>
+        <span>BalleTour-runde fullført</span>
+    </label>
+
+    <label class="checkbox-line">
+        <input type="checkbox" name="notify_shanklife_round_started" value="1" {% if user.notify_shanklife_round_started %}checked{% endif %}>
+        <span>Ny Shanklife-runde startet</span>
+    </label>
+
+    <label class="checkbox-line">
+        <input type="checkbox" name="notify_shanklife_round_finished" value="1" {% if user.notify_shanklife_round_finished %}checked{% endif %}>
+        <span>Shanklife-runde fullført</span>
     </label>
 
     {% if balletour_memberships %}

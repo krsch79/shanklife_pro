@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.45] - 2026-05-24
+- Legger til valgfrie e-postvarsler når BalleTour-runder startes.
+- Fargelegger scorekortscore med grønt for birdie eller bedre og rødt for bogey eller verre.
+
 ## [1.8.40] - 2026-05-24
 - Viser BalleTour-changeloggen på en egen BalleTour-side og lar versjonslenken på BalleTour-forsiden bli i BalleTour.
 

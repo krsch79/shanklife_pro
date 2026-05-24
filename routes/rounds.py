@@ -24,7 +24,11 @@ from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
 from services.balletour import get_balletour_memberships, get_balletour_series
 from services.time import format_server_datetime, server_now
-from services.user_notifications import send_balletour_round_finished_notifications
+from services.user_notifications import (
+    send_balletour_round_finished_notifications,
+    send_shanklife_round_finished_notifications,
+    send_shanklife_round_started_notifications,
+)
 from services.weather import summarize_weather_payload
 
 rounds_bp = Blueprint("rounds", __name__)
@@ -619,6 +623,48 @@ def _send_balletour_round_finished_mail(round_obj):
     )
 
 
+def _round_players_text(round_obj):
+    return "\n".join(
+        f"- {round_player.player_name_snapshot} (hcp {round_player.hcp_for_round:.1f}, tee {round_player.selected_tee.name if round_player.selected_tee else '—'})"
+        for round_player in sorted(round_obj.round_players, key=lambda item: item.id)
+    )
+
+
+def _send_shanklife_round_started_mail(round_obj):
+    if _is_balletour_round(round_obj):
+        return
+    body = (
+        "En ny Shanklife-runde er startet.\n\n"
+        f"Runde: #{round_obj.id}\n"
+        f"Bane: {round_obj.course.name}\n"
+        f"Start: {format_server_datetime(round_obj.started_at)}\n\n"
+        "Spillere:\n"
+        f"{_round_players_text(round_obj)}"
+    )
+    send_shanklife_round_started_notifications(
+        f"Shanklife-runde startet: {round_obj.course.name}",
+        body,
+    )
+
+
+def _send_shanklife_round_finished_mail(round_obj):
+    if _is_balletour_round(round_obj):
+        return
+    body = (
+        "En Shanklife-runde er fullført.\n\n"
+        f"Runde: #{round_obj.id}\n"
+        f"Bane: {round_obj.course.name}\n"
+        f"Start: {format_server_datetime(round_obj.started_at)}\n"
+        f"Slutt: {format_server_datetime(round_obj.finished_at)}\n\n"
+        "Score:\n"
+        f"{_balletour_round_summary(round_obj)}"
+    )
+    send_shanklife_round_finished_notifications(
+        f"Shanklife-runde fullført: {round_obj.course.name}",
+        body,
+    )
+
+
 def _balletour_round_finished_mail_body(round_obj):
     return (
         "En BalleTour-runde er fullført.\n\n"
@@ -1121,6 +1167,7 @@ def new_round():
 
         round_obj = _create_round(course, round_players_payload)
         db.session.commit()
+        _send_shanklife_round_started_mail(round_obj)
         flash("Runde opprettet.", "success")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
 
@@ -1288,6 +1335,7 @@ def new_stats_round():
 
         round_obj = _create_round(course, round_players_payload, stats_user_id=g.current_user.id)
         db.session.commit()
+        _send_shanklife_round_started_mail(round_obj)
         flash("Runde med statistikk opprettet.", "success")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
 
@@ -1364,7 +1412,10 @@ def round_hole(round_id, hole_number):
             round_obj.status = "finished"
             round_obj.finished_at = server_now()
             db.session.commit()
-            _send_balletour_round_finished_mail(round_obj)
+            if _is_balletour_round(round_obj):
+                _send_balletour_round_finished_mail(round_obj)
+            else:
+                _send_shanklife_round_finished_mail(round_obj)
             flash("Runden er fullført.", "success")
             return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
@@ -1714,7 +1765,10 @@ def round_score(round_id):
 
         db.session.commit()
         if action == "finish" and was_ongoing:
-            _send_balletour_round_finished_mail(round_obj)
+            if _is_balletour_round(round_obj):
+                _send_balletour_round_finished_mail(round_obj)
+            else:
+                _send_shanklife_round_finished_mail(round_obj)
         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
     score_map = {}

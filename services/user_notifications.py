@@ -4,6 +4,7 @@ import json
 from services.balletour import get_balletour_memberships
 from services.mailer import send_mail
 from services.version import APP_VERSION, get_changelog_entries
+from models import User
 
 
 def _balletour_users():
@@ -42,6 +43,17 @@ def _wants_round_notification_for(user, round_obj):
     return bool(selected_player_ids & round_player_ids)
 
 
+def balletour_round_started_recipients(round_obj):
+    return [
+        user
+        for user in _balletour_users()
+        if (user.email or "").strip()
+        and user.email_notifications_enabled
+        and user.notify_balletour_round_started
+        and _wants_round_notification_for(user, round_obj)
+    ]
+
+
 def balletour_round_finished_recipients(round_obj):
     return [
         user
@@ -50,6 +62,26 @@ def balletour_round_finished_recipients(round_obj):
         and user.email_notifications_enabled
         and user.notify_balletour_round_finished
         and _wants_round_notification_for(user, round_obj)
+    ]
+
+
+def shanklife_round_started_recipients():
+    return [
+        user
+        for user in User.query.order_by(User.username.asc()).all()
+        if (user.email or "").strip()
+        and user.email_notifications_enabled
+        and user.notify_shanklife_round_started
+    ]
+
+
+def shanklife_round_finished_recipients():
+    return [
+        user
+        for user in User.query.order_by(User.username.asc()).all()
+        if (user.email or "").strip()
+        and user.email_notifications_enabled
+        and user.notify_shanklife_round_finished
     ]
 
 
@@ -63,9 +95,33 @@ def version_update_recipients():
     ]
 
 
+def send_balletour_round_started_notifications(round_obj, subject, body):
+    sent = 0
+    for user in balletour_round_started_recipients(round_obj):
+        if send_mail(subject, body, recipient=user.email):
+            sent += 1
+    return sent
+
+
 def send_balletour_round_finished_notifications(round_obj, subject, body):
     sent = 0
     for user in balletour_round_finished_recipients(round_obj):
+        if send_mail(subject, body, recipient=user.email):
+            sent += 1
+    return sent
+
+
+def send_shanklife_round_started_notifications(subject, body):
+    sent = 0
+    for user in shanklife_round_started_recipients():
+        if send_mail(subject, body, recipient=user.email):
+            sent += 1
+    return sent
+
+
+def send_shanklife_round_finished_notifications(subject, body):
+    sent = 0
+    for user in shanklife_round_finished_recipients():
         if send_mail(subject, body, recipient=user.email):
             sent += 1
     return sent

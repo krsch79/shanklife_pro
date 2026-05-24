@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.45] - 2026-05-24
+- Legger til valgfrie e-postvarsler når Shanklife-runder startes og fullføres.
+- Fargelegger scorekortscore med grønt for birdie eller bedre og rødt for bogey eller verre.
+
 ## [1.8.44] - 2026-05-24
 - Retter Haga Blå+Gul hull 17 fra par 4 til par 5.
 - Utvider Shanklife-statistikken med GIR, scorefordeling og per-runde-statistikk for fairway, putter og scoretyper.

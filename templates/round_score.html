@@ -73,6 +73,13 @@
                     {% for rp in round_players %}
                     <td class="score-cell">
                         {% set received_strokes = received_strokes_map[rp.id][hole.hole_number] %}
+                        {% set current_score = score_map[rp.id][hole.hole_number] %}
+                        {% set score_color_class = '' %}
+                        {% if current_score is not none and current_score <= hole.par - 1 %}
+                            {% set score_color_class = 'score-birdie' %}
+                        {% elif current_score is not none and current_score >= hole.par + 1 %}
+                            {% set score_color_class = 'score-bogey' %}
+                        {% endif %}
                         {% if received_strokes > 0 %}
                         <span class="hole-received-strokes">{{ received_strokes }}</span>
                         {% endif %}
@@ -80,12 +87,13 @@
                             name="score_{{ rp.id }}_{{ hole.hole_number }}"
                             data-round-player-id="{{ rp.id }}"
                             data-hole-number="{{ hole.hole_number }}"
-                            class="{% if round.status == 'ongoing' %}autosave-score {% endif %}compact-score-input {% if stats_round_player_id == rp.id %}stat-score-select{% endif %}"
+                            data-par="{{ hole.par }}"
+                            class="{% if round.status == 'ongoing' %}autosave-score {% endif %}compact-score-input {{ score_color_class }} {% if stats_round_player_id == rp.id %}stat-score-select{% endif %}"
                             {% if round.status == 'finished' %}disabled{% endif %}
                         >
-                            <option value="" {% if score_map[rp.id][hole.hole_number] is none %}selected{% endif %}>—</option>
+                            <option value="" {% if current_score is none %}selected{% endif %}>—</option>
                             {% for score_option in score_options_by_hole[hole.hole_number] %}
-                            <option value="{{ score_option }}" {% if score_map[rp.id][hole.hole_number] == score_option %}selected{% endif %}>{{ score_option }}</option>
+                            <option value="{{ score_option }}" {% if current_score == score_option %}selected{% endif %}>{{ score_option }}</option>
                             {% endfor %}
                         </select>
                         {% if stats_round_player_id == rp.id %}
@@ -234,6 +242,20 @@
         statusEl.style.color = isError ? "#b91c1c" : "";
     }
 
+    function syncScoreColor(input) {
+        const score = parseInt(input.value, 10);
+        const par = parseInt(input.dataset.par, 10);
+        input.classList.remove("score-birdie", "score-bogey");
+        if (!Number.isFinite(score) || !Number.isFinite(par)) {
+            return;
+        }
+        if (score <= par - 1) {
+            input.classList.add("score-birdie");
+        } else if (score >= par + 1) {
+            input.classList.add("score-bogey");
+        }
+    }
+
     function hasEmptyScoreFields() {
         return Array.from(inputs).some((input) => input.value.trim() === "");
     }
@@ -376,7 +398,9 @@
     }
 
     inputs.forEach((input) => {
+        syncScoreColor(input);
         input.addEventListener("change", () => {
+            syncScoreColor(input);
             const key = `${input.dataset.roundPlayerId}-${input.dataset.holeNumber}`;
 
             if (timers.has(key)) {
