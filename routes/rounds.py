@@ -716,7 +716,7 @@ def _weather_json(payload):
     return json.dumps(payload, ensure_ascii=False) if payload else None
 
 
-def _save_tee_club(entry, raw_value, player_name):
+def _save_tee_club(entry, raw_value, player_name, allowed_club_ids=None):
     raw_value = (raw_value or "").strip()
     if raw_value == "":
         entry.tee_club_id = None
@@ -727,10 +727,17 @@ def _save_tee_club(entry, raw_value, player_name):
     except ValueError as exc:
         raise ValueError(f"Ugyldig køllevalg for {player_name}.") from exc
 
-    if not Club.query.get(club_id):
+    if not Club.query.get(club_id) or (allowed_club_ids is not None and club_id not in allowed_club_ids):
         raise ValueError(f"Valgt kølle for {player_name} finnes ikke.")
 
     entry.tee_club_id = club_id
+
+
+def _club_options_for_round(round_obj):
+    query = Club.query
+    if _is_balletour_round(round_obj):
+        query = query.filter(Club.sort_order >= 1)
+    return query.order_by(Club.sort_order.asc(), Club.name.asc()).all()
 
 
 def _score_totals(round_obj, round_player_id):
@@ -794,6 +801,9 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
     balletour_round = _is_balletour_round(round_obj)
+    allowed_tee_club_ids = {
+        club.id for club in _club_options_for_round(round_obj)
+    } if club_tracking_enabled else None
     scoped_stats = _round_uses_scoped_stat_fields(round_obj)
 
     for rp in round_players:
@@ -816,6 +826,7 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                 entry,
                 request.form.get(f"tee_club_{rp.id}", ""),
                 rp.player_name_snapshot,
+                allowed_tee_club_ids,
             )
 
         if tracks_stats:
@@ -1385,7 +1396,7 @@ def round_hole(round_id, hole_number):
         entry = score_entries.get(rp.id)
         stats_values_by_player[rp.id] = _stat_view_values(entry.detailed_stat if entry else None)
     stats_values = stats_values_by_player.get(stats_rp.id if stats_rp else None, {})
-    clubs = Club.query.order_by(Club.sort_order.asc(), Club.name.asc()).all() if club_tracking_enabled else []
+    clubs = _club_options_for_round(round_obj) if club_tracking_enabled else []
     hole_images = (
         RoundImage.query.filter_by(round_id=round_obj.id, hole_number=hole_number)
         .order_by(RoundImage.uploaded_at.desc())

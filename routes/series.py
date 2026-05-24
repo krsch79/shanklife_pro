@@ -37,6 +37,13 @@ def _series_or_404(series_id):
     return series
 
 
+def _club_query_for_series(series):
+    query = Club.query
+    if series.name.lower() == BALLETOUR_SERIES_NAME.lower():
+        query = query.filter(Club.sort_order >= 1)
+    return query
+
+
 def _series_gallery_tag_options(series):
     rows = (
         db.session.query(RoundImageTag.tag)
@@ -373,12 +380,12 @@ def club_stats(series_id):
         }
 
     clubs = (
-        Club.query.filter(Club.id.in_(used_club_ids))
+        _club_query_for_series(series).filter(Club.id.in_(used_club_ids))
         .order_by(Club.sort_order.asc(), Club.name.asc())
         .all()
         if used_club_ids else []
     )
-    all_clubs = Club.query.order_by(Club.sort_order.asc(), Club.name.asc()).all()
+    all_clubs = _club_query_for_series(series).order_by(Club.sort_order.asc(), Club.name.asc()).all()
     default_clubs = {}
     if selected_player:
         default_rows = PlayerHoleDefaultClub.query.filter_by(
@@ -459,7 +466,7 @@ def save_club_defaults(series_id):
         flash("Spilleren er ikke registrert i denne serien.", "error")
         return redirect(url_for("series.club_stats", series_id=series.id, tee=tee_key))
 
-    club_ids = {club.id for club in Club.query.all()}
+    club_ids = {club.id for club in _club_query_for_series(series).all()}
     for hole in series.course.holes:
         field_name = f"default_club_{hole.hole_number}"
         club_id_raw = request.form.get(field_name, "").strip()

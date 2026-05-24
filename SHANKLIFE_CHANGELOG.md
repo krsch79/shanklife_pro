@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.41] - 2026-05-24
+- Legger Driver, 3-wood, 5-wood og 2 hybrid til i køllevalgene for Shanklife Pro-statistikk.
+
 ## [1.8.38] - 2026-05-24
 - Flytter Shanklife Pro-endringer til en egen changelog-fil ved siden av BalleTour-changeloggen.
 

@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import Player, RoundPlayer, User
+from models import Club, Player, RoundPlayer, User
 from routes.main import main_bp
 from routes.players import players_bp
 from routes.courses import courses_bp
@@ -129,6 +129,24 @@ def ensure_schema_updates(app):
                 defaults_marker.write_text("Applied email notification defaults v2.\n", encoding="utf-8")
 
 
+def ensure_shanklife_club_options(app):
+    required_clubs = [
+        ("Driver", -30),
+        ("3-wood", -20),
+        ("5-wood", -10),
+        ("2 hybrid", 0),
+    ]
+    with app.app_context():
+        changed = False
+        for name, sort_order in required_clubs:
+            if Club.query.filter_by(name=name).first():
+                continue
+            db.session.add(Club(name=name, sort_order=sort_order))
+            changed = True
+        if changed:
+            db.session.commit()
+
+
 def seed_initial_user(app):
     with app.app_context():
         has_admin = User.query.filter_by(is_admin=True).first() is not None
@@ -197,6 +215,7 @@ def create_app():
         db.create_all()
 
     ensure_schema_updates(app)
+    ensure_shanklife_club_options(app)
     seed_initial_user(app)
 
     @app.template_filter("datetime_local")
