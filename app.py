@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import Club, Player, RoundPlayer, User
+from models import Club, Course, CourseHole, Player, RoundPlayer, User
 from routes.main import main_bp
 from routes.players import players_bp
 from routes.courses import courses_bp
@@ -147,6 +147,21 @@ def ensure_shanklife_club_options(app):
             db.session.commit()
 
 
+def ensure_course_data_corrections(app):
+    with app.app_context():
+        changed = False
+        for course in Course.query.all():
+            normalized_name = course.name.strip().lower().replace(" ", "")
+            if normalized_name not in {"hagablå+gul", "hagabla+gul"}:
+                continue
+            hole = CourseHole.query.filter_by(course_id=course.id, hole_number=17).first()
+            if hole and hole.par != 5:
+                hole.par = 5
+                changed = True
+        if changed:
+            db.session.commit()
+
+
 def seed_initial_user(app):
     with app.app_context():
         has_admin = User.query.filter_by(is_admin=True).first() is not None
@@ -216,6 +231,7 @@ def create_app():
 
     ensure_schema_updates(app)
     ensure_shanklife_club_options(app)
+    ensure_course_data_corrections(app)
     seed_initial_user(app)
 
     @app.template_filter("datetime_local")

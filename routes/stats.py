@@ -184,6 +184,81 @@ def _par_by_entry_id(round_player_ids):
     return {entry_id: par for entry_id, par in rows}
 
 
+def _score_distribution(diffs):
+    return {
+        "eagles_or_better": sum(1 for diff in diffs if diff <= -2),
+        "birdies": sum(1 for diff in diffs if diff == -1),
+        "pars": sum(1 for diff in diffs if diff == 0),
+        "bogeys": sum(1 for diff in diffs if diff == 1),
+        "double_bogeys_or_worse": sum(1 for diff in diffs if diff >= 2),
+    }
+
+
+def _gir_count(stats_rows, par_by_entry_id):
+    return sum(
+        1
+        for stat, entry in stats_rows
+        if entry.strokes is not None
+        and stat.putts is not None
+        and entry.strokes - stat.putts <= par_by_entry_id.get(entry.id, 3) - 2
+    )
+
+
+def _round_stat_summary(round_player):
+    entries = sorted(
+        [entry for entry in round_player.score_entries if entry.strokes is not None],
+        key=lambda entry: entry.hole_number,
+    )
+    holes = {hole.hole_number: hole for hole in round_player.round.course.holes}
+    par_by_entry_id = {
+        entry.id: holes[entry.hole_number].par
+        for entry in entries
+        if entry.hole_number in holes
+    }
+    stats_by_entry_id = {
+        stat.score_entry_id: stat
+        for stat in ScoreStat.query.filter(
+            ScoreStat.score_entry_id.in_([entry.id for entry in entries])
+        ).all()
+    } if entries else {}
+    stats_rows = [
+        (stats_by_entry_id[entry.id], entry)
+        for entry in entries
+        if entry.id in stats_by_entry_id
+    ]
+    diffs = [entry.strokes - par_by_entry_id.get(entry.id, 3) for entry in entries]
+    score_counts = _score_distribution(diffs)
+    fairway_counts = {"hit": 0, "left": 0, "right": 0}
+    fairway_attempts = 0
+    for stat, entry in stats_rows:
+        if par_by_entry_id.get(entry.id) not in (4, 5):
+            continue
+        if stat.fairway_result in fairway_counts:
+            fairway_attempts += 1
+            fairway_counts[stat.fairway_result] += 1
+
+    gir_attempts = len([entry for entry in entries if entry.id in stats_by_entry_id])
+    gir_count = _gir_count(stats_rows, par_by_entry_id)
+    total = sum(entry.strokes for entry in entries) if entries else None
+    par = sum(par_by_entry_id.get(entry.id, 0) for entry in entries)
+    return {
+        "round_id": round_player.round_id,
+        "started_at": round_player.round.started_at,
+        "course_name": round_player.round.course.name,
+        "tee_name": round_player.selected_tee.name if round_player.selected_tee else "—",
+        "holes": len(entries),
+        "total": total,
+        "to_par": total - par if total is not None else None,
+        "gir_percent": _percent(gir_count, gir_attempts),
+        "avg_putts": _avg([stat.putts for stat, _entry in stats_rows]),
+        "fairway_attempts": fairway_attempts,
+        "fairway_hit_percent": _percent(fairway_counts["hit"], fairway_attempts),
+        "fairway_left_percent": _percent(fairway_counts["left"], fairway_attempts),
+        "fairway_right_percent": _percent(fairway_counts["right"], fairway_attempts),
+        **score_counts,
+    }
+
+
 def _player_stats(player):
     round_players = _tracked_round_players(player)
     round_player_ids = [round_player.id for round_player in round_players]
@@ -196,6 +271,7 @@ def _player_stats(player):
     )
     par_by_entry_id = _par_by_entry_id(round_player_ids)
     diffs = [entry.strokes - par_by_entry_id.get(entry.id, 3) for entry in entries]
+    score_counts = _score_distribution(diffs)
 
     stats_rows = (
         db.session.query(ScoreStat, ScoreEntry)
@@ -270,6 +346,8 @@ def _player_stats(player):
             putt_distance_by_round[entry.round_id] += stat.last_putt_distance_m
 
     best_vs_par = min((row["total"] - row["par"] for row in completed), default=None)
+    gir_attempts = len([entry for entry in entries if entry.id in {stat.score_entry_id for stat, _entry in stats_rows}])
+    gir_count = _gir_count(stats_rows, par_by_entry_id)
     return {
         "round_count": len(round_players),
         "completed_round_count": len(completed),
@@ -277,9 +355,8 @@ def _player_stats(player):
         "best_round": min((row["total"] for row in completed), default=None),
         "best_round_vs_par": best_vs_par,
         "scored_holes": len(entries),
-        "birdies_or_better": sum(1 for diff in diffs if diff < 0),
-        "pars": sum(1 for diff in diffs if diff == 0),
-        "bogeys_or_worse": sum(1 for diff in diffs if diff > 0),
+        "gir_percent": _percent(gir_count, gir_attempts),
+        **score_counts,
         "green_hit_percent": _percent(green_bucket_counts["hit"], len(green_rows)),
         "bunker_percent": _percent(green_bucket_counts["bunker"], len(green_rows)),
         "sand_save_attempts": sand_save_attempts,
@@ -304,6 +381,7 @@ def _player_stats(player):
         "fairway_left_percent": _percent(fairway_counts["left"], fairway_attempts),
         "fairway_right_percent": _percent(fairway_counts["right"], fairway_attempts),
         "club_rows": club_rows,
+        "round_rows": [_round_stat_summary(round_player) for round_player in round_players],
     }
 
 

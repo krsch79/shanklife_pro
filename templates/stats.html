@@ -34,6 +34,7 @@
     <div class="stat-card"><strong>{{ stats.avg_round if stats.avg_round is not none else "-" }}</strong><span>Snittrunde</span></div>
     <div class="stat-card"><strong>{{ stats.best_round if stats.best_round is not none else "-" }}</strong><span>Beste runde</span></div>
     <div class="stat-card"><strong>{% if stats.best_round_vs_par is not none %}{% if stats.best_round_vs_par > 0 %}+{% endif %}{{ stats.best_round_vs_par }}{% else %}-{% endif %}</strong><span>Beste mot par</span></div>
+    <div class="stat-card"><strong>{{ stats.gir_percent if stats.gir_percent is not none else "-" }}{% if stats.gir_percent is not none %}%{% endif %}</strong><span>GIR</span></div>
     <div class="stat-card"><strong>{{ stats.green_hit_percent if stats.green_hit_percent is not none else "-" }}{% if stats.green_hit_percent is not none %}%{% endif %}</strong><span>Greentreff</span></div>
     <div class="stat-card"><strong>{{ stats.bunker_percent if stats.bunker_percent is not none else "-" }}{% if stats.bunker_percent is not none %}%{% endif %}</strong><span>Bunker</span></div>
     <div class="stat-card"><strong>{{ stats.sand_save_percent if stats.sand_save_percent is not none else "-" }}{% if stats.sand_save_percent is not none %}%{% endif %}</strong><span>Sand saves</span></div>
@@ -43,12 +44,71 @@
 </div>
 
 <section>
+    <h3>Scorefordeling</h3>
+    <div class="stat-grid">
+        <div class="stat-card"><strong>{{ stats.eagles_or_better }}</strong><span>Eagle eller bedre</span></div>
+        <div class="stat-card"><strong>{{ stats.birdies }}</strong><span>Birdies</span></div>
+        <div class="stat-card"><strong>{{ stats.pars }}</strong><span>Par</span></div>
+        <div class="stat-card"><strong>{{ stats.bogeys }}</strong><span>Bogeys</span></div>
+        <div class="stat-card"><strong>{{ stats.double_bogeys_or_worse }}</strong><span>Dobbel +</span></div>
+    </div>
+</section>
+
+<section>
     <h3>Utslag par 4 og 5</h3>
     <div class="stat-grid">
         <div class="stat-card"><strong>{{ stats.fairway_hit_percent if stats.fairway_hit_percent is not none else "-" }}{% if stats.fairway_hit_percent is not none %}%{% endif %}</strong><span>Fairwaytreff</span></div>
         <div class="stat-card"><strong>{{ stats.fairway_left_percent if stats.fairway_left_percent is not none else "-" }}{% if stats.fairway_left_percent is not none %}%{% endif %}</strong><span>Venstre</span></div>
         <div class="stat-card"><strong>{{ stats.fairway_right_percent if stats.fairway_right_percent is not none else "-" }}{% if stats.fairway_right_percent is not none %}%{% endif %}</strong><span>Høyre</span></div>
         <div class="stat-card"><strong>{{ stats.fairway_attempts }}</strong><span>Registrerte utslag</span></div>
+    </div>
+</section>
+
+<section>
+    <h3>Statistikk per runde</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Runde</th>
+                    <th>Bane</th>
+                    <th>Tee</th>
+                    <th>Score</th>
+                    <th>Mot par</th>
+                    <th>GIR</th>
+                    <th>FW</th>
+                    <th>Venstre</th>
+                    <th>Høyre</th>
+                    <th>Putter</th>
+                    <th>Birdie</th>
+                    <th>Par</th>
+                    <th>Bogey</th>
+                    <th>Dobbel +</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in stats.round_rows %}
+                <tr>
+                    <td><a href="{{ url_for('rounds.round_score', round_id=row.round_id) }}">#{{ row.round_id }}</a><br><span class="muted">{{ row.started_at|datetime_local }}</span></td>
+                    <td>{{ row.course_name }}</td>
+                    <td>{{ row.tee_name }}</td>
+                    <td>{{ row.total if row.total is not none else "-" }}</td>
+                    <td>{% if row.to_par is not none %}{% if row.to_par > 0 %}+{% endif %}{{ row.to_par }}{% else %}-{% endif %}</td>
+                    <td>{{ row.gir_percent if row.gir_percent is not none else "-" }}{% if row.gir_percent is not none %}%{% endif %}</td>
+                    <td>{{ row.fairway_hit_percent if row.fairway_hit_percent is not none else "-" }}{% if row.fairway_hit_percent is not none %}%{% endif %}</td>
+                    <td>{{ row.fairway_left_percent if row.fairway_left_percent is not none else "-" }}{% if row.fairway_left_percent is not none %}%{% endif %}</td>
+                    <td>{{ row.fairway_right_percent if row.fairway_right_percent is not none else "-" }}{% if row.fairway_right_percent is not none %}%{% endif %}</td>
+                    <td>{{ row.avg_putts if row.avg_putts is not none else "-" }}</td>
+                    <td>{{ row.birdies }}</td>
+                    <td>{{ row.pars }}</td>
+                    <td>{{ row.bogeys }}</td>
+                    <td>{{ row.double_bogeys_or_worse }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="14">Ingen statistikkrunder funnet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
 
