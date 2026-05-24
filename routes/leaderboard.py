@@ -6,6 +6,7 @@ from services.tee_filters import selected_tee_key, tee_filter_options
 leaderboard_bp = Blueprint("leaderboard", __name__)
 
 
+@leaderboard_bp.route("/live-leaderboard")
 @leaderboard_bp.route("/leaderboard/live")
 def live_leaderboard():
     view_mode = request.args.get("view", "gross").strip().lower()

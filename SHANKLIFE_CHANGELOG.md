@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.42] - 2026-05-24
+- Retter Shanklife live leaderboard slik at den gamle `/live-leaderboard`-adressen også fungerer uten innlogging.
+
 ## [1.8.41] - 2026-05-24
 - Legger Driver, 3-wood, 5-wood og 2 hybrid til i køllevalgene for Shanklife Pro-statistikk.
 
