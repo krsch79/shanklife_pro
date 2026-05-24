@@ -26,6 +26,21 @@ from services.time import server_now
 courses_bp = Blueprint("courses", __name__)
 
 
+def _add_course_tee_ratings(tee, tee_data):
+    for gender in ("male", "female"):
+        rating = tee_data["ratings"].get(gender)
+        if not rating:
+            continue
+        db.session.add(
+            CourseTeeRating(
+                tee_id=tee.id,
+                gender=gender,
+                slope=rating["slope"],
+                course_rating=rating["course_rating"],
+            )
+        )
+
+
 @courses_bp.route("/courses")
 def courses():
     all_courses = Course.query.order_by(Course.name.asc()).all()
@@ -85,17 +100,9 @@ def import_course():
                 slope_imported = True
                 flash("Scorekort analysert. Slopedata lest og forhåndsutfylt.", "success")
             except Exception:
-                flash("Scorekort analysert. Slopedata kunne ikke tolkes - bruker dummy-verdier.", "warning")
+                flash("Scorekort analysert. Slopedata kunne ikke tolkes, men kan fylles ut senere.", "warning")
         else:
-            flash("Scorekort analysert. Bruker dummy-verdier for slope og course rating.", "warning")
-
-        # Set dummy values if no slope data was imported
-        if not slope_imported:
-            for tee in tees_data:
-                tee["ratings"]["male"]["slope"] = "113"
-                tee["ratings"]["male"]["course_rating"] = "70.0"
-                tee["ratings"]["female"]["slope"] = "120"
-                tee["ratings"]["female"]["course_rating"] = "72.0"
+            flash("Scorekort analysert. Slope og course rating kan fylles ut senere.", "success")
 
         return render_template(
             "course_form.html",
@@ -193,22 +200,7 @@ def new_course():
                     )
                 )
 
-            db.session.add(
-                CourseTeeRating(
-                    tee_id=tee.id,
-                    gender="male",
-                    slope=tee_data["ratings"]["male"]["slope"],
-                    course_rating=tee_data["ratings"]["male"]["course_rating"],
-                )
-            )
-            db.session.add(
-                CourseTeeRating(
-                    tee_id=tee.id,
-                    gender="female",
-                    slope=tee_data["ratings"]["female"]["slope"],
-                    course_rating=tee_data["ratings"]["female"]["course_rating"],
-                )
-            )
+            _add_course_tee_ratings(tee, tee_data)
 
         db.session.commit()
         flash("Bane opprettet.", "success")
@@ -286,22 +278,7 @@ def edit_course(course_id):
                     )
                 )
 
-            db.session.add(
-                CourseTeeRating(
-                    tee_id=tee.id,
-                    gender="male",
-                    slope=tee_data["ratings"]["male"]["slope"],
-                    course_rating=tee_data["ratings"]["male"]["course_rating"],
-                )
-            )
-            db.session.add(
-                CourseTeeRating(
-                    tee_id=tee.id,
-                    gender="female",
-                    slope=tee_data["ratings"]["female"]["slope"],
-                    course_rating=tee_data["ratings"]["female"]["course_rating"],
-                )
-            )
+            _add_course_tee_ratings(tee, tee_data)
 
         db.session.commit()
         flash("Bane oppdatert.", "success")

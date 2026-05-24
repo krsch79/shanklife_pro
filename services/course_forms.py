@@ -144,6 +144,30 @@ def _parse_float(value):
     return float(str(value).replace(",", ".").strip())
 
 
+def _validate_optional_rating(tee_name, gender_label, slope_raw, course_rating_raw):
+    slope_raw = slope_raw.strip()
+    course_rating_raw = course_rating_raw.strip()
+    if not slope_raw and not course_rating_raw:
+        return None
+    if not slope_raw or not course_rating_raw:
+        raise ValueError(
+            f"{gender_label} slope og course rating må enten begge fylles ut eller begge stå tomme på tee '{tee_name}'."
+        )
+
+    try:
+        slope = int(slope_raw)
+        course_rating = _parse_float(course_rating_raw)
+    except ValueError:
+        raise ValueError(f"{gender_label} slope og course rating må være gyldige tall på tee '{tee_name}'.")
+
+    if not (55 <= slope <= 155):
+        raise ValueError(f"{gender_label} slope må være mellom 55 og 155 på tee '{tee_name}'.")
+    if not (40.0 <= course_rating <= 80.0):
+        raise ValueError(f"{gender_label} course rating må være mellom 40.0 og 80.0 på tee '{tee_name}'.")
+
+    return {"slope": slope, "course_rating": course_rating}
+
+
 def validate_holes_data(hole_count: int):
     holes = []
     used_indexes = set()
@@ -209,22 +233,18 @@ def validate_tees_data(hole_count: int, tee_count: int):
 
             lengths[hole] = length_meters
 
-        try:
-            male_slope = int(request.form.get(f"tee_{t}_male_slope", "").strip())
-            male_course_rating = _parse_float(request.form.get(f"tee_{t}_male_course_rating", "").strip())
-            female_slope = int(request.form.get(f"tee_{t}_female_slope", "").strip())
-            female_course_rating = _parse_float(request.form.get(f"tee_{t}_female_course_rating", "").strip())
-        except ValueError:
-            raise ValueError(f"Slope og course rating må fylles ut korrekt for både herre og dame på tee '{tee_name}'.")
-
-        if not (55 <= male_slope <= 155):
-            raise ValueError(f"Herre slope må være mellom 55 og 155 på tee '{tee_name}'.")
-        if not (55 <= female_slope <= 155):
-            raise ValueError(f"Dame slope må være mellom 55 og 155 på tee '{tee_name}'.")
-        if not (40.0 <= male_course_rating <= 80.0):
-            raise ValueError(f"Herre course rating må være mellom 40.0 og 80.0 på tee '{tee_name}'.")
-        if not (40.0 <= female_course_rating <= 80.0):
-            raise ValueError(f"Dame course rating må være mellom 40.0 og 80.0 på tee '{tee_name}'.")
+        male_rating = _validate_optional_rating(
+            tee_name,
+            "Herre",
+            request.form.get(f"tee_{t}_male_slope", ""),
+            request.form.get(f"tee_{t}_male_course_rating", ""),
+        )
+        female_rating = _validate_optional_rating(
+            tee_name,
+            "Dame",
+            request.form.get(f"tee_{t}_female_slope", ""),
+            request.form.get(f"tee_{t}_female_course_rating", ""),
+        )
 
         tees.append(
             {
@@ -232,8 +252,8 @@ def validate_tees_data(hole_count: int, tee_count: int):
                 "name": tee_name,
                 "lengths": lengths,
                 "ratings": {
-                    "male": {"slope": male_slope, "course_rating": male_course_rating},
-                    "female": {"slope": female_slope, "course_rating": female_course_rating},
+                    "male": male_rating,
+                    "female": female_rating,
                 },
             }
         )

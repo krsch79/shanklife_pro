@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.47] - 2026-05-24
+- Lar nye Shanklife-baner lagres med 9 hull uten at tomme felt for hull 10-18 stopper lagringen.
+- Gjør slope og course rating valgfrie ved manuell opprettelse, redigering og import av baner.
+
 ## [1.8.45] - 2026-05-24
 - Legger til valgfrie e-postvarsler når Shanklife-runder startes og fullføres.
 - Fargelegger scorekortscore med grønt for birdie eller bedre og rødt for bogey eller verre.

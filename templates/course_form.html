@@ -37,16 +37,16 @@
     </select>
 
     <div class="button-row">
-        <button type="submit" name="form_action" value="refresh_layout" class="button secondary">Oppdater skjema</button>
+        <button type="submit" name="form_action" value="refresh_layout" class="button secondary" formnovalidate>Oppdater skjema</button>
     </div>
 
     <p class="muted">
-        Fyll inn par og index per hull, navn og lengder per tee, og slope/course rating for herre og dame.
+        Fyll inn par og index per hull, navn og lengder per tee. Slope og course rating er valgfritt.
     </p>
 
     {% if slope_imported is defined and not slope_imported %}
-    <div class="flash flash-error">
-        <strong>Advarsel:</strong> Slope- og course rating-verdier er satt til dummy-verdier siden de ikke kunne leses fra bildet. Disse må justeres til reelle verdier før banen brukes til scoring.
+    <div class="flash flash-success">
+        Slope- og course rating-verdier ble ikke lest fra importen. Du kan lagre banen uten disse og fylle dem ut senere.
     </div>
     {% endif %}
 
@@ -112,16 +112,16 @@
                         <input type="text" name="tee_{{ tee.index }}_name" value="{{ tee.name }}" required>
                     </td>
                     <td>
-                        <input type="number" name="tee_{{ tee.index }}_male_slope" value="{{ tee.ratings.male.slope }}" min="55" max="155" required>
+                        <input type="number" name="tee_{{ tee.index }}_male_slope" value="{{ tee.ratings.male.slope }}" min="55" max="155">
                     </td>
                     <td>
-                        <input type="text" name="tee_{{ tee.index }}_male_course_rating" value="{{ tee.ratings.male.course_rating }}" required>
+                        <input type="text" name="tee_{{ tee.index }}_male_course_rating" value="{{ tee.ratings.male.course_rating }}">
                     </td>
                     <td>
-                        <input type="number" name="tee_{{ tee.index }}_female_slope" value="{{ tee.ratings.female.slope }}" min="55" max="155" required>
+                        <input type="number" name="tee_{{ tee.index }}_female_slope" value="{{ tee.ratings.female.slope }}" min="55" max="155">
                     </td>
                     <td>
-                        <input type="text" name="tee_{{ tee.index }}_female_course_rating" value="{{ tee.ratings.female.course_rating }}" required>
+                        <input type="text" name="tee_{{ tee.index }}_female_course_rating" value="{{ tee.ratings.female.course_rating }}">
                     </td>
                 </tr>
                 {% endfor %}
@@ -134,4 +134,17 @@
         <a class="button secondary" href="{{ url_for('courses.courses') }}">Avbryt</a>
     </div>
 </form>
+{% if not course %}
+<script>
+(function () {
+    const form = document.querySelector("form");
+    const holeCount = document.getElementById("hole_count");
+    const teeCount = document.getElementById("tee_count");
+    const refreshButton = form?.querySelector('button[name="form_action"][value="refresh_layout"]');
+    if (!form || !refreshButton) return;
+    holeCount?.addEventListener("change", () => form.requestSubmit(refreshButton));
+    teeCount?.addEventListener("change", () => form.requestSubmit(refreshButton));
+})();
+</script>
+{% endif %}
 {% endblock %}
