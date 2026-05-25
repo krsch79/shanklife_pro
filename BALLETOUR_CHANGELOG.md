@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.54] - 2026-05-25
+- Retter Internal Server Error ved GolfBox AI-ledighetssøk på Haga og andre ikke-Ballerud-baner.
+
 ## [1.8.53] - 2026-05-25
 - Lar GolfBox AI planlegge solobooking for innlogget bruker selv om medlemsnummeret for valgt klubb ikke er lagret lokalt etter klubbbytte i GolfBox.
 - Validerer ikke mot hjemmeklubbens medlemsnummer når GolfBox-bookingen gjelder en annen klubb.

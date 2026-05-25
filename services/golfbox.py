@@ -395,7 +395,16 @@ def _fetch_slots(credentials, club_guid, resource_guid, course_name, requested_d
             },
         )
         response.raise_for_status()
-    return _parse_grid_slots(response.text, requested_date, start_time, end_time, player_count, course_name)
+    return _parse_grid_slots(
+        response.text,
+        requested_date,
+        start_time,
+        end_time,
+        player_count,
+        course_name,
+        club_guid,
+        resource_guid,
+    )
 
 
 def _login(client, credentials):
@@ -416,7 +425,7 @@ def _login(client, credentials):
     return response.text
 
 
-def _parse_grid_slots(html_text, requested_date, start_time, end_time, player_count, course_name):
+def _parse_grid_slots(html_text, requested_date, start_time, end_time, player_count, course_name, club_guid, resource_guid):
     slots = []
     slot_pattern = re.compile(
         r"<div[^>]+onclick=\"click_show\([^']+'(?P<stamp>\d{8}T\d{6})'[^>]+class=\"(?P<class>[^\"]+)\"[^>]*>"
