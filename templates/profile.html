@@ -36,7 +36,7 @@
         <input type="hidden" name="next" value="{{ request.full_path }}">
         <div>
             <label for="golfbox_username">GolfBox-brukernavn</label>
-            <input type="email" id="golfbox_username" name="golfbox_username" value="{{ golfbox_connection.username or '' }}" autocomplete="username" required>
+            <input type="text" id="golfbox_username" name="golfbox_username" value="{{ golfbox_connection.username or '' }}" autocomplete="username" required>
         </div>
         <div>
             <label for="golfbox_password">GolfBox-passord</label>

@@ -2,6 +2,12 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.51] - 2026-05-25
+- Lar GolfBox AI booke flere baner enn Ballerud når GolfBox ikke krever betaling ved booking.
+- Bytter til riktig GolfBox-medlemsklubb ved booking når brukeren har flere klubbmedlemskap, og matcher medspillere mot samme klubb.
+- Legger til faste ukentlige GolfBox-bookinger fra AI-chatten.
+- Tillater GolfBox-brukernavn som ikke er e-postadresse.
+
 ## [1.8.50] - 2026-05-25
 - Bytter lagring av GolfBox-passord fra intern tilsløring til Fernet-kryptering, og migrerer eksisterende GolfBox-passord automatisk ved oppstart.
 - Beholder vanlige BalleTour-passord som irreversible passord-hasher, slik at de fortsatt ikke kan dekrypteres.

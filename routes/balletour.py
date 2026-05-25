@@ -1091,8 +1091,9 @@ def ai_tools():
                 session.pop("golfbox_pending_booking", None)
             elif request.form.get("action") == "cancel_scheduled_booking":
                 booking_id = request.form.get("scheduled_booking_id", "").strip()
+                booking_type = request.form.get("scheduled_booking_type", "scheduled").strip()
                 try:
-                    cancel_golfbox_scheduled_booking(int(booking_id), g.current_user)
+                    cancel_golfbox_scheduled_booking(int(booking_id), g.current_user, booking_type=booking_type)
                     chat_messages.append({"role": "assistant", "result": {
                         "status": "scheduled_booking_cancelled",
                         "message": "Den planlagte bookingen er kansellert.",
@@ -1116,7 +1117,7 @@ def ai_tools():
                     if prompt_result.get("status") == "confirmation_required":
                         pending_booking = prompt_result.get("pending_booking")
                         session["golfbox_pending_booking"] = pending_booking
-                    elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required"}:
+                    elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required", "scheduled_booking_created", "recurring_booking_created"}:
                         pending_booking = None
                         session.pop("golfbox_pending_booking", None)
                     chat_messages.append({"role": "assistant", "result": prompt_result})

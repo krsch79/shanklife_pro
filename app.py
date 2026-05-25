@@ -159,6 +159,12 @@ def ensure_schema_updates(app):
 
             migrate_golfbox_password_tokens()
 
+        if "golfbox_recurring_bookings" in table_names:
+            add_column_if_missing("golfbox_recurring_bookings", "last_run_at", "last_run_at DATETIME")
+            add_column_if_missing("golfbox_recurring_bookings", "last_result_message", "last_result_message TEXT")
+            add_column_if_missing("golfbox_recurring_bookings", "last_error_message", "last_error_message TEXT")
+            add_column_if_missing("golfbox_recurring_bookings", "cancelled_at", "cancelled_at DATETIME")
+
 
 def ensure_shanklife_club_options(app):
     required_clubs = [

@@ -32,6 +32,7 @@ OSLO_AREA_COURSES = [
     "Oppegård",
     "Drøbak",
 ]
+WEEKDAY_NAMES = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
 
 
 def _secret_bytes():
@@ -291,7 +292,6 @@ def find_golfbox_availability(
     club_guid = BALLERUD_CLUB_GUID
     resource_guid = BALLERUD_RESSOURCE_GUID
     resolved_course_name = DEFAULT_GOLFBOX_COURSE
-    booking_enabled = True
     if "ballerud" not in course_name.lower():
         resolved = _resolve_course(credentials, course_name)
         if not resolved:
@@ -308,7 +308,6 @@ def find_golfbox_availability(
         club_guid = resolved["club_guid"]
         resource_guid = resolved["resource_guid"]
         resolved_course_name = resolved["course"]
-        booking_enabled = False
 
     available_slots = _fetch_slots(
         credentials=credentials,
@@ -328,7 +327,7 @@ def find_golfbox_availability(
         "time_from": start_time.strftime("%H:%M"),
         "time_to": end_time.strftime("%H:%M"),
         "available_slots": available_slots,
-        "booking_enabled": booking_enabled,
+        "booking_enabled": True,
     }
 
 
@@ -452,6 +451,8 @@ def _parse_grid_slots(html_text, requested_date, start_time, end_time, player_co
                     "time": match.group("label"),
                     "available_spots": available_spots,
                     "course": course_name,
+                    "club_guid": club_guid,
+                    "resource_guid": resource_guid,
                     "date": requested_date.isoformat(),
                     "source": "GolfBox",
                 }
@@ -528,6 +529,19 @@ def _fetch_memberships(client, frontpage_html):
                 )
                 break
     return _dedupe_memberships(memberships)
+
+
+def _switch_club(client, club_guid):
+    if not club_guid:
+        return
+    response = client.post(
+        f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+        data={
+            "command": "switchClub",
+            "commandValue": club_guid,
+        },
+    )
+    response.raise_for_status()
 
 
 def _parse_switch_clubs(page_html):
@@ -644,10 +658,10 @@ def _normalize_name(value):
     return re.sub(r"\s+", " ", re.sub(r"[^0-9a-zæøå]+", " ", (value or "").lower())).strip()
 
 
-def _booking_player_memberships(user, interpretation):
+def _booking_player_memberships(user, interpretation, club_name=None):
     requested_names = interpretation.get("player_names") or []
     memberships = []
-    current_membership = _ballerud_membership_for_user(user)
+    current_membership = _membership_for_user(user, club_name)
     current_name = (getattr(user, "player", None).name if getattr(user, "player", None) else getattr(user, "username", "")) or ""
     if not requested_names or any(_name_matches(current_name, name) for name in requested_names):
         if current_membership:
@@ -656,7 +670,7 @@ def _booking_player_memberships(user, interpretation):
     for requested_name in requested_names:
         if _name_matches(current_name, requested_name):
             continue
-        membership = _ballerud_membership_for_player_name(requested_name)
+        membership = _membership_for_player_name(requested_name, club_name)
         if membership:
             memberships.append(membership)
 
@@ -671,17 +685,20 @@ def _booking_player_memberships(user, interpretation):
     return deduped[:4]
 
 
-def _ballerud_membership_for_user(user):
+def _membership_for_user(user, club_name=None):
     if not user:
         return None
+    requested_club_key = _normalize_name(club_name)
     for membership in _user_memberships(user):
-        if "ballerud" in (membership.get("club_name") or "").lower():
+        membership_club_key = _normalize_name(membership.get("club_name"))
+        if not requested_club_key or requested_club_key in membership_club_key or membership_club_key in requested_club_key:
             return {
                 "player_name": membership.get("player_name") or user.player.name,
                 "member_number": membership["member_number"],
                 "club_name": membership["club_name"],
             }
-    if (user.golfbox_home_club_name or "").lower().find("ballerud") >= 0 and user.golfbox_member_number:
+    home_club_key = _normalize_name(user.golfbox_home_club_name)
+    if user.golfbox_member_number and (not requested_club_key or requested_club_key in home_club_key or home_club_key in requested_club_key):
         return {
             "player_name": user.golfbox_player_name or user.player.name,
             "member_number": user.golfbox_member_number,
@@ -690,7 +707,7 @@ def _ballerud_membership_for_user(user):
     return None
 
 
-def _ballerud_membership_for_player_name(player_name):
+def _membership_for_player_name(player_name, club_name=None):
     from models import User
 
     users = User.query.all()
@@ -699,7 +716,7 @@ def _ballerud_membership_for_player_name(player_name):
         if user.player:
             candidate_names.append(user.player.name)
         if any(_name_matches(candidate, player_name) for candidate in candidate_names):
-            membership = _ballerud_membership_for_user(user)
+            membership = _membership_for_user(user, club_name)
             if membership:
                 return membership
     return None
@@ -713,7 +730,7 @@ def _name_matches(candidate, requested):
     return candidate_key == requested_key or requested_key in candidate_key or candidate_key in requested_key
 
 
-def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_memberships):
+def _book_slot(credentials, user, booking_date, booking_time, player_memberships, club_guid, resource_guid, course_name):
     booking_start = f"{booking_date.strftime('%Y%m%d')}T{booking_time.strftime('%H%M%S')}"
     with httpx.Client(
         follow_redirects=True,
@@ -721,18 +738,19 @@ def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_me
         headers={"User-Agent": "Mozilla/5.0"},
     ) as client:
         _login(client, credentials)
+        _switch_club(client, club_guid)
         window_response = client.get(
             f"{GOLFBOX_BASE_URL}/site/my_golfbox/ressources/booking/window.asp",
             params={
-                "Ressource_GUID": BALLERUD_RESSOURCE_GUID,
+                "Ressource_GUID": resource_guid,
                 "Booking_Start": booking_start,
-                "club_GUID": BALLERUD_CLUB_GUID,
+                "club_GUID": club_guid,
             },
         )
         window_response.raise_for_status()
-        validation = _validate_ballerud_booking_window(window_response.text, user)
+        validation = _validate_booking_window(window_response.text, user, player_memberships, course_name)
         if validation["status"] != "ok":
-            _cleanup_booking_lock(client, booking_start)
+            _cleanup_booking_lock(client, booking_start, resource_guid)
             return validation
 
         form_data = _form_inputs(window_response.text)
@@ -748,7 +766,7 @@ def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_me
         )
         submit_response.raise_for_status()
         if _booking_response_requires_payment(submit_response.text):
-            _cleanup_booking_lock(client, booking_start)
+            _cleanup_booking_lock(client, booking_start, resource_guid)
             return {
                 "intent": "create_booking",
                 "status": "payment_required",
@@ -765,16 +783,29 @@ def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_me
     return {
         "intent": "create_booking",
         "status": "booking_created",
-        "course": DEFAULT_GOLFBOX_COURSE,
+        "course": course_name,
         "date": booking_date.isoformat(),
         "time": booking_time.strftime("%H:%M"),
         "players": len(player_memberships or []) or 1,
-        "message": f"Bookingen er sendt til GolfBox for {DEFAULT_GOLFBOX_COURSE} {booking_date.isoformat()} kl. {booking_time.strftime('%H:%M')}.",
+        "message": f"Bookingen er sendt til GolfBox for {course_name} {booking_date.isoformat()} kl. {booking_time.strftime('%H:%M')}.",
         "available_slots": [],
     }
 
 
-def _validate_ballerud_booking_window(page_html, user):
+def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_memberships):
+    return _book_slot(
+        credentials,
+        user,
+        booking_date,
+        booking_time,
+        player_memberships,
+        BALLERUD_CLUB_GUID,
+        BALLERUD_RESSOURCE_GUID,
+        DEFAULT_GOLFBOX_COURSE,
+    )
+
+
+def _validate_booking_window(page_html, user, player_memberships, course_name):
     page_text = " ".join(re.sub(r"<[^>]+>", " ", page_html).split())
     if "Tiden er låst" in page_text:
         return {
@@ -783,19 +814,13 @@ def _validate_ballerud_booking_window(page_html, user):
             "message": "Starttiden er låst i GolfBox akkurat nå. Prøv igjen om litt.",
             "available_slots": [],
         }
-    if "Ballerud Golfklubb" not in page_text:
-        return {
-            "intent": "create_booking",
-            "status": "wrong_club",
-            "message": "GolfBox viser ikke Ballerud som valgt klubb. Jeg stoppet bookingen.",
-            "available_slots": [],
-        }
-    member_number = (getattr(user, "golfbox_member_number", "") or "").strip()
+    first_membership = (player_memberships or [{}])[0]
+    member_number = (first_membership.get("member_number") or getattr(user, "golfbox_member_number", "") or "").strip()
     if member_number and f"Medlemsnummer: {member_number}" not in page_text and f'value="{member_number}"' not in page_html:
         return {
             "intent": "create_booking",
             "status": "wrong_membership",
-            "message": "GolfBox viser ikke det lagrede Ballerud-medlemsnummeret. Jeg stoppet bookingen.",
+            "message": f"GolfBox viser ikke riktig medlemsnummer for {course_name}. Jeg stoppet bookingen.",
             "available_slots": [],
         }
     prices = [
@@ -841,12 +866,12 @@ def _attr_value(attrs, attr_name):
     return html.unescape(attr_match.group("value"))
 
 
-def _cleanup_booking_lock(client, booking_start):
+def _cleanup_booking_lock(client, booking_start, resource_guid=BALLERUD_RESSOURCE_GUID):
     try:
         client.post(
             f"{GOLFBOX_BASE_URL}/site/ressources/booking/cleanup.asp",
             data={
-                "Ressource_GUID": BALLERUD_RESSOURCE_GUID,
+                "Ressource_GUID": resource_guid,
                 "Booking_Start": booking_start,
             },
         )
@@ -912,13 +937,15 @@ def _interpret_prompt_with_openai(prompt, user):
         '{"intent":"find_availability|create_booking|cancel_booking|unknown",'
         '"courses":[],"area":"","players":2,"player_names":[],'
         '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM",'
-        '"execute_at":""}. '
+        '"execute_at":"","recurrence":{"frequency":"","weekday":"","execute_time":""}}. '
         "Regler: book/bestill/reserver=create_booking, ledig=find_availability, "
         "avbestill/kanseller=cancel_booking. Oslo-området: area=oslo og courses=[]. "
         "Flere baner listes i courses. Kjente korte banenavn: Ballerud, Oslo, Haga, "
         "Bærum, Grini, Asker, Oppegård, Drøbak. Mangler dato: i dag. "
         "Mangler tidsrom: 06:00-22:00. Enkelt klokkeslett: time_from=klokkeslett "
         "og time_to=30 minutter senere. Mangler spillere: 2. "
+        "Hvis brukeren ber om fast/repeterende booking, sett recurrence.frequency=weekly, "
+        "recurrence.weekday til engelsk ukedag og recurrence.execute_time til klokkeslettet jobben skal kjøre. "
         "Hvis brukeren ber om at bookingen skal gjennomføres senere, sett execute_at "
         "til lokal ISO-dato og tid for selve gjennomføringen, ikke spilletiden. Bare JSON. "
         f"Melding: {prompt}"
@@ -983,6 +1010,7 @@ def _normalize_interpretation(data, prompt, user=None):
     time_from = str(data.get("time_from") or fallback["time_from"]).strip()
     time_to = str(data.get("time_to") or fallback["time_to"]).strip()
     execute_at = str(data.get("execute_at") or fallback.get("execute_at") or "").strip()
+    recurrence = _normalize_recurrence(data.get("recurrence") or fallback.get("recurrence") or {}, prompt_lower)
     _parse_date(play_date)
     parsed_from = _parse_time(time_from, "time_from")
     parsed_to = _parse_time(time_to, "time_to")
@@ -990,6 +1018,8 @@ def _normalize_interpretation(data, prompt, user=None):
         time_to = _time_after(parsed_from, minutes=30)
     if execute_at:
         _parse_execute_at(execute_at)
+    if recurrence:
+        execute_at = _next_weekday_run(recurrence["execute_weekday"], recurrence["execute_time"]).strftime("%Y-%m-%d %H:%M")
 
     return {
         "intent": intent if intent != "unknown" else "find_availability",
@@ -1001,6 +1031,7 @@ def _normalize_interpretation(data, prompt, user=None):
         "time_from": time_from,
         "time_to": time_to,
         "execute_at": execute_at,
+        "recurrence": recurrence,
     }
 
 
@@ -1027,6 +1058,7 @@ def _fallback_prompt_interpretation(prompt):
         "time_from": time_from,
         "time_to": time_to,
         "execute_at": _execute_at_from_prompt(prompt_lower),
+        "recurrence": _recurrence_from_prompt(prompt_lower),
     }
 
 
@@ -1056,6 +1088,75 @@ def _profile_info_result(prompt_lower, user):
         "message": f"Ja. Du er koblet til som {summary.get('player_name') or summary.get('username')}. Lagret medlemskap: {membership_text}.",
         "available_slots": [],
     }
+
+
+def _normalize_recurrence(value, prompt_lower):
+    if not isinstance(value, dict):
+        value = {}
+    frequency = str(value.get("frequency") or "").strip().lower()
+    weekday_value = str(value.get("weekday") or "").strip().lower()
+    execute_time = str(value.get("execute_time") or "").strip()
+    fallback = _recurrence_from_prompt(prompt_lower)
+    if frequency not in {"weekly", "hver_uke", "ukentlig"}:
+        return fallback
+    execute_weekday = _weekday_number(weekday_value)
+    if execute_weekday is None:
+        return fallback
+    if not execute_time:
+        return fallback
+    parsed_time = _parse_time(execute_time, "execute_time")
+    return {
+        "frequency": "weekly",
+        "execute_weekday": execute_weekday,
+        "execute_time": parsed_time.strftime("%H:%M"),
+    }
+
+
+def _recurrence_from_prompt(prompt_lower):
+    if not any(word in prompt_lower for word in ("hver", "ukentlig", "fast", "repeter")):
+        return {}
+    weekday_pattern = "|".join(WEEKDAY_NAMES)
+    match = re.search(
+        rf"(?:hver|ukentlig|fast)[^,.;]*?({weekday_pattern})[^,.;]*?(?:kl\.?\s*)?(\d{{1,2}})(?::?(\d{{2}}))?",
+        prompt_lower,
+    )
+    if not match:
+        return {}
+    weekday_text, hour, minute = match.groups()
+    return {
+        "frequency": "weekly",
+        "execute_weekday": _weekday_number(weekday_text),
+        "execute_time": _format_prompt_time(hour, minute),
+    }
+
+
+def _weekday_number(value):
+    normalized = _normalize_name(value)
+    english = {
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6,
+    }
+    if normalized in english:
+        return english[normalized]
+    for index, weekday in enumerate(WEEKDAY_NAMES):
+        if normalized == weekday:
+            return index
+    return None
+
+
+def _next_weekday_run(weekday, time_value, from_dt=None):
+    now = from_dt or server_now()
+    parsed_time = _parse_time(time_value, "execute_time")
+    days_ahead = (weekday - now.weekday()) % 7
+    candidate = datetime.combine(now.date() + timedelta(days=days_ahead), parsed_time)
+    if candidate <= now:
+        candidate += timedelta(days=7)
+    return candidate
 
 
 def _prompt_references_current_user(prompt_lower):
@@ -1093,31 +1194,31 @@ def _booking_confirmation_result(availability_result, interpretation, user):
         return availability_result
     if not availability_result.get("booking_enabled"):
         availability_result["status"] = "booking_unsupported_course"
-        availability_result["message"] = "Booking er foreløpig bare aktivert for Ballerud. Jeg kan sjekke ledighet på denne banen."
-        return availability_result
-    player_memberships = _booking_player_memberships(user, interpretation)
-    if len(player_memberships) != availability_result["players"]:
-        availability_result["status"] = "needs_player_details"
-        availability_result["message"] = (
-            "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemsnummer på Min side. "
-            "Skriv for eksempel: Book Ballerud for Kristian og Erik i morgen mellom 15 og 17."
-        )
+        availability_result["message"] = "Jeg kan bare booke når prompten peker på én konkret bane."
         return availability_result
     if not availability_result.get("available_slots"):
         return availability_result
     selected_slot = availability_result["available_slots"][0]
+    player_memberships = _booking_player_memberships(user, interpretation, selected_slot["course"])
+    if len(player_memberships) != availability_result["players"]:
+        availability_result["status"] = "needs_player_details"
+        availability_result["message"] = (
+            "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemskap for denne klubben på Min side. "
+            f"Skriv for eksempel: Book {selected_slot['course']} for Kristian og Erik i morgen mellom 15 og 17."
+        )
+        return availability_result
     pending = {
-        "course": DEFAULT_GOLFBOX_COURSE,
+        "course": selected_slot["course"],
         "date": selected_slot["date"],
         "time": selected_slot["time"],
         "players": availability_result["players"],
         "player_memberships": player_memberships,
-        "club_guid": BALLERUD_CLUB_GUID,
-        "resource_guid": BALLERUD_RESSOURCE_GUID,
+        "club_guid": selected_slot["club_guid"],
+        "resource_guid": selected_slot["resource_guid"],
     }
     availability_result["status"] = "confirmation_required"
     availability_result["message"] = (
-        f"Jeg kan booke {DEFAULT_GOLFBOX_COURSE} {selected_slot['date']} kl. {selected_slot['time']} "
+        f"Jeg kan booke {selected_slot['course']} {selected_slot['date']} kl. {selected_slot['time']} "
         f"for {', '.join(player['player_name'] for player in player_memberships)}. "
         "Bekreft før jeg sender bookingen til GolfBox."
     )
@@ -1134,24 +1235,27 @@ def _scheduled_booking_result(interpretation, prompt, user):
             "available_slots": [],
         }
     courses = interpretation.get("courses") or [DEFAULT_GOLFBOX_COURSE]
-    if len(courses) != 1 or "ballerud" not in courses[0].lower():
+    if len(courses) != 1:
         return {
             "intent": "create_booking",
             "status": "booking_unsupported_course",
-            "message": "Planlagt booking er foreløpig bare aktivert for Ballerud.",
+            "message": "Planlagt booking må peke på én konkret bane.",
             "available_slots": [],
         }
-    player_memberships = _booking_player_memberships(user, interpretation)
+    course_name = courses[0]
+    player_memberships = _booking_player_memberships(user, interpretation, course_name)
     if len(player_memberships) != interpretation["players"]:
         return {
             "intent": "create_booking",
             "status": "needs_player_details",
             "message": (
-                "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemsnummer på Min side "
+                "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemskap for denne klubben på Min side "
                 "før jeg kan planlegge en booking."
             ),
             "available_slots": [],
         }
+    if interpretation.get("recurrence"):
+        return _recurring_booking_result(interpretation, prompt, user, course_name, player_memberships)
     execute_at = _parse_execute_at(interpretation.get("execute_at"))
     if not execute_at or execute_at <= server_now():
         return {
@@ -1168,7 +1272,7 @@ def _scheduled_booking_result(interpretation, prompt, user):
     scheduled = GolfBoxScheduledBooking(
         created_by_user_id=user.id,
         status="scheduled",
-        course=DEFAULT_GOLFBOX_COURSE,
+        course=course_name,
         play_date=play_date,
         play_time=play_time.strftime("%H:%M"),
         execute_at=execute_at,
@@ -1205,6 +1309,56 @@ def _scheduled_booking_result(interpretation, prompt, user):
     }
 
 
+def _recurring_booking_result(interpretation, prompt, user, course_name, player_memberships):
+    recurrence = interpretation.get("recurrence") or {}
+    if recurrence.get("frequency") != "weekly":
+        return {
+            "intent": "create_booking",
+            "status": "booking_failed",
+            "message": "Jeg støtter foreløpig ukentlige repeterende bookinger.",
+            "available_slots": [],
+        }
+
+    from models import GolfBoxRecurringBooking
+
+    execute_weekday = int(recurrence["execute_weekday"])
+    execute_time = recurrence["execute_time"]
+    next_run_at = _next_weekday_run(execute_weekday, execute_time)
+    recurring = GolfBoxRecurringBooking(
+        created_by_user_id=user.id,
+        status="active",
+        course=course_name,
+        play_weekday=execute_weekday,
+        time_from=interpretation["time_from"],
+        time_to=interpretation["time_to"],
+        execute_weekday=execute_weekday,
+        execute_time=execute_time,
+        next_run_at=next_run_at,
+        players_json=json.dumps(player_memberships, ensure_ascii=False),
+        requested_prompt=prompt,
+    )
+    db.session.add(recurring)
+    db.session.commit()
+    player_text = ", ".join(player["player_name"] for player in player_memberships)
+    return {
+        "intent": "create_booking",
+        "status": "recurring_booking_created",
+        "recurring_booking_id": recurring.id,
+        "course": recurring.course,
+        "time_from": recurring.time_from,
+        "time_to": recurring.time_to,
+        "execute_at": recurring.next_run_at.strftime("%Y-%m-%d %H:%M"),
+        "players": len(player_memberships),
+        "player_names": [player["player_name"] for player in player_memberships],
+        "message": (
+            f"Jeg har lagt inn fast ukentlig booking: {recurring.course} hver "
+            f"{WEEKDAY_NAMES[execute_weekday]} mellom {recurring.time_from} og {recurring.time_to} "
+            f"for {player_text}. Første forsøk kjøres {recurring.next_run_at:%Y-%m-%d %H:%M}."
+        ),
+        "available_slots": [],
+    }
+
+
 def confirm_golfbox_booking(pending_booking, user=None, notification_event="confirmed"):
     credentials = _credentials_for_user(user)
     if not credentials:
@@ -1214,16 +1368,37 @@ def confirm_golfbox_booking(pending_booking, user=None, notification_event="conf
             "message": "Legg GolfBox-innlogging inn på Min side før du booker.",
             "available_slots": [],
         }
-    if (pending_booking or {}).get("course") != DEFAULT_GOLFBOX_COURSE:
-        return {
-            "intent": "create_booking",
-            "status": "booking_unsupported_course",
-            "message": "Booking er foreløpig bare aktivert for Ballerud.",
-            "available_slots": [],
-        }
     booking_date = date.fromisoformat(pending_booking["date"])
     booking_time = _parse_time(pending_booking["time"], "booking_time")
-    result = _book_ballerud_slot(credentials, user, booking_date, booking_time, pending_booking.get("player_memberships", []))
+    course_name = pending_booking.get("course") or DEFAULT_GOLFBOX_COURSE
+    club_guid = pending_booking.get("club_guid")
+    resource_guid = pending_booking.get("resource_guid")
+    if "ballerud" in course_name.lower() and (not club_guid or not resource_guid):
+        club_guid = BALLERUD_CLUB_GUID
+        resource_guid = BALLERUD_RESSOURCE_GUID
+        course_name = DEFAULT_GOLFBOX_COURSE
+    if not club_guid or not resource_guid:
+        resolved = _resolve_course(credentials, course_name)
+        if not resolved:
+            return {
+                "intent": "create_booking",
+                "status": "unsupported_course",
+                "message": f"Jeg fant ikke {course_name} i GolfBox-listen.",
+                "available_slots": [],
+            }
+        club_guid = resolved["club_guid"]
+        resource_guid = resolved["resource_guid"]
+        course_name = resolved["course"]
+    result = _book_slot(
+        credentials,
+        user,
+        booking_date,
+        booking_time,
+        pending_booking.get("player_memberships", []),
+        club_guid,
+        resource_guid,
+        course_name,
+    )
     if result.get("status") == "booking_created":
         send_golfbox_booking_email(user, notification_event, {
             "course": pending_booking.get("course") or result.get("course") or DEFAULT_GOLFBOX_COURSE,
@@ -1235,7 +1410,7 @@ def confirm_golfbox_booking(pending_booking, user=None, notification_event="conf
 
 
 def upcoming_golfbox_scheduled_bookings(user):
-    from models import GolfBoxScheduledBooking
+    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking
 
     bookings = (
         GolfBoxScheduledBooking.query
@@ -1244,11 +1419,32 @@ def upcoming_golfbox_scheduled_bookings(user):
         .order_by(GolfBoxScheduledBooking.execute_at.asc(), GolfBoxScheduledBooking.play_date.asc(), GolfBoxScheduledBooking.play_time.asc())
         .all()
     )
-    return [_scheduled_booking_view(booking) for booking in bookings]
+    recurring_bookings = (
+        GolfBoxRecurringBooking.query
+        .filter_by(created_by_user_id=user.id)
+        .filter(GolfBoxRecurringBooking.status == "active")
+        .order_by(GolfBoxRecurringBooking.next_run_at.asc(), GolfBoxRecurringBooking.course.asc())
+        .all()
+    )
+    return (
+        [_scheduled_booking_view(booking) for booking in bookings]
+        + [_recurring_booking_view(booking) for booking in recurring_bookings]
+    )
 
 
-def cancel_golfbox_scheduled_booking(booking_id, user):
-    from models import GolfBoxScheduledBooking
+def cancel_golfbox_scheduled_booking(booking_id, user, booking_type="scheduled"):
+    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking
+
+    if booking_type == "recurring":
+        recurring = GolfBoxRecurringBooking.query.filter_by(id=booking_id, created_by_user_id=user.id).first()
+        if not recurring:
+            raise ValueError("Fant ikke den faste bookingen.")
+        if recurring.status != "active":
+            raise ValueError("Denne bookingen kan ikke kanselleres lenger.")
+        recurring.status = "cancelled"
+        recurring.cancelled_at = server_now()
+        db.session.commit()
+        return recurring
 
     booking = GolfBoxScheduledBooking.query.filter_by(id=booking_id, created_by_user_id=user.id).first()
     if not booking:
@@ -1264,7 +1460,7 @@ def cancel_golfbox_scheduled_booking(booking_id, user):
 
 
 def run_due_golfbox_scheduled_bookings(limit=10):
-    from models import GolfBoxScheduledBooking
+    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking
 
     due_bookings = (
         GolfBoxScheduledBooking.query
@@ -1306,7 +1502,74 @@ def run_due_golfbox_scheduled_bookings(limit=10):
             booking.error_message = str(exc)
             results.append({"id": booking.id, "status": "failed", "message": str(exc)})
         db.session.commit()
+    remaining = max(0, limit - len(results))
+    if remaining:
+        recurring_bookings = (
+            GolfBoxRecurringBooking.query
+            .filter(GolfBoxRecurringBooking.status == "active")
+            .filter(GolfBoxRecurringBooking.next_run_at <= server_now())
+            .order_by(GolfBoxRecurringBooking.next_run_at.asc())
+            .limit(remaining)
+            .all()
+        )
+        for booking in recurring_bookings:
+            results.append(_run_recurring_golfbox_booking(booking))
     return results
+
+
+def _run_recurring_golfbox_booking(booking):
+    try:
+        player_memberships = json.loads(booking.players_json or "[]")
+        play_date = _next_play_date_for_recurring(booking)
+        availability = find_golfbox_availability(
+            course=booking.course,
+            players=len(player_memberships) or 1,
+            play_date=play_date.isoformat(),
+            time_from=booking.time_from,
+            time_to=booking.time_to,
+            user=booking.created_by_user,
+        )
+        if availability.get("status") != "ok" or not availability.get("available_slots"):
+            message = availability.get("message") or "Ingen ledige tider funnet for fast booking."
+            status = "no_slot"
+        else:
+            selected_slot = availability["available_slots"][0]
+            pending_booking = {
+                "course": selected_slot["course"],
+                "date": selected_slot["date"],
+                "time": selected_slot["time"],
+                "players": len(player_memberships) or 1,
+                "player_memberships": player_memberships,
+                "club_guid": selected_slot["club_guid"],
+                "resource_guid": selected_slot["resource_guid"],
+            }
+            result = confirm_golfbox_booking(
+                pending_booking,
+                user=booking.created_by_user,
+                notification_event="scheduled_executed",
+            )
+            message = result.get("message")
+            status = result.get("status")
+        booking.last_run_at = server_now()
+        booking.last_result_message = message
+        booking.last_error_message = None if status == "booking_created" else message
+        booking.next_run_at = _next_weekday_run(booking.execute_weekday, booking.execute_time, from_dt=server_now() + timedelta(minutes=1))
+        booking.updated_at = server_now()
+        db.session.commit()
+        return {"id": booking.id, "type": "recurring", "status": status, "message": message}
+    except Exception as exc:
+        booking.last_run_at = server_now()
+        booking.last_error_message = str(exc)
+        booking.next_run_at = _next_weekday_run(booking.execute_weekday, booking.execute_time, from_dt=server_now() + timedelta(minutes=1))
+        booking.updated_at = server_now()
+        db.session.commit()
+        return {"id": booking.id, "type": "recurring", "status": "failed", "message": str(exc)}
+
+
+def _next_play_date_for_recurring(booking):
+    base = booking.next_run_at.date()
+    days_ahead = (booking.play_weekday - base.weekday()) % 7
+    return base + timedelta(days=days_ahead)
 
 
 def _scheduled_booking_view(booking):
@@ -1316,6 +1579,7 @@ def _scheduled_booking_view(booking):
         players = []
     return {
         "id": booking.id,
+        "type": "scheduled",
         "status": booking.status,
         "course": booking.course,
         "play_date": booking.play_date.isoformat(),
@@ -1323,6 +1587,24 @@ def _scheduled_booking_view(booking):
         "execute_at": booking.execute_at.strftime("%Y-%m-%d %H:%M"),
         "players": [player.get("player_name") or player.get("member_number") for player in players],
         "can_cancel": booking.status == "scheduled" and server_now() < booking.execute_at - timedelta(minutes=1),
+    }
+
+
+def _recurring_booking_view(booking):
+    try:
+        players = json.loads(booking.players_json or "[]")
+    except json.JSONDecodeError:
+        players = []
+    return {
+        "id": booking.id,
+        "type": "recurring",
+        "status": booking.status,
+        "course": booking.course,
+        "play_date": f"Hver {WEEKDAY_NAMES[booking.play_weekday]}",
+        "play_time": f"{booking.time_from}-{booking.time_to}",
+        "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
+        "players": [player.get("player_name") or player.get("member_number") for player in players],
+        "can_cancel": booking.status == "active",
     }
 
 
@@ -1363,7 +1645,7 @@ def _execute_at_from_prompt(prompt_lower):
 
 def _time_window_from_prompt(prompt_lower):
     between_match = re.search(
-        r"(?:mellom|fra)\s+(\d{1,2})(?::?(\d{2}))?\s*(?:og|til|-)\s*(\d{1,2})(?::?(\d{2}))?",
+        r"(?:mellom|fra)\s+(?:kl\.?\s*)?(\d{1,2})(?::?(\d{2}))?\s*(?:og|til|-)\s*(?:kl\.?\s*)?(\d{1,2})(?::?(\d{2}))?",
         prompt_lower,
     )
     if between_match:

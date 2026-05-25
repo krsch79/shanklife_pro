@@ -53,6 +53,7 @@
                             {% if booking.can_cancel %}
                             <form method="post" class="inline-form">
                                 <input type="hidden" name="scheduled_booking_id" value="{{ booking.id }}">
+                                <input type="hidden" name="scheduled_booking_type" value="{{ booking.type }}">
                                 <button type="submit" name="action" value="cancel_scheduled_booking" class="button secondary">Kanseller</button>
                             </form>
                             {% else %}
@@ -88,7 +89,7 @@
                                 <p class="muted">{{ result.next_step }}</p>
                             {% elif result.status == "profile_info" %}
                                 <p>{{ result.message }}</p>
-                            {% elif result.status in ["not_enabled", "needs_player_details", "booking_unsupported_course", "booking_failed", "payment_required", "wrong_club", "wrong_membership"] %}
+                            {% elif result.status in ["not_enabled", "needs_player_details", "booking_unsupported_course", "booking_failed", "payment_required", "wrong_club", "wrong_membership", "unsupported_course"] %}
                                 <p>{{ result.message }}</p>
                                 {% if result.available_slots %}
                                 <div class="table-wrap">
@@ -119,7 +120,7 @@
                                 <form method="post" class="inline-form">
                                     <button type="submit" name="action" value="confirm_booking" class="button">Bekreft booking</button>
                                 </form>
-                            {% elif result.status in ["booking_created", "scheduled_booking_created", "scheduled_booking_cancelled"] %}
+                            {% elif result.status in ["booking_created", "scheduled_booking_created", "recurring_booking_created", "scheduled_booking_cancelled"] %}
                                 <p>{{ result.message }}</p>
                             {% elif result.available_slots %}
                                 <p>Jeg fant {{ result.available_slots|length }} ledige tider for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>

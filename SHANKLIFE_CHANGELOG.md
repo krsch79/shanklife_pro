@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.51] - 2026-05-25
+- Tillater GolfBox-brukernavn som ikke er e-postadresse på Shanklife Min side.
+
 ## [1.8.50] - 2026-05-25
 - Bytter lagring av GolfBox-passord fra intern tilsløring til Fernet-kryptering, og migrerer eksisterende GolfBox-passord automatisk ved oppstart.
 - Beholder vanlige Shanklife-passord som irreversible passord-hasher, slik at de fortsatt ikke kan dekrypteres.
