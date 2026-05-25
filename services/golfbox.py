@@ -11,6 +11,7 @@ from openai import OpenAI
 
 from extensions import db
 from services.golfbox_notifications import send_golfbox_booking_email
+from services.secret_store import decrypt_secret, encrypt_secret, is_encrypted_secret
 from services.time import server_now
 
 
@@ -39,15 +40,21 @@ def _secret_bytes():
 
 
 def _encode_password(password):
-    password_bytes = (password or "").encode("utf-8")
-    key = _secret_bytes()
-    encoded = bytes(value ^ key[index % len(key)] for index, value in enumerate(password_bytes))
-    return base64.urlsafe_b64encode(encoded).decode("ascii")
+    return encrypt_secret(password or "")
 
 
 def _decode_password(token):
     if not token:
         return ""
+    if is_encrypted_secret(token):
+        try:
+            return decrypt_secret(token)
+        except Exception:
+            return ""
+    return _decode_legacy_password(token)
+
+
+def _decode_legacy_password(token):
     try:
         password_bytes = base64.urlsafe_b64decode(token.encode("ascii"))
     except (ValueError, TypeError):
@@ -134,6 +141,24 @@ def clear_user_golfbox_credentials(user):
     user.golfbox_member_number = None
     user.golfbox_memberships_json = None
     user.golfbox_credentials_updated_at = None
+
+
+def migrate_golfbox_password_tokens():
+    from models import User
+
+    changed = False
+    users = User.query.filter(User.golfbox_password_token.isnot(None)).all()
+    for user in users:
+        token = user.golfbox_password_token or ""
+        if not token or is_encrypted_secret(token):
+            continue
+        password = _decode_legacy_password(token)
+        if not password:
+            continue
+        user.golfbox_password_token = _encode_password(password)
+        changed = True
+    if changed:
+        db.session.commit()
 
 
 def _user_memberships(user):

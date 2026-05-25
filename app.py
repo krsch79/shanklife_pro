@@ -23,6 +23,7 @@ from routes.stats import stats_bp
 from routes.balletour import balletour_bp
 from routes.golfbox_scores import golfbox_scores_bp
 from services.balletour import is_balletour_player
+from services.golfbox import migrate_golfbox_password_tokens
 from services.time import format_server_datetime
 
 
@@ -31,6 +32,18 @@ def maintenance_file_path(app):
     if configured_path:
         return Path(configured_path)
     return Path(app.instance_path) / "maintenance.lock"
+
+
+def load_env_file():
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def ensure_schema_updates(app):
@@ -144,6 +157,8 @@ def ensure_schema_updates(app):
                 defaults_marker.parent.mkdir(parents=True, exist_ok=True)
                 defaults_marker.write_text("Applied email notification defaults v2.\n", encoding="utf-8")
 
+            migrate_golfbox_password_tokens()
+
 
 def ensure_shanklife_club_options(app):
     required_clubs = [
@@ -233,6 +248,7 @@ def seed_initial_user(app):
 
 
 def create_app():
+    load_env_file()
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "shanklife-pro-local-dev-key")
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///shanklife_pro.db"

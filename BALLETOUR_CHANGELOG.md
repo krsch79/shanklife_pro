@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.50] - 2026-05-25
+- Bytter lagring av GolfBox-passord fra intern tilsløring til Fernet-kryptering, og migrerer eksisterende GolfBox-passord automatisk ved oppstart.
+- Beholder vanlige BalleTour-passord som irreversible passord-hasher, slik at de fortsatt ikke kan dekrypteres.
+- Laster lokal `.env` ved appstart, slik at krypteringsnøkler og andre hemmelige innstillinger kan ligge utenfor repoet.
+
 ## [1.8.49] - 2026-05-25
 - Retter GolfBox-innsending slik at hullscorer sendes som aktivert hullscorekort, med justert bruttoscore og poeng beregnet sammen med scorekortet.
 - Lar en BalleTour-score sendes på nytt til GolfBox etter kontroll, med tydelig varsel om mulig duplikat.
