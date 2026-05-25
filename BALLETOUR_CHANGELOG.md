@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.53] - 2026-05-25
+- Lar GolfBox AI planlegge solobooking for innlogget bruker selv om medlemsnummeret for valgt klubb ikke er lagret lokalt etter klubbbytte i GolfBox.
+- Validerer ikke mot hjemmeklubbens medlemsnummer når GolfBox-bookingen gjelder en annen klubb.
+
 ## [1.8.52] - 2026-05-25
 - Tolker GolfBox AI-prompter som “book meg” og “ikke noen flere enn meg” som booking for én spiller.
 - Matcher GolfBox-medlemskap mer robust mot banenavnet når klubbnavn og GolfBox-resource ikke er identiske.

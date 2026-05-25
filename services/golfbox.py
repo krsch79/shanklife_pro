@@ -664,8 +664,7 @@ def _booking_player_memberships(user, interpretation, club_name=None):
     current_membership = _membership_for_user(user, club_name)
     current_name = (getattr(user, "player", None).name if getattr(user, "player", None) else getattr(user, "username", "")) or ""
     if not requested_names or any(_name_matches(current_name, name) for name in requested_names):
-        if current_membership:
-            memberships.append(current_membership)
+        memberships.append(current_membership or _self_booking_membership(user, club_name))
 
     for requested_name in requested_names:
         if _name_matches(current_name, requested_name):
@@ -683,6 +682,17 @@ def _booking_player_memberships(user, interpretation, club_name=None):
         seen_numbers.add(number)
         deduped.append(membership)
     return deduped[:4]
+
+
+def _self_booking_membership(user, club_name=None):
+    if not user:
+        return None
+    return {
+        "player_name": getattr(user.player, "name", None) or user.golfbox_player_name or user.username,
+        "member_number": "",
+        "club_name": club_name or user.golfbox_home_club_name or "",
+        "is_current_user": True,
+    }
 
 
 def _membership_for_user(user, club_name=None):
@@ -828,7 +838,7 @@ def _validate_booking_window(page_html, user, player_memberships, course_name):
             "available_slots": [],
         }
     first_membership = (player_memberships or [{}])[0]
-    member_number = (first_membership.get("member_number") or getattr(user, "golfbox_member_number", "") or "").strip()
+    member_number = (first_membership.get("member_number") or "").strip()
     if member_number and f"Medlemsnummer: {member_number}" not in page_text and f'value="{member_number}"' not in page_html:
         return {
             "intent": "create_booking",
