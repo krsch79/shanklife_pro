@@ -690,21 +690,34 @@ def _membership_for_user(user, club_name=None):
         return None
     requested_club_key = _normalize_name(club_name)
     for membership in _user_memberships(user):
-        membership_club_key = _normalize_name(membership.get("club_name"))
-        if not requested_club_key or requested_club_key in membership_club_key or membership_club_key in requested_club_key:
+        if _club_names_match(requested_club_key, membership.get("club_name")):
             return {
                 "player_name": membership.get("player_name") or user.player.name,
                 "member_number": membership["member_number"],
                 "club_name": membership["club_name"],
             }
     home_club_key = _normalize_name(user.golfbox_home_club_name)
-    if user.golfbox_member_number and (not requested_club_key or requested_club_key in home_club_key or home_club_key in requested_club_key):
+    if user.golfbox_member_number and _club_names_match(requested_club_key, home_club_key):
         return {
             "player_name": user.golfbox_player_name or user.player.name,
             "member_number": user.golfbox_member_number,
             "club_name": user.golfbox_home_club_name,
         }
     return None
+
+
+def _club_names_match(requested_club_key, membership_club):
+    if not requested_club_key:
+        return True
+    membership_key = _normalize_name(membership_club)
+    if not membership_key:
+        return False
+    if requested_club_key in membership_key or membership_key in requested_club_key:
+        return True
+    ignored = {"golf", "golfklubb", "gk", "hull", "bane", "bla", "blå", "gul", "rod", "rød"}
+    requested_words = {word for word in requested_club_key.split() if len(word) > 2 and word not in ignored}
+    membership_words = {word for word in membership_key.split() if len(word) > 2 and word not in ignored}
+    return bool(requested_words and membership_words and requested_words.intersection(membership_words))
 
 
 def _membership_for_player_name(player_name, club_name=None):
@@ -1003,7 +1016,10 @@ def _normalize_interpretation(data, prompt, user=None):
     except (TypeError, ValueError):
         players = fallback["players"]
     players = max(1, min(4, players))
-    if _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
+    if _solo_booking_prompt(prompt_lower):
+        players = 1
+        player_names = []
+    elif _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
         players = min(4, max(1, len(player_names) + 1))
 
     play_date = str(data.get("date") or fallback["date"]).strip()
@@ -1163,6 +1179,18 @@ def _prompt_references_current_user(prompt_lower):
     return bool(re.search(r"\b(jeg|meg|mitt|min)\b", prompt_lower))
 
 
+def _solo_booking_prompt(prompt_lower):
+    solo_patterns = (
+        r"\b(book|booke|booker|bestill|reserver)[^,.;]*(meg|inn meg)\b",
+        r"\bkun\s+meg\b",
+        r"\bbare\s+meg\b",
+        r"\bingen\s+flere\s+enn\s+meg\b",
+        r"\bikke\s+booke\s+inn\s+noen\s+flere\s+enn\s+meg\b",
+        r"\bikke\s+noen\s+flere\s+enn\s+meg\b",
+    )
+    return any(re.search(pattern, prompt_lower) for pattern in solo_patterns)
+
+
 def _prompt_has_explicit_player_count(prompt_lower):
     return bool(re.search(r"\b\d+\s*(person|personer|spiller|spillere)\b", prompt_lower))
 
@@ -1202,10 +1230,16 @@ def _booking_confirmation_result(availability_result, interpretation, user):
     player_memberships = _booking_player_memberships(user, interpretation, selected_slot["course"])
     if len(player_memberships) != availability_result["players"]:
         availability_result["status"] = "needs_player_details"
-        availability_result["message"] = (
-            "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemskap for denne klubben på Min side. "
-            f"Skriv for eksempel: Book {selected_slot['course']} for Kristian og Erik i morgen mellom 15 og 17."
-        )
+        if availability_result["players"] == 1:
+            availability_result["message"] = (
+                f"Jeg fant ikke GolfBox-medlemskapet ditt for {selected_slot['course']}. "
+                "Åpne Min side og lagre GolfBox-innloggingen på nytt, så henter jeg klubbmedlemskapene dine på nytt."
+            )
+        else:
+            availability_result["message"] = (
+                "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemskap for denne klubben på Min side. "
+                f"Skriv for eksempel: Book {selected_slot['course']} for Kristian og Erik i morgen mellom 15 og 17."
+            )
         return availability_result
     pending = {
         "course": selected_slot["course"],
@@ -1245,6 +1279,16 @@ def _scheduled_booking_result(interpretation, prompt, user):
     course_name = courses[0]
     player_memberships = _booking_player_memberships(user, interpretation, course_name)
     if len(player_memberships) != interpretation["players"]:
+        if interpretation["players"] == 1:
+            return {
+                "intent": "create_booking",
+                "status": "needs_player_details",
+                "message": (
+                    f"Jeg fant ikke GolfBox-medlemskapet ditt for {course_name}. "
+                    "Åpne Min side og lagre GolfBox-innloggingen på nytt, så henter jeg klubbmedlemskapene dine på nytt."
+                ),
+                "available_slots": [],
+            }
         return {
             "intent": "create_booking",
             "status": "needs_player_details",

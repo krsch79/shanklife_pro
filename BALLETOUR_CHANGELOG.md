@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.52] - 2026-05-25
+- Tolker GolfBox AI-prompter som “book meg” og “ikke noen flere enn meg” som booking for én spiller.
+- Matcher GolfBox-medlemskap mer robust mot banenavnet når klubbnavn og GolfBox-resource ikke er identiske.
+- Gjør feilmeldingen tydeligere når egen medlemsklubb mangler, i stedet for å etterspørre medspillere.
+
 ## [1.8.51] - 2026-05-25
 - Lar GolfBox AI booke flere baner enn Ballerud når GolfBox ikke krever betaling ved booking.
 - Bytter til riktig GolfBox-medlemsklubb ved booking når brukeren har flere klubbmedlemskap, og matcher medspillere mot samme klubb.
