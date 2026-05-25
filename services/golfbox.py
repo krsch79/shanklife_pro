@@ -494,6 +494,7 @@ def _fetch_memberships(client, frontpage_html):
     current_club_name = current_identity.get("club_name")
     switch_response = client.get(f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp")
     switch_response.raise_for_status()
+    switch_url = str(switch_response.url)
     clubs = _parse_switch_clubs(switch_response.text)
     memberships = []
     original_club_guid = None
@@ -501,7 +502,7 @@ def _fetch_memberships(client, frontpage_html):
         if club["selected"]:
             original_club_guid = club["club_guid"]
         response = client.post(
-            f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+            switch_url,
             data={
                 "command": "switchClub",
                 "commandValue": club["club_guid"],
@@ -520,7 +521,7 @@ def _fetch_memberships(client, frontpage_html):
             )
     if original_club_guid:
         client.post(
-            f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+            switch_url,
             data={
                 "command": "switchClub",
                 "commandValue": original_club_guid,
@@ -530,7 +531,7 @@ def _fetch_memberships(client, frontpage_html):
         for membership in memberships:
             if membership["club_name"] == current_club_name:
                 client.post(
-                    f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+                    switch_url,
                     data={
                         "command": "switchClub",
                         "commandValue": membership["club_guid"],
@@ -542,15 +543,18 @@ def _fetch_memberships(client, frontpage_html):
 
 def _switch_club(client, club_guid):
     if not club_guid:
-        return
+        return {}
+    switch_response = client.get(f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp")
+    switch_response.raise_for_status()
     response = client.post(
-        f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp",
+        str(switch_response.url),
         data={
             "command": "switchClub",
             "commandValue": club_guid,
         },
     )
     response.raise_for_status()
+    return _parse_identity(response.text)
 
 
 def _parse_switch_clubs(page_html):
@@ -670,7 +674,7 @@ def _normalize_name(value):
 def _booking_player_memberships(user, interpretation, club_name=None):
     requested_names = interpretation.get("player_names") or []
     memberships = []
-    current_membership = _membership_for_user(user, club_name)
+    current_membership = _ensure_membership_for_user(user, club_name)
     current_name = (getattr(user, "player", None).name if getattr(user, "player", None) else getattr(user, "username", "")) or ""
     if not requested_names or any(_name_matches(current_name, name) for name in requested_names):
         memberships.append(current_membership or _self_booking_membership(user, club_name))
@@ -691,6 +695,31 @@ def _booking_player_memberships(user, interpretation, club_name=None):
         seen_numbers.add(number)
         deduped.append(membership)
     return deduped[:4]
+
+
+def _ensure_membership_for_user(user, club_name=None):
+    membership = _membership_for_user(user, club_name)
+    if membership or not user_has_golfbox_credentials(user):
+        return membership
+    credentials = _credentials_for_user(user)
+    try:
+        with httpx.Client(follow_redirects=True, timeout=25, headers={"User-Agent": "Mozilla/5.0"}) as client:
+            frontpage_html = _login(client, credentials)
+            memberships = _fetch_memberships(client, frontpage_html)
+    except (ValueError, httpx.HTTPError):
+        return None
+    if memberships:
+        user.golfbox_memberships_json = json.dumps(memberships, ensure_ascii=False)
+        identity = _parse_identity(frontpage_html)
+        if identity.get("player_name"):
+            user.golfbox_player_name = identity.get("player_name")
+        if identity.get("club_name"):
+            user.golfbox_home_club_name = identity.get("club_name")
+        if identity.get("member_number"):
+            user.golfbox_member_number = identity.get("member_number")
+        user.golfbox_credentials_updated_at = server_now()
+        db.session.commit()
+    return _membership_for_user(user, club_name)
 
 
 def _self_booking_membership(user, club_name=None):
@@ -770,7 +799,9 @@ def _book_slot(credentials, user, booking_date, booking_time, player_memberships
         headers={"User-Agent": "Mozilla/5.0"},
     ) as client:
         _login(client, credentials)
-        _switch_club(client, club_guid)
+        first_membership = (player_memberships or [{}])[0]
+        switch_club_guid = first_membership.get("club_guid") or club_guid
+        selected_identity = _switch_club(client, switch_club_guid)
         window_response = client.get(
             f"{GOLFBOX_BASE_URL}/site/my_golfbox/ressources/booking/window.asp",
             params={
@@ -780,7 +811,7 @@ def _book_slot(credentials, user, booking_date, booking_time, player_memberships
             },
         )
         window_response.raise_for_status()
-        validation = _validate_booking_window(window_response.text, user, player_memberships, course_name)
+        validation = _validate_booking_window(window_response.text, user, player_memberships, course_name, selected_identity)
         if validation["status"] != "ok":
             _cleanup_booking_lock(client, booking_start, resource_guid)
             return validation
@@ -837,7 +868,7 @@ def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_me
     )
 
 
-def _validate_booking_window(page_html, user, player_memberships, course_name):
+def _validate_booking_window(page_html, user, player_memberships, course_name, selected_identity=None):
     page_text = " ".join(re.sub(r"<[^>]+>", " ", page_html).split())
     if "Tiden er låst" in page_text:
         return {
@@ -848,6 +879,14 @@ def _validate_booking_window(page_html, user, player_memberships, course_name):
         }
     first_membership = (player_memberships or [{}])[0]
     member_number = (first_membership.get("member_number") or "").strip()
+    expected_club = first_membership.get("club_name") or (selected_identity or {}).get("club_name")
+    if expected_club and not _club_names_match(_normalize_name(course_name), expected_club):
+        return {
+            "intent": "create_booking",
+            "status": "wrong_club",
+            "message": f"GolfBox står i {expected_club}, men bookingen gjelder {course_name}. Jeg stoppet bookingen.",
+            "available_slots": [],
+        }
     if member_number and f"Medlemsnummer: {member_number}" not in page_text and f'value="{member_number}"' not in page_html:
         return {
             "intent": "create_booking",

@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.55] - 2026-05-25
+- Retter GolfBox-klubbbytte før booking ved å poste til GolfBox sin faktiske “endre klubb”-adresse etter redirect.
+- Oppfrisker lagrede GolfBox-medlemskap før booking når valgt klubb mangler lokalt, og bruker medlemsklubbens GUID ved klubbbytte.
+- Stopper booking hvis GolfBox fortsatt står i feil medlemsklubb etter klubbbytte.
+
 ## [1.8.54] - 2026-05-25
 - Retter Internal Server Error ved GolfBox AI-ledighetssøk på Haga og andre ikke-Ballerud-baner.
 
