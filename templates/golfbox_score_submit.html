@@ -24,6 +24,7 @@
     {% endif %}
     {% if submission.status == "submitted" %}
     <p class="flash flash-success">{{ submission.message or "Denne scoren er sendt til GolfBox." }}</p>
+    <p class="flash flash-warning">Runden er allerede sendt fra {{ "BalleTour" if is_balletour_context else "Shanklife" }}. Sjekk GolfBox før du sender på nytt, så du ikke lager en duplikat.</p>
     {% elif submission.status == "error" and submission.message %}
     <p class="flash flash-error">{{ submission.message }}</p>
     {% endif %}
@@ -75,10 +76,10 @@
                                 name="action"
                                 value="submit"
                                 class="button"
-                                {% if not golfbox_connection.connected or not payload.complete or submission.status == "submitted" %}disabled{% endif %}
+                                {% if not golfbox_connection.connected or not payload.complete %}disabled{% endif %}
                                 onclick="return confirm('Sende scorekortet til GolfBox med {{ marker.name }} som markør?');"
                             >
-                                Bruk og send
+                                {{ "Send på nytt" if submission.status == "submitted" else "Bruk og send" }}
                             </button>
                         </form>
                     </td>

@@ -133,9 +133,8 @@ def _build_score_form_data(client, form_page, round_player, payload, marker_guid
     form_data["rdo_RoundType"] = "2"
     form_data["fld_HolesPlayed"] = str(payload["hole_count"])
     form_data["fld_MarkerMemberGUID"] = marker_guid
-    form_data["chk_InputHoleScores"] = ""
+    form_data["chk_InputHoleScores"] = "on"
     form_data["fld_TotalStrokes"] = str(payload["total"])
-    form_data["fld_TotalAjustedGrossScore"] = str(payload["total"])
 
     match = _match_golfbox_course_and_tee(client, form_data, round_player, payload)
     form_data["fld_Club"] = match["club_guid"]
@@ -146,6 +145,8 @@ def _build_score_form_data(client, form_page, round_player, payload, marker_guid
     form_data["fld_CourseRating"] = _decimal_comma(match["course_rating"])
     form_data["fld_Slope"] = str(match["slope"])
     form_data["fld_TextPHCP"] = str(match["playing_handicap"])
+    form_data["fld_TotalPoints"] = str(_stableford_points(payload, match["playing_handicap"]))
+    form_data["fld_TotalAjustedGrossScore"] = str(_adjusted_gross_score(payload, match["playing_handicap"]))
     form_data["_matched_course_name"] = match["course_name"]
     form_data["_matched_tee_name"] = match["tee_name"]
 
@@ -342,9 +343,48 @@ def _playing_handicap_from_stats(data, hcp):
         return ""
 
 
+def _adjusted_gross_score(payload, playing_handicap):
+    return sum(
+        min(row["strokes"], _maximum_hole_score(row, playing_handicap))
+        for row in payload["rows"]
+        if row["strokes"] is not None
+    )
+
+
+def _maximum_hole_score(row, playing_handicap):
+    if int(playing_handicap or 0) > 54:
+        return row["par"] + 5
+    return row["par"] + _extra_strokes_for_hole(row["stroke_index"], playing_handicap) + 2
+
+
+def _stableford_points(payload, playing_handicap):
+    total = 0
+    for row in payload["rows"]:
+        if row["strokes"] is None:
+            continue
+        net_score = row["strokes"] - _extra_strokes_for_hole(row["stroke_index"], playing_handicap)
+        total += max(row["par"] - net_score + 2, 0)
+    return total
+
+
+def _extra_strokes_for_hole(stroke_index, playing_handicap):
+    try:
+        index = int(stroke_index or 0)
+        handicap = int(playing_handicap or 0)
+    except (TypeError, ValueError):
+        return 0
+    if index <= 0 or handicap == 0:
+        return 0
+    if handicap > 0:
+        return (handicap // 18) + (1 if index <= handicap % 18 else 0)
+    return -((-handicap // 18) + (1 if index > 18 - (-handicap % 18) else 0))
+
+
 def _submission_result(page_html):
     text = " ".join(re.sub(r"<[^>]+>", " ", page_html).split())
     lowered = text.lower()
+    if "error '800" in lowered or "/classes/clsarray.asp" in lowered:
+        raise ValueError("GolfBox returnerte en teknisk feil ved lagring. Scoren ble ikke bekreftet som sendt.")
     status = "submitted"
     message = "Scoren er sendt til GolfBox. Kontroller GolfBox for endelig godkjenning."
     if "til godkjennelse" in lowered or "godkjennelse" in lowered:

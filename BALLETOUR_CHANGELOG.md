@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.49] - 2026-05-25
+- Retter GolfBox-innsending slik at hullscorer sendes som aktivert hullscorekort, med justert bruttoscore og poeng beregnet sammen med scorekortet.
+- Lar en BalleTour-score sendes på nytt til GolfBox etter kontroll, med tydelig varsel om mulig duplikat.
+
 ## [1.8.48] - 2026-05-25
 - Legger til GolfBox-innsending for innlogget BalleTour-spillers fullførte runder, med markørsøk, bekreftelse og lagret sendestatus.
 - Holder innsendingen i BalleTour-visning når den startes fra en BalleTour-runde.
