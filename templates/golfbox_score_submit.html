@@ -1,0 +1,122 @@
+{% set is_balletour_scoring_page = is_balletour_context %}
+{% extends "base.html" %}
+{% block title %}Send score til GolfBox{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>Send score til GolfBox</h2>
+        <p class="muted">{{ round.course.name }} · {{ round.finished_at|datetime_local if round.finished_at else round.started_at|datetime_local }}</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('rounds.balletour_round_scorecard' if is_balletour_context else 'rounds.round_score', round_id=round.id) }}">Ikke send</a>
+</div>
+
+<section class="form-card">
+    <h3>Score som sendes</h3>
+    {% if golfbox_connection.connected %}
+    <p class="muted">
+        GolfBox: {{ golfbox_connection.player_name or golfbox_connection.username }}
+        {% if golfbox_connection.club_name %} · {{ golfbox_connection.club_name }}{% endif %}
+        {% if golfbox_connection.member_number %} · {{ golfbox_connection.member_number }}{% endif %}
+    </p>
+    {% else %}
+    <p class="flash flash-error">GolfBox er ikke koblet til. Legg inn GolfBox-innlogging på Min side først.</p>
+    {% endif %}
+    {% if submission.status == "submitted" %}
+    <p class="flash flash-success">{{ submission.message or "Denne scoren er sendt til GolfBox." }}</p>
+    {% elif submission.status == "error" and submission.message %}
+    <p class="flash flash-error">{{ submission.message }}</p>
+    {% endif %}
+    <div class="stat-grid">
+        <div class="stat-card"><strong>{{ round_player.player_name_snapshot }}</strong><span>Spiller</span></div>
+        <div class="stat-card"><strong>{{ payload.total }}</strong><span>Slag</span></div>
+        <div class="stat-card"><strong>{{ payload.hole_count }}</strong><span>Hull</span></div>
+        <div class="stat-card"><strong>{{ round_player.selected_tee.name if round_player.selected_tee else "—" }}</strong><span>Tee</span></div>
+    </div>
+    {% if not payload.complete %}
+    <p class="flash flash-error">Alle hullscorer må være fylt ut før innsending.</p>
+    {% endif %}
+</section>
+
+<section class="form-card">
+    <h3>Markør</h3>
+    <form method="post" class="settings-grid">
+        <div>
+            <label for="marker_query">Søk etter markørnavn</label>
+            <input type="text" id="marker_query" name="marker_query" value="{{ request.form.get('marker_query', '') }}" placeholder="F.eks. Ola Nordmann" required>
+        </div>
+        <div class="button-row compact">
+            <button type="submit" name="action" value="search_marker" class="button">Søk</button>
+        </div>
+    </form>
+
+    {% if marker_results %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Navn</th>
+                    <th>Klubb</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for marker in marker_results %}
+                <tr>
+                    <td>{{ marker.name }}</td>
+                    <td>{{ marker.club }}</td>
+                    <td>
+                        <form method="post" class="inline-form">
+                            <input type="hidden" name="marker_guid" value="{{ marker.guid }}">
+                            <input type="hidden" name="marker_name" value="{{ marker.name }}">
+                            <input type="hidden" name="marker_club" value="{{ marker.club }}">
+                            <button
+                                type="submit"
+                                name="action"
+                                value="submit"
+                                class="button"
+                                {% if not golfbox_connection.connected or not payload.complete or submission.status == "submitted" %}disabled{% endif %}
+                                onclick="return confirm('Sende scorekortet til GolfBox med {{ marker.name }} som markør?');"
+                            >
+                                Bruk og send
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% elif request.method == "POST" and request.form.get("action") == "search_marker" %}
+    <p class="muted">Ingen markører funnet. Søk på nytt med mer eller mindre av navnet.</p>
+    {% endif %}
+</section>
+
+<section>
+    <h3>Scorekort</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Hull</th>
+                    <th>Par</th>
+                    <th>Index</th>
+                    <th>Lengde</th>
+                    <th>Slag</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in payload.rows %}
+                <tr>
+                    <td>{{ row.hole_number }}</td>
+                    <td>{{ row.par }}</td>
+                    <td>{{ row.stroke_index }}</td>
+                    <td>{{ row.length if row.length is not none else "—" }}</td>
+                    <td><strong>{{ row.strokes if row.strokes is not none else "—" }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

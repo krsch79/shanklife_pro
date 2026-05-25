@@ -4,7 +4,12 @@
 {% block content %}
 <div class="page-header">
     <h2>{{ round.course.name }} - scorekort</h2>
-    <a class="button secondary" href="{{ url_for('rounds.rounds') }}">Alle runder</a>
+    <div class="button-row compact">
+        {% if round.status == 'finished' and current_user_round_player %}
+        <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('rounds.rounds') }}">Alle runder</a>
+    </div>
 </div>
 
 <div class="form-card">
@@ -12,6 +17,9 @@
     <p><strong>Startet:</strong> {{ round.started_at|datetime_local }}</p>
     {% if round.finished_at %}
     <p><strong>Fullført:</strong> {{ round.finished_at|datetime_local }}</p>
+    {% endif %}
+    {% if round.status == 'finished' and current_user_round_player and current_user_round_player.golfbox_submission %}
+    <p><strong>GolfBox:</strong> {{ current_user_round_player.golfbox_submission.message or current_user_round_player.golfbox_submission.status }}</p>
     {% endif %}
 
     {% if round.status == 'ongoing' %}

@@ -292,6 +292,40 @@ class RoundPlayer(db.Model):
         cascade="all, delete-orphan",
         order_by="ScoreEntry.hole_number",
     )
+    golfbox_submission = db.relationship(
+        "GolfBoxScoreSubmission",
+        back_populates="round_player",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class GolfBoxScoreSubmission(db.Model):
+    __tablename__ = "golfbox_score_submissions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    round_player_id = db.Column(db.Integer, db.ForeignKey("round_players.id"), nullable=False, unique=True)
+    submitted_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    status = db.Column(db.String(30), nullable=False, default="draft")
+    marker_guid = db.Column(db.String(80), nullable=True)
+    marker_name = db.Column(db.String(255), nullable=True)
+    marker_club = db.Column(db.String(255), nullable=True)
+    golfbox_course_name = db.Column(db.String(255), nullable=True)
+    golfbox_tee_name = db.Column(db.String(80), nullable=True)
+    message = db.Column(db.Text, nullable=True)
+    response_excerpt = db.Column(db.Text, nullable=True)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=server_now,
+        server_default=db.func.now(),
+        onupdate=server_now,
+    )
+
+    round_player = db.relationship("RoundPlayer", back_populates="golfbox_submission")
+    submitted_by_user = db.relationship("User")
 
 
 class ScoreEntry(db.Model):

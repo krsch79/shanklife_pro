@@ -630,6 +630,19 @@ def _round_players_text(round_obj):
     )
 
 
+def _current_user_round_player(round_obj):
+    current_user = g.get("current_user")
+    if not current_user:
+        return None
+    return next((rp for rp in round_obj.round_players if rp.player_id == current_user.player_id), None)
+
+
+def _after_finish_redirect(round_obj):
+    if _current_user_round_player(round_obj):
+        return redirect(url_for("golfbox_scores.prepare", round_id=round_obj.id))
+    return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+
+
 def _send_shanklife_round_started_mail(round_obj):
     if _is_balletour_round(round_obj):
         return
@@ -1417,7 +1430,7 @@ def round_hole(round_id, hole_number):
             else:
                 _send_shanklife_round_finished_mail(round_obj)
             flash("Runden er fullført.", "success")
-            return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+            return _after_finish_redirect(round_obj)
 
         db.session.commit()
 
@@ -1769,6 +1782,7 @@ def round_score(round_id):
                 _send_balletour_round_finished_mail(round_obj)
             else:
                 _send_shanklife_round_finished_mail(round_obj)
+            return _after_finish_redirect(round_obj)
         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
     score_map = {}
@@ -1890,4 +1904,5 @@ def round_score(round_id):
         putt_options=list(range(0, 6)),
         last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
         is_balletour_scoring_page=_is_balletour_round(round_obj),
+        current_user_round_player=_current_user_round_player(round_obj),
     )

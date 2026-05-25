@@ -95,6 +95,9 @@
                 <td>{{ "%.1f"|format(rp.hcp_for_round) }}</td>
                 <td>{% if entries %}{{ entries|sum(attribute="strokes") }}{% else %}—{% endif %}</td>
                 <td>
+                    {% if rp.round.status == 'finished' %}
+                    <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=rp.round.id) }}">Send til GolfBox</a>
+                    {% endif %}
                     <a
                         class="button secondary"
                         href="{% if rp.round.status == 'ongoing' %}{{ url_for('rounds.continue_round', round_id=rp.round.id) }}{% else %}{{ url_for('rounds.round_score', round_id=rp.round.id) }}{% endif %}"

@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.48] - 2026-05-25
+- Legger til GolfBox-innsending for fullførte Shanklife-runder for innlogget spiller, med markørsøk, bekreftelse og lagret sendestatus.
+- Viser spørsmål om GolfBox-innsending når en Shanklife-runde fullføres, og legger til knappen Send til GolfBox på tidligere runder.
+
 ## [1.8.47] - 2026-05-24
 - Lar nye Shanklife-baner lagres med 9 hull uten at tomme felt for hull 10-18 stopper lagringen.
 - Gjør slope og course rating valgfrie ved manuell opprettelse, redigering og import av baner.

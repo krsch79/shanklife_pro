@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.48] - 2026-05-25
+- Legger til GolfBox-innsending for innlogget BalleTour-spillers fullførte runder, med markørsøk, bekreftelse og lagret sendestatus.
+- Holder innsendingen i BalleTour-visning når den startes fra en BalleTour-runde.
+
 ## [1.8.46] - 2026-05-24
 - Skjuler BalleTour-spillere uten registrerte runder fra leaderboard, beste-score-tabellen, statistikkvalg, samlet statistikk og spillerlisten.
 
