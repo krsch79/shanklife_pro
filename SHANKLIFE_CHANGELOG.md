@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.61] - 2026-05-28
+- Viser i GolfBox AI-chatten om siste melding ble tolket med OpenAI og lokale regler, eller kun lokale regler.
+
 ## [1.8.60] - 2026-05-28
 - Gir GolfBox AI mer kontekst om innlogget bruker og medlemskap når brukerens bookingforespørsel tolkes.
 - Kobler navn i parentes etter medlemsnummer til riktig medspiller i GolfBox AI, for eksempel `65-2560 (Øyvind)`.

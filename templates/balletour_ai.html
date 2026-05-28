@@ -131,6 +131,14 @@
                             <p>{{ message.error }}</p>
                         {% else %}
                             {% set result = message.result %}
+                            {% if result.interpretation_method %}
+                            <div class="interpretation-method">
+                                <span>Tolkning: {{ result.interpretation_method.label }}</span>
+                                {% if result.interpretation_method.detail %}
+                                <small>{{ result.interpretation_method.detail }}</small>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                             {% if result.status == "configuration_required" %}
                                 <p>GolfBox-innlogging mangler.</p>
                                 <p class="muted">{{ result.next_step }}</p>

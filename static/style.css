@@ -1583,6 +1583,25 @@ th {
     margin-bottom: 0;
 }
 
+.interpretation-method {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: baseline;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.interpretation-method span {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.interpretation-method small {
+    font-size: inherit;
+}
+
 .golfbox-chat-form {
     position: sticky;
     bottom: 0;

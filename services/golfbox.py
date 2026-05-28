@@ -971,24 +971,39 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None, pending_canc
 
     prompt_lower = cleaned_prompt.lower()
     if pending_booking and _is_confirmation_prompt(prompt_lower):
-        return confirm_golfbox_booking(pending_booking, user=user)
+        return _attach_interpretation_method(
+            confirm_golfbox_booking(pending_booking, user=user),
+            source="local_confirmation",
+            detail="Brukeren bekreftet en allerede tolket booking.",
+        )
     if pending_cancel and _is_confirmation_prompt(prompt_lower):
-        return cancel_golfbox_booking(
-            user,
-            pending_cancel.get("booking_guid"),
-            booking_start=pending_cancel.get("booking_start"),
-            resource_guid=pending_cancel.get("resource_guid"),
+        return _attach_interpretation_method(
+            cancel_golfbox_booking(
+                user,
+                pending_cancel.get("booking_guid"),
+                booking_start=pending_cancel.get("booking_start"),
+                resource_guid=pending_cancel.get("resource_guid"),
+            ),
+            source="local_confirmation",
+            detail="Brukeren bekreftet en allerede tolket avbestilling.",
         )
     if not _booking_or_cancel_prompt(prompt_lower):
         profile_result = _profile_info_result(prompt_lower, user)
         if profile_result:
             profile_result["prompt"] = cleaned_prompt
-            return profile_result
+            return _attach_interpretation_method(
+                profile_result,
+                source="local_rules",
+                detail="Dette ble besvart med en lokal profilsjekk uten OpenAI.",
+            )
 
     interpretation = _interpret_prompt_with_openai(cleaned_prompt, user)
     intent = interpretation["intent"]
     if intent == "cancel_booking":
-        return _cancel_booking_result(interpretation, cleaned_prompt, user)
+        return _attach_interpretation_method(
+            _cancel_booking_result(interpretation, cleaned_prompt, user),
+            interpretation=interpretation,
+        )
 
     players = interpretation["players"]
     play_date = interpretation["date"]
@@ -996,9 +1011,15 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None, pending_canc
     time_to = interpretation["time_to"]
     courses = interpretation["courses"]
     if intent == "create_booking" and interpretation.get("watch"):
-        return _watch_booking_result(interpretation, cleaned_prompt, user)
+        return _attach_interpretation_method(
+            _watch_booking_result(interpretation, cleaned_prompt, user),
+            interpretation=interpretation,
+        )
     if intent == "create_booking" and interpretation.get("execute_at"):
-        return _scheduled_booking_result(interpretation, cleaned_prompt, user)
+        return _attach_interpretation_method(
+            _scheduled_booking_result(interpretation, cleaned_prompt, user),
+            interpretation=interpretation,
+        )
 
     result = find_golfbox_availability_for_courses(
         courses=courses,
@@ -1013,6 +1034,27 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None, pending_canc
     result["interpretation"] = interpretation
     if intent == "create_booking":
         result = _booking_confirmation_result(result, interpretation, user)
+    return _attach_interpretation_method(result, interpretation=interpretation)
+
+
+def _attach_interpretation_method(result, interpretation=None, source=None, detail=None):
+    if not isinstance(result, dict):
+        return result
+    source = source or (interpretation or {}).get("_interpretation_source") or "local_rules"
+    if source == "openai":
+        label = "OpenAI + lokale regler"
+        detail = detail or "OpenAI tolket meldingen, og Shanklife validerte dato, spillere og medlemsnummer med lokale regler."
+    elif source == "local_confirmation":
+        label = "Lokal bekreftelse"
+        detail = detail or "Dette var en bekreftelse av en handling som allerede var tolket."
+    else:
+        label = "Lokale regler"
+        detail = detail or (interpretation or {}).get("_interpretation_detail") or "Meldingen ble tolket med lokale regler uten OpenAI."
+    result["interpretation_method"] = {
+        "source": source,
+        "label": label,
+        "detail": detail,
+    }
     return result
 
 
@@ -1020,7 +1062,7 @@ def _interpret_prompt_with_openai(prompt, user):
     if not os.environ.get("OPENAI_API_KEY"):
         _load_env_file()
     if not os.environ.get("OPENAI_API_KEY"):
-        return _fallback_prompt_interpretation(prompt)
+        return _fallback_prompt_interpretation(prompt, detail="OpenAI-nøkkel mangler på serveren.")
 
     today = server_now().date().isoformat()
     user_context = _prompt_user_context(user)
@@ -1061,11 +1103,11 @@ def _interpret_prompt_with_openai(prompt, user):
     try:
         data = _extract_json(response.output_text)
     except (ValueError, json.JSONDecodeError):
-        return _fallback_prompt_interpretation(prompt)
+        return _fallback_prompt_interpretation(prompt, detail="OpenAI svarte ikke med gyldig JSON, så lokale regler tok over.")
     try:
         return _normalize_interpretation(data, prompt, user)
     except ValueError:
-        return _fallback_prompt_interpretation(prompt)
+        return _fallback_prompt_interpretation(prompt, detail="OpenAI-tolkingen ga ugyldige datoer eller tider, så lokale regler tok over.")
 
 
 def _extract_json(text):
@@ -1162,10 +1204,11 @@ def _normalize_interpretation(data, prompt, user=None):
         "execute_at": execute_at,
         "recurrence": recurrence,
         "watch": bool(data.get("watch") or fallback.get("watch") or _watch_prompt(prompt_lower)),
+        "_interpretation_source": "openai",
     }
 
 
-def _fallback_prompt_interpretation(prompt):
+def _fallback_prompt_interpretation(prompt, detail=None):
     prompt_lower = prompt.lower()
     if any(word in prompt_lower for word in ("avbestill", "avbook", "kanseller")):
         intent = "cancel_booking"
@@ -1193,6 +1236,8 @@ def _fallback_prompt_interpretation(prompt):
         "execute_at": _execute_at_from_prompt(prompt_lower),
         "recurrence": _recurrence_from_prompt(prompt_lower),
         "watch": _watch_prompt(prompt_lower),
+        "_interpretation_source": "local_rules",
+        "_interpretation_detail": detail or "OpenAI ble ikke brukt for denne tolkingen.",
     }
 
 
