@@ -6,7 +6,12 @@ from flask import Blueprint, flash, g, redirect, render_template, request, url_f
 from extensions import db
 from models import CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 from routes.auth import login_required
-from services.balletour import get_balletour_memberships, get_balletour_series, is_balletour_player
+from services.balletour import (
+    get_balletour_course_id,
+    get_balletour_memberships,
+    get_balletour_series,
+    is_balletour_player,
+)
 from services.golfbox import clear_user_golfbox_credentials, golfbox_connection_summary, save_user_golfbox_credentials
 from services.tee_filters import round_player_matches_tee, selected_tee_key, tee_filter_options
 
@@ -41,17 +46,24 @@ def _selected_balletour_notification_player_ids(user):
     return {int(value) for value in values if str(value).isdigit()}
 
 
+def _exclude_balletour_course(query):
+    balletour_course_id = get_balletour_course_id()
+    if balletour_course_id:
+        return query.filter(Round.course_id != balletour_course_id)
+    return query
+
+
 @profile_bp.route("/me")
 @login_required
 def me():
     player = g.current_user.player
     tee_key = selected_tee_key(request.args.get("tee"))
-    round_players = (
+    round_player_query = (
         RoundPlayer.query.filter_by(player_id=player.id)
         .join(Round)
         .order_by(Round.started_at.desc())
-        .all()
     )
+    round_players = _exclude_balletour_course(round_player_query).all()
     round_players = [
         round_player for round_player in round_players
         if round_player_matches_tee(round_player, tee_key)

@@ -22,7 +22,7 @@ from models import (
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
-from services.balletour import get_balletour_memberships, get_balletour_series
+from services.balletour import get_balletour_course_id, get_balletour_memberships, get_balletour_series
 from services.time import format_server_datetime, server_now
 from services.user_notifications import (
     send_balletour_round_finished_notifications,
@@ -592,8 +592,16 @@ def _round_uses_club_tracking(round_obj):
 
 
 def _is_balletour_round(round_obj):
-    balletour_series = get_balletour_series()
-    return bool(balletour_series and round_obj.course_id == balletour_series.course_id)
+    balletour_course_id = get_balletour_course_id()
+    return bool(balletour_course_id and round_obj.course_id == balletour_course_id)
+
+
+def _shanklife_rounds_query():
+    query = Round.query
+    balletour_course_id = get_balletour_course_id()
+    if balletour_course_id:
+        query = query.filter(Round.course_id != balletour_course_id)
+    return query
 
 
 def _balletour_round_summary(round_obj):
@@ -1009,19 +1017,29 @@ def _save_round_image_file(file_storage, round_id):
 
 @rounds_bp.route("/rounds")
 def rounds():
-    all_rounds = Round.query.order_by(Round.started_at.desc()).all()
+    all_rounds = _shanklife_rounds_query().order_by(Round.started_at.desc()).all()
     return render_template("rounds.html", rounds=all_rounds, title="Alle runder")
 
 
 @rounds_bp.route("/rounds/ongoing")
 def ongoing_rounds():
-    rows = Round.query.filter_by(status="ongoing").order_by(Round.started_at.desc()).all()
+    rows = (
+        _shanklife_rounds_query()
+        .filter_by(status="ongoing")
+        .order_by(Round.started_at.desc())
+        .all()
+    )
     return render_template("rounds.html", rounds=rows, title="Pågående runder")
 
 
 @rounds_bp.route("/rounds/finished")
 def finished_rounds():
-    rows = Round.query.filter_by(status="finished").order_by(Round.started_at.desc()).all()
+    rows = (
+        _shanklife_rounds_query()
+        .filter_by(status="finished")
+        .order_by(Round.started_at.desc())
+        .all()
+    )
     return render_template("rounds.html", rounds=rows, title="Fullførte runder")
 
 

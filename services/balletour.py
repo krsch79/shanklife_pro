@@ -12,6 +12,13 @@ def get_balletour_series():
     ).first()
 
 
+def get_balletour_course_id():
+    series = get_balletour_series()
+    if not series:
+        return None
+    return series.course_id
+
+
 def get_balletour_memberships():
     series = get_balletour_series()
     if not series:

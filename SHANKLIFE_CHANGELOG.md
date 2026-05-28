@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.56] - 2026-05-28
+- Skiller Shanklife-statistikk, Min side og generelle rundelister fra BalleTour ved å skjule runder på BalleTour-banen i Shanklife-visningene.
+
 ## [1.8.51] - 2026-05-25
 - Tillater GolfBox-brukernavn som ikke er e-postadresse på Shanklife Min side.
 

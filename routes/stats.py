@@ -6,8 +6,16 @@ from sqlalchemy import or_
 from extensions import db
 from models import Club, CourseHole, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
 from routes.auth import login_required
+from services.balletour import get_balletour_course_id
 
 stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
+
+
+def _exclude_balletour_course(query):
+    balletour_course_id = get_balletour_course_id()
+    if balletour_course_id:
+        return query.filter(Round.course_id != balletour_course_id)
+    return query
 
 
 def _percent(numerator, denominator):
@@ -106,27 +114,25 @@ def _green_point(status, directions, index):
 
 
 def _stats_players():
+    user_query = (
+        db.session.query(User.player_id)
+        .join(Round, Round.stats_user_id == User.id)
+        .filter(Round.status == "finished")
+    )
+    round_player_query = (
+        db.session.query(RoundPlayer.player_id)
+        .join(Round)
+        .filter(Round.status == "finished")
+        .filter(RoundPlayer.tracks_stats.is_(True))
+    )
     tracked_player_ids = {
         player_id
-        for (player_id,) in (
-            db.session.query(User.player_id)
-            .join(Round, Round.stats_user_id == User.id)
-            .filter(Round.status == "finished")
-            .distinct()
-            .all()
-        )
+        for (player_id,) in _exclude_balletour_course(user_query).distinct().all()
         if player_id
     }
     tracked_player_ids.update({
         player_id
-        for (player_id,) in (
-            db.session.query(RoundPlayer.player_id)
-            .join(Round)
-            .filter(Round.status == "finished")
-            .filter(RoundPlayer.tracks_stats.is_(True))
-            .distinct()
-            .all()
-        )
+        for (player_id,) in _exclude_balletour_course(round_player_query).distinct().all()
         if player_id
     })
     if g.current_user and g.current_user.player_id:
@@ -139,7 +145,7 @@ def _stats_players():
 def _tracked_round_players(player):
     if not player:
         return []
-    return (
+    query = (
         RoundPlayer.query.join(Round)
         .outerjoin(User, Round.stats_user_id == User.id)
         .filter(Round.status == "finished")
@@ -149,8 +155,8 @@ def _tracked_round_players(player):
             User.player_id == player.id,
         ))
         .order_by(Round.started_at.desc())
-        .all()
     )
+    return _exclude_balletour_course(query).all()
 
 
 def _completed_rounds(round_players):
