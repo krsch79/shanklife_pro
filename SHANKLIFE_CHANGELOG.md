@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.60] - 2026-05-28
+- Gir GolfBox AI mer kontekst om innlogget bruker og medlemskap når brukerens bookingforespørsel tolkes.
+- Kobler navn i parentes etter medlemsnummer til riktig medspiller i GolfBox AI, for eksempel `65-2560 (Øyvind)`.
+- Gjør feilmeldinger om manglende spillere tydeligere ved booking og automatisk ledighetssøk.
+
 ## [1.8.56] - 2026-05-28
 - Skiller Shanklife-statistikk, Min side og generelle rundelister fra BalleTour ved å skjule runder på BalleTour-banen i Shanklife-visningene.
 

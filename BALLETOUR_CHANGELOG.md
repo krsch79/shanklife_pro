@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.60] - 2026-05-28
+- Gir GolfBox AI mer kontekst om innlogget bruker og medlemskap når brukerens bookingforespørsel tolkes.
+- Kobler navn i parentes etter medlemsnummer til riktig medspiller i GolfBox AI, for eksempel `65-2560 (Øyvind)`.
+- Gjør feilmeldinger om manglende spillere tydeligere ved booking og automatisk ledighetssøk.
+
 ## [1.8.59] - 2026-05-28
 - Retter GolfBox AI slik at bookingforespørsler med ordet medlemsnummer ikke feiltolkes som spørsmål om egen GolfBox-profil.
 - Gjør spillerantall mer robust når GolfBox AI får “meg” sammen med en navngitt medspiller eller et medlemsnummer.

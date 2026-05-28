@@ -678,6 +678,7 @@ def _normalize_name(value):
 def _booking_player_memberships(user, interpretation, club_name=None):
     requested_names = interpretation.get("player_names") or []
     requested_member_numbers = interpretation.get("member_numbers") or []
+    member_number_names = interpretation.get("member_number_names") or {}
     include_current_user = interpretation.get("include_current_user")
     memberships = []
     current_membership = _ensure_membership_for_user(user, club_name)
@@ -687,7 +688,7 @@ def _booking_player_memberships(user, interpretation, club_name=None):
 
     for member_number in requested_member_numbers:
         memberships.append({
-            "player_name": f"Medlemsnummer {member_number}",
+            "player_name": member_number_names.get(member_number) or f"Medlemsnummer {member_number}",
             "member_number": member_number,
             "club_name": club_name or "",
         })
@@ -1022,10 +1023,13 @@ def _interpret_prompt_with_openai(prompt, user):
         return _fallback_prompt_interpretation(prompt)
 
     today = server_now().date().isoformat()
+    user_context = _prompt_user_context(user)
     prompt_text = (
-        f"I dag er {today}. Tolk golfmelding til JSON: "
+        f"I dag er {today}. Innlogget bruker og lagrede GolfBox-medlemskap: {user_context}. "
+        "Tolk golfmelding til JSON: "
         '{"intent":"find_availability|create_booking|cancel_booking|unknown",'
-        '"courses":[],"area":"","players":2,"player_names":[],"member_numbers":[],"watch":false,'
+        '"courses":[],"area":"","players":2,"include_current_user":false,'
+        '"player_names":[],"member_numbers":[],"member_number_names":{},"watch":false,'
         '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM",'
         '"execute_at":"","recurrence":{"frequency":"","weekday":"","execute_time":""}}. '
         "Regler: book/bestill/reserver=create_booking, ledig=find_availability, "
@@ -1034,7 +1038,11 @@ def _interpret_prompt_with_openai(prompt, user):
         "Bærum, Grini, Asker, Oppegård, Drøbak. Mangler dato: i dag. "
         "Mangler tidsrom: 06:00-22:00. Enkelt klokkeslett: time_from=klokkeslett "
         "og time_to=30 minutter senere. Mangler spillere: 2. "
-        "Medlemsnummer som 65-2560 legges i member_numbers. "
+        "Hvis brukeren skriver jeg/meg/Kristian om seg selv, sett include_current_user=true, "
+        "men ikke legg innlogget bruker i member_numbers. "
+        "Medlemsnummer som 65-2560 legges i member_numbers og tilhører medspilleren, ikke innlogget bruker. "
+        "Hvis medlemsnummer har navn i parentes, for eksempel 65-2560 (Øyvind), sett member_number_names={\"65-2560\":\"Øyvind\"}. "
+        "Hvis teksten sier meg og medlemsnummer 65-2560, er det to spillere: innlogget bruker + spilleren med medlemsnummeret. "
         "Hvis brukeren ber deg sjekke jevnlig, følge med, prøve igjen eller booke hvis noe blir ledig, sett watch=true. "
         "Hvis brukeren ber om fast/repeterende booking, sett recurrence.frequency=weekly, "
         "recurrence.weekday til engelsk ukedag og recurrence.execute_time til klokkeslettet jobben skal kjøre. "
@@ -1071,6 +1079,9 @@ def _extract_json(text):
 def _normalize_interpretation(data, prompt, user=None):
     fallback = _fallback_prompt_interpretation(prompt)
     prompt_lower = prompt.lower()
+    prompt_member_numbers = _member_numbers_from_prompt(prompt_lower)
+    prompt_member_number_names = _member_number_names_from_prompt(prompt)
+    prompt_include_current_user = _prompt_references_current_user(prompt_lower)
     intent = str(data.get("intent") or fallback["intent"]).strip()
     if intent not in {"find_availability", "create_booking", "cancel_booking", "unknown"}:
         intent = fallback["intent"]
@@ -1092,9 +1103,18 @@ def _normalize_interpretation(data, prompt, user=None):
     member_numbers = data.get("member_numbers")
     if not isinstance(member_numbers, list):
         member_numbers = []
-    member_numbers = _clean_member_numbers(member_numbers) or fallback.get("member_numbers", [])
+    member_numbers = _merge_unique(_clean_member_numbers(member_numbers), prompt_member_numbers, fallback.get("member_numbers", []))
+    member_number_names = data.get("member_number_names")
+    if not isinstance(member_number_names, dict):
+        member_number_names = {}
+    member_number_names = {
+        number: str(name).strip()
+        for number, name in member_number_names.items()
+        if number in member_numbers and str(name).strip()
+    }
+    member_number_names.update(prompt_member_number_names)
 
-    include_current_user = _prompt_references_current_user(prompt_lower)
+    include_current_user = bool(data.get("include_current_user") or fallback.get("include_current_user") or prompt_include_current_user)
 
     try:
         players = int(data.get("players") or fallback["players"])
@@ -1134,6 +1154,7 @@ def _normalize_interpretation(data, prompt, user=None):
         "players": players,
         "player_names": player_names,
         "member_numbers": member_numbers,
+        "member_number_names": member_number_names,
         "include_current_user": include_current_user,
         "date": play_date,
         "time_from": time_from,
@@ -1164,6 +1185,7 @@ def _fallback_prompt_interpretation(prompt):
         "players": players,
         "player_names": [],
         "member_numbers": _member_numbers_from_prompt(prompt_lower),
+        "member_number_names": _member_number_names_from_prompt(prompt),
         "include_current_user": _prompt_references_current_user(prompt_lower),
         "date": _date_from_prompt(prompt_lower),
         "time_from": time_from,
@@ -1573,6 +1595,38 @@ def _clean_player_names(player_names, user=None):
     return cleaned
 
 
+def _prompt_user_context(user):
+    if not user:
+        return "Ingen innlogget bruker."
+    names = [getattr(user, "username", "")]
+    if getattr(user, "player", None):
+        names.append(user.player.name)
+    if user.golfbox_player_name:
+        names.append(user.golfbox_player_name)
+    memberships = _user_memberships(user)
+    if memberships:
+        membership_text = ", ".join(
+            f"{item.get('club_name')}: {item.get('member_number')}"
+            for item in memberships
+            if item.get("club_name") and item.get("member_number")
+        )
+    elif user.golfbox_member_number:
+        membership_text = f"{user.golfbox_home_club_name}: {user.golfbox_member_number}"
+    else:
+        membership_text = "ingen lagrede medlemskap"
+    return f"Navn: {', '.join(name for name in names if name)}. Medlemskap: {membership_text}"
+
+
+def _merge_unique(*groups):
+    merged = []
+    for group in groups:
+        for value in group or []:
+            value = str(value).strip()
+            if value and value not in merged:
+                merged.append(value)
+    return merged
+
+
 def _clean_member_numbers(member_numbers):
     cleaned = []
     for value in member_numbers:
@@ -1584,6 +1638,19 @@ def _clean_member_numbers(member_numbers):
 
 def _member_numbers_from_prompt(prompt_lower):
     return _clean_member_numbers(re.findall(r"\b\d{1,5}-\d{1,8}\b", prompt_lower))
+
+
+def _member_number_names_from_prompt(prompt):
+    names = {}
+    for match in re.finditer(
+        r"\b(?P<number>\d{1,5}-\d{1,8})\s*\((?P<name>[^)]+)\)",
+        prompt or "",
+        re.IGNORECASE,
+    ):
+        name = match.group("name").strip()
+        if name and _normalize_name(name) not in {"jeg", "meg", "kristian"}:
+            names[match.group("number")] = name
+    return names
 
 
 def _watch_prompt(prompt_lower):
@@ -1636,16 +1703,18 @@ def _booking_confirmation_result(availability_result, interpretation, user):
         return availability_result
     selected_slot = availability_result["available_slots"][0]
     player_memberships = _booking_player_memberships(user, interpretation, selected_slot["course"])
-    if len(player_memberships) != availability_result["players"]:
+    expected_players = max(int(availability_result["players"]), len(player_memberships))
+    if len(player_memberships) < expected_players:
         availability_result["status"] = "needs_player_details"
-        if availability_result["players"] == 1:
+        if expected_players == 1:
             availability_result["message"] = (
                 f"Jeg fant ikke GolfBox-medlemskapet ditt for {selected_slot['course']}. "
                 "Åpne Min side og lagre GolfBox-innloggingen på nytt, så henter jeg klubbmedlemskapene dine på nytt."
             )
         else:
             availability_result["message"] = (
-                "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemskap for denne klubben på Min side. "
+                f"Jeg fant {len(player_memberships)} av {expected_players} spillere. "
+                "Skriv navn på medspillere som har lagret GolfBox-medlemskap, eller oppgi medlemsnummer. "
                 f"Skriv for eksempel: Book {selected_slot['course']} for Kristian og Erik i morgen mellom 15 og 17."
             )
         return availability_result
@@ -1653,7 +1722,7 @@ def _booking_confirmation_result(availability_result, interpretation, user):
         "course": selected_slot["course"],
         "date": selected_slot["date"],
         "time": selected_slot["time"],
-        "players": availability_result["players"],
+        "players": expected_players,
         "player_memberships": player_memberships,
         "club_guid": selected_slot["club_guid"],
         "resource_guid": selected_slot["resource_guid"],
@@ -1686,8 +1755,9 @@ def _scheduled_booking_result(interpretation, prompt, user):
         }
     course_name = courses[0]
     player_memberships = _booking_player_memberships(user, interpretation, course_name)
-    if len(player_memberships) != interpretation["players"]:
-        if interpretation["players"] == 1:
+    expected_players = max(int(interpretation["players"]), len(player_memberships))
+    if len(player_memberships) < expected_players:
+        if expected_players == 1:
             return {
                 "intent": "create_booking",
                 "status": "needs_player_details",
@@ -1701,7 +1771,8 @@ def _scheduled_booking_result(interpretation, prompt, user):
             "intent": "create_booking",
             "status": "needs_player_details",
             "message": (
-                "Jeg trenger navn på medspillerne, og de må ha lagret GolfBox-medlemskap for denne klubben på Min side "
+                f"Jeg fant {len(player_memberships)} av {expected_players} spillere. "
+                "Skriv navn på medspillere som har lagret GolfBox-medlemskap, eller oppgi medlemsnummer "
                 "før jeg kan planlegge en booking."
             ),
             "available_slots": [],
@@ -1779,17 +1850,21 @@ def _watch_booking_result(interpretation, prompt, user):
         }
     course_name = courses[0]
     player_memberships = _booking_player_memberships(user, interpretation, course_name)
-    if len(player_memberships) != interpretation["players"]:
+    expected_players = max(int(interpretation["players"]), len(player_memberships))
+    if len(player_memberships) < expected_players:
         return {
             "intent": "create_booking",
             "status": "needs_player_details",
-            "message": "Jeg mangler GolfBox-medlemskap eller medlemsnummer for én eller flere spillere før jeg kan følge med.",
+            "message": (
+                f"Jeg fant {len(player_memberships)} av {expected_players} spillere. "
+                "Skriv navn på medspillere som har lagret GolfBox-medlemskap, eller oppgi medlemsnummer."
+            ),
             "available_slots": [],
         }
 
     availability = find_golfbox_availability(
         course=course_name,
-        players=interpretation["players"],
+        players=expected_players,
         play_date=interpretation["date"],
         time_from=interpretation["time_from"],
         time_to=interpretation["time_to"],
