@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.57] - 2026-05-28
+- Viser kommende GolfBox-bookinger direkte øverst i GolfBox AI.
+- Legger til avbestilling av GolfBox-bookinger fra oversikten og via AI-chatten, med bekreftelse før spilleren fjernes fra starttiden.
+
 ## [1.8.55] - 2026-05-25
 - Retter GolfBox-klubbbytte før booking ved å poste til GolfBox sin faktiske “endre klubb”-adresse etter redirect.
 - Oppfrisker lagrede GolfBox-medlemskap før booking når valgt klubb mangler lokalt, og bruker medlemsklubbens GUID ved klubbbytte.

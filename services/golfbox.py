@@ -22,6 +22,7 @@ GOLFBOX_REQUIRED_ENV = ("GOLFBOX_USERNAME", "GOLFBOX_PASSWORD")
 GOLFBOX_BASE_URL = "https://www.golfbox.no"
 BALLERUD_CLUB_GUID = "{FD174477-19BD-4120-BD4F-DF422371C961}"
 BALLERUD_RESSOURCE_GUID = "{82966715-948D-41EB-BCAB-3F7458EDB82E}"
+GOLFBOX_MY_TIMES_PATH = "/site/my_golfBox/myTimes/myTimes.asp"
 OSLO_AREA_COURSES = [
     "Ballerud",
     "Oslo",
@@ -199,7 +200,10 @@ def _parse_date(value):
     try:
         return date.fromisoformat(raw_value)
     except ValueError as exc:
-        raise ValueError("Dato må være today, i dag eller YYYY-MM-DD.") from exc
+        try:
+            return datetime.strptime(raw_value, "%d.%m.%Y").date()
+        except ValueError:
+            raise ValueError("Dato må være today, i dag, YYYY-MM-DD eller DD.MM.YYYY.") from exc
 
 
 def _parse_time(value, field_name):
@@ -950,7 +954,7 @@ def _cleanup_booking_lock(client, booking_start, resource_guid=BALLERUD_RESSOURC
         return
 
 
-def process_golfbox_prompt(prompt, user=None, pending_booking=None):
+def process_golfbox_prompt(prompt, user=None, pending_booking=None, pending_cancel=None):
     cleaned_prompt = " ".join((prompt or "").strip().split())
     if not cleaned_prompt:
         raise ValueError("Skriv hva du vil sjekke i GolfBox.")
@@ -958,6 +962,13 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None):
     prompt_lower = cleaned_prompt.lower()
     if pending_booking and _is_confirmation_prompt(prompt_lower):
         return confirm_golfbox_booking(pending_booking, user=user)
+    if pending_cancel and _is_confirmation_prompt(prompt_lower):
+        return cancel_golfbox_booking(
+            user,
+            pending_cancel.get("booking_guid"),
+            booking_start=pending_cancel.get("booking_start"),
+            resource_guid=pending_cancel.get("resource_guid"),
+        )
     profile_result = _profile_info_result(prompt_lower, user)
     if profile_result:
         profile_result["prompt"] = cleaned_prompt
@@ -966,11 +977,7 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None):
     interpretation = _interpret_prompt_with_openai(cleaned_prompt, user)
     intent = interpretation["intent"]
     if intent == "cancel_booking":
-        return {
-            "intent": "cancel_booking",
-            "status": "not_enabled",
-            "message": "Avbestilling via AI er ikke aktivert ennå.",
-        }
+        return _cancel_booking_result(interpretation, cleaned_prompt, user)
 
     players = interpretation["players"]
     play_date = interpretation["date"]
@@ -1161,6 +1168,270 @@ def _profile_info_result(prompt_lower, user):
         "status": "profile_info",
         "message": f"Ja. Du er koblet til som {summary.get('player_name') or summary.get('username')}. Lagret medlemskap: {membership_text}.",
         "available_slots": [],
+    }
+
+
+def upcoming_golfbox_bookings(user):
+    credentials = _credentials_for_user(user)
+    if not credentials:
+        return {
+            "status": "configuration_required",
+            "message": "GolfBox-innlogging mangler.",
+            "bookings": [],
+        }
+    try:
+        with httpx.Client(follow_redirects=True, timeout=30, headers={"User-Agent": "Mozilla/5.0"}) as client:
+            _login(client, credentials)
+            response = client.get(f"{GOLFBOX_BASE_URL}{GOLFBOX_MY_TIMES_PATH}")
+            response.raise_for_status()
+            return {
+                "status": "ok",
+                "message": "",
+                "bookings": _parse_my_times(response.text),
+            }
+    except (ValueError, httpx.HTTPError) as exc:
+        return {
+            "status": "error",
+            "message": f"Kunne ikke hente kommende GolfBox-bookinger: {exc}",
+            "bookings": [],
+        }
+
+
+def cancel_golfbox_booking(user, booking_guid, booking_start=None, resource_guid=None):
+    credentials = _credentials_for_user(user)
+    if not credentials:
+        raise ValueError("GolfBox-innlogging mangler.")
+    booking_guid = (booking_guid or "").strip()
+    booking_start = (booking_start or "").strip()
+    resource_guid = (resource_guid or "").strip()
+    if not booking_guid:
+        raise ValueError("Mangler GolfBox-booking.")
+
+    with httpx.Client(follow_redirects=True, timeout=30, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        _login(client, credentials)
+        my_times = client.get(f"{GOLFBOX_BASE_URL}{GOLFBOX_MY_TIMES_PATH}")
+        my_times.raise_for_status()
+        bookings = _parse_my_times(my_times.text)
+        selected = next(
+            (
+                booking for booking in bookings
+                if booking.get("can_cancel")
+                and booking.get("booking_guid") == booking_guid
+                and (not booking_start or booking.get("booking_start") == booking_start)
+                and (not resource_guid or booking.get("resource_guid") == resource_guid)
+            ),
+            None,
+        )
+        if not selected:
+            raise ValueError("Fant ikke en avbestillbar GolfBox-booking som matcher valget.")
+        response = client.get(
+            f"{GOLFBOX_BASE_URL}/site/ressources/booking/deletePlayer.asp",
+            params={
+                "booking_guid": booking_guid,
+                "rUrl": GOLFBOX_MY_TIMES_PATH,
+            },
+        )
+        response.raise_for_status()
+    return {
+        "intent": "cancel_booking",
+        "status": "booking_cancelled",
+        "message": (
+            f"Bookingen på {selected.get('course')} {selected.get('date')} "
+            f"kl. {selected.get('time')} er avbestilt i GolfBox."
+        ),
+        "booking": selected,
+        "available_slots": [],
+    }
+
+
+def _parse_my_times(page_html):
+    current_member_guid = _current_member_guid_from_my_times(page_html)
+    bookings = []
+    for raw_block in page_html.split('<div class="border border-success bg-selected rounded')[1:]:
+        block = '<div class="border border-success bg-selected rounded' + raw_block
+        table_end = block.find("</table>")
+        if table_end == -1:
+            continue
+        block = block[:table_end + len("</table>")]
+        header_html = block.split("<table", 1)[0]
+        date_text = _first_match(r"(\d{2}\.\d{2}\.\d{4})", header_html)
+        time_text = _first_match(r"\b(\d{1,2}:\d{2})\b", _plain_text(header_html))
+        if not date_text or not time_text:
+            continue
+        resource_guid = _first_match(r"Ressource_GUID=(\{[^}&]+\})", block)
+        booking_start = _first_match(r"Booking_Start=(\d{8}T\d{6})", block)
+        players = _parse_my_times_players(block, current_member_guid)
+        own_row = next((player for player in players if player.get("is_current_user") and player.get("booking_guid")), None)
+        bookings.append(
+            {
+                "source": "golfbox",
+                "source_label": "GolfBox",
+                "club": _icon_text(header_html, "home_icon"),
+                "course": _icon_text(header_html, "golfcourse_icon"),
+                "date": _norwegian_date_to_iso(date_text),
+                "display_date": date_text,
+                "time": time_text,
+                "players": [player["name"] for player in players if player.get("name")],
+                "player_rows": players,
+                "resource_guid": resource_guid,
+                "booking_start": booking_start,
+                "booking_guid": own_row.get("booking_guid") if own_row else None,
+                "can_cancel": bool(own_row),
+            }
+        )
+    return bookings
+
+
+def _current_member_guid_from_my_times(page_html):
+    return _first_match(r"if\('(\{[^']+\})'\s*==\s*member_guid\)", page_html)
+
+
+def _parse_my_times_players(block, current_member_guid):
+    players = []
+    for row_match in re.finditer(r"<tr>(?P<row>.*?)</tr>", block, re.IGNORECASE | re.DOTALL):
+        row = row_match.group("row")
+        name = _first_match(r'<div class="fw-bold">\s*(.*?)\s*</div>', row)
+        if not name:
+            continue
+        delete_match = re.search(
+            r"deletePlayer\('(?P<member_guid>\{[^']+\})','(?P<booking_guid>\{[^']+\})'\)",
+            row,
+            re.IGNORECASE,
+        )
+        member_guid = delete_match.group("member_guid") if delete_match else None
+        players.append(
+            {
+                "name": _plain_text(name),
+                "member_number": _first_match(r"(\d{1,5}-\d{1,8})", row),
+                "club": _plain_cells(row)[3] if len(_plain_cells(row)) > 3 else "",
+                "status": _plain_cells(row)[5] if len(_plain_cells(row)) > 5 else "",
+                "member_guid": member_guid,
+                "booking_guid": delete_match.group("booking_guid") if delete_match else None,
+                "is_current_user": bool(current_member_guid and member_guid == current_member_guid),
+            }
+        )
+    return players
+
+
+def _icon_text(html_text, icon_id):
+    match = re.search(
+        rf'{re.escape(icon_id)}.*?</svg>\s*</div>\s*(?P<value>.*?)\s*</div>',
+        html_text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    return _plain_text(match.group("value")) if match else ""
+
+
+def _plain_cells(row_html):
+    cells = []
+    for cell_match in re.finditer(r"<td\b[^>]*>(?P<cell>.*?)</td>", row_html, re.IGNORECASE | re.DOTALL):
+        cells.append(_plain_text(cell_match.group("cell")))
+    return cells
+
+
+def _plain_text(html_text):
+    return html.unescape(" ".join(re.sub(r"<[^>]+>", " ", html_text or "").split())).strip()
+
+
+def _first_match(pattern, text):
+    match = re.search(pattern, text or "", re.IGNORECASE | re.DOTALL)
+    if not match:
+        return ""
+    return html.unescape(match.group(1)).strip()
+
+
+def _norwegian_date_to_iso(value):
+    try:
+        return datetime.strptime(value, "%d.%m.%Y").date().isoformat()
+    except ValueError:
+        return value
+
+
+def _cancel_booking_result(interpretation, prompt, user):
+    upcoming = upcoming_golfbox_bookings(user)
+    if upcoming["status"] != "ok":
+        return {
+            "intent": "cancel_booking",
+            "status": upcoming["status"],
+            "message": upcoming["message"],
+            "available_slots": [],
+            "bookings": [],
+        }
+    bookings = [booking for booking in upcoming["bookings"] if booking.get("can_cancel")]
+    matches = _matching_cancel_bookings(bookings, interpretation, prompt)
+    if not matches:
+        return {
+            "intent": "cancel_booking",
+            "status": "booking_cancel_not_found",
+            "message": "Jeg fant ingen kommende GolfBox-bookinger som matcher avbestillingen.",
+            "available_slots": [],
+            "bookings": bookings,
+        }
+    if len(matches) == 1:
+        booking = matches[0]
+        return {
+            "intent": "cancel_booking",
+            "status": "cancel_confirmation_required",
+            "message": (
+                f"Jeg kan avbestille {booking.get('course')} {booking.get('date')} "
+                f"kl. {booking.get('time')} i GolfBox. Bekreft før jeg fjerner deg fra starttiden."
+            ),
+            "pending_cancel": _cancel_payload(booking),
+            "bookings": matches,
+            "available_slots": [],
+        }
+    return {
+        "intent": "cancel_booking",
+        "status": "cancel_booking_choices",
+        "message": "Jeg fant flere mulige bookinger. Velg hvilken som skal avbestilles.",
+        "bookings": matches,
+        "available_slots": [],
+    }
+
+
+def _matching_cancel_bookings(bookings, interpretation, prompt):
+    prompt_lower = prompt.lower()
+    matches = list(bookings)
+    requested_courses = interpretation.get("courses") or []
+    if requested_courses and requested_courses != [DEFAULT_GOLFBOX_COURSE] or any(
+        _normalize_name(course) in _normalize_name(prompt) for course in requested_courses
+    ):
+        matches = [
+            booking for booking in matches
+            if any(
+                _club_names_match(_normalize_name(course), booking.get("course"))
+                or _club_names_match(_normalize_name(course), booking.get("club"))
+                for course in requested_courses
+            )
+        ]
+    if _prompt_has_date(prompt_lower):
+        requested_date = _parse_date(interpretation.get("date")).isoformat()
+        matches = [booking for booking in matches if booking.get("date") == requested_date]
+    if _prompt_has_time(prompt_lower):
+        requested_time = _parse_time(interpretation.get("time_from"), "time_from").strftime("%H:%M")
+        matches = [booking for booking in matches if booking.get("time") == requested_time]
+    return matches
+
+
+def _prompt_has_date(prompt_lower):
+    return bool(
+        re.search(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\.\d{1,2}\.\d{4}\b", prompt_lower)
+        or any(value in prompt_lower for value in ("i dag", "idag", "i morgen", "imorgen"))
+    )
+
+
+def _prompt_has_time(prompt_lower):
+    return bool(re.search(r"(?:kl\.?|rundt|mellom|fra|etter|før|til)\s*\d{1,2}(?::?\d{2})?", prompt_lower))
+
+
+def _cancel_payload(booking):
+    return {
+        "booking_guid": booking.get("booking_guid"),
+        "booking_start": booking.get("booking_start"),
+        "resource_guid": booking.get("resource_guid"),
+        "course": booking.get("course"),
+        "date": booking.get("date"),
+        "time": booking.get("time"),
     }
 
 
@@ -1720,6 +1991,9 @@ def _players_from_prompt(prompt_lower):
 def _date_from_prompt(prompt_lower):
     if "i morgen" in prompt_lower or "imorgen" in prompt_lower:
         return "tomorrow"
+    norwegian_match = re.search(r"\b(\d{1,2}\.\d{1,2}\.\d{4})\b", prompt_lower)
+    if norwegian_match:
+        return norwegian_match.group(1)
     iso_match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", prompt_lower)
     if iso_match:
         return iso_match.group(1)

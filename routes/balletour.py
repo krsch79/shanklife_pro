@@ -25,9 +25,11 @@ from services.weather import fetch_bekkestua_weather, summarize_weather_payload
 from services.time import format_server_datetime
 from services.user_notifications import send_balletour_round_started_notifications
 from services.golfbox import (
+    cancel_golfbox_booking,
     cancel_golfbox_scheduled_booking,
     golfbox_connection_summary,
     process_golfbox_prompt,
+    upcoming_golfbox_bookings,
     upcoming_golfbox_scheduled_bookings,
 )
 
@@ -1078,17 +1080,22 @@ def ai_tools():
         series = _balletour_or_404()
         chat_messages = session.get("golfbox_ai_chat", [])
         pending_booking = session.get("golfbox_pending_booking")
+        pending_cancel = session.get("golfbox_pending_cancel")
         prompt = request.form.get("prompt", "").strip()
         if request.method == "GET":
             chat_messages = []
             pending_booking = None
+            pending_cancel = None
             session.pop("golfbox_ai_chat", None)
             session.pop("golfbox_pending_booking", None)
+            session.pop("golfbox_pending_cancel", None)
         if request.method == "POST":
             if request.form.get("action") == "clear":
                 chat_messages = []
                 pending_booking = None
+                pending_cancel = None
                 session.pop("golfbox_pending_booking", None)
+                session.pop("golfbox_pending_cancel", None)
             elif request.form.get("action") == "cancel_scheduled_booking":
                 booking_id = request.form.get("scheduled_booking_id", "").strip()
                 booking_type = request.form.get("scheduled_booking_type", "scheduled").strip()
@@ -1101,6 +1108,37 @@ def ai_tools():
                     }})
                 except (TypeError, ValueError) as exc:
                     chat_messages.append({"role": "assistant", "error": str(exc)})
+            elif request.form.get("action") == "cancel_golfbox_booking":
+                booking_guid = request.form.get("booking_guid", "").strip()
+                booking_start = request.form.get("booking_start", "").strip()
+                resource_guid = request.form.get("resource_guid", "").strip()
+                try:
+                    prompt_result = cancel_golfbox_booking(
+                        g.current_user,
+                        booking_guid,
+                        booking_start=booking_start,
+                        resource_guid=resource_guid,
+                    )
+                    chat_messages.append({"role": "assistant", "result": prompt_result})
+                except ValueError as exc:
+                    chat_messages.append({"role": "assistant", "error": str(exc)})
+            elif request.form.get("action") == "confirm_cancel":
+                if pending_cancel:
+                    chat_messages.append({"role": "user", "text": "Bekreft avbestilling"})
+                    try:
+                        prompt_result = cancel_golfbox_booking(
+                            g.current_user,
+                            pending_cancel.get("booking_guid"),
+                            booking_start=pending_cancel.get("booking_start"),
+                            resource_guid=pending_cancel.get("resource_guid"),
+                        )
+                        chat_messages.append({"role": "assistant", "result": prompt_result})
+                    except ValueError as exc:
+                        chat_messages.append({"role": "assistant", "error": str(exc)})
+                    pending_cancel = None
+                    session.pop("golfbox_pending_cancel", None)
+                else:
+                    chat_messages.append({"role": "assistant", "error": "Jeg fant ingen avbestilling som venter på bekreftelse."})
             elif request.form.get("action") == "confirm_booking":
                 if pending_booking:
                     chat_messages.append({"role": "user", "text": "Bekreft booking"})
@@ -1113,13 +1151,27 @@ def ai_tools():
             elif prompt:
                 chat_messages.append({"role": "user", "text": prompt})
                 try:
-                    prompt_result = process_golfbox_prompt(prompt, user=g.current_user, pending_booking=pending_booking)
+                    prompt_result = process_golfbox_prompt(
+                        prompt,
+                        user=g.current_user,
+                        pending_booking=pending_booking,
+                        pending_cancel=pending_cancel,
+                    )
                     if prompt_result.get("status") == "confirmation_required":
                         pending_booking = prompt_result.get("pending_booking")
                         session["golfbox_pending_booking"] = pending_booking
-                    elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required", "scheduled_booking_created", "recurring_booking_created"}:
+                        pending_cancel = None
+                        session.pop("golfbox_pending_cancel", None)
+                    elif prompt_result.get("status") == "cancel_confirmation_required":
+                        pending_cancel = prompt_result.get("pending_cancel")
+                        session["golfbox_pending_cancel"] = pending_cancel
                         pending_booking = None
                         session.pop("golfbox_pending_booking", None)
+                    elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required", "scheduled_booking_created", "recurring_booking_created", "booking_cancelled"}:
+                        pending_booking = None
+                        pending_cancel = None
+                        session.pop("golfbox_pending_booking", None)
+                        session.pop("golfbox_pending_cancel", None)
                     chat_messages.append({"role": "assistant", "result": prompt_result})
                 except ValueError as exc:
                     chat_messages.append({"role": "assistant", "error": str(exc)})
@@ -1131,7 +1183,9 @@ def ai_tools():
             series=series,
             chat_messages=chat_messages,
             pending_booking=pending_booking,
+            pending_cancel=pending_cancel,
             golfbox_connection=golfbox_connection_summary(g.current_user),
+            golfbox_bookings=upcoming_golfbox_bookings(g.current_user),
             scheduled_bookings=upcoming_golfbox_scheduled_bookings(g.current_user),
             **_balletour_database_context(),
         )

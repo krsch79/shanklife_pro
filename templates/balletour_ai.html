@@ -26,7 +26,54 @@
 
     <div class="golfbox-scheduled-card">
         <div class="section-heading-row">
-            <h3>Kommende bookinger</h3>
+            <h3>Kommende GolfBox-bookinger</h3>
+        </div>
+        {% if golfbox_bookings.status != "ok" %}
+        <p class="muted">{{ golfbox_bookings.message }}</p>
+        {% elif golfbox_bookings.bookings %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hvem</th>
+                        <th>Bane</th>
+                        <th>Dato</th>
+                        <th>Tid</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in golfbox_bookings.bookings %}
+                    <tr>
+                        <td>{{ booking.players|join(", ") }}</td>
+                        <td>{{ booking.club }}{% if booking.course %} - {{ booking.course }}{% endif %}</td>
+                        <td>{{ booking.date }}</td>
+                        <td>{{ booking.time }}</td>
+                        <td>
+                            {% if booking.can_cancel %}
+                            <form method="post" class="inline-form" onsubmit="return confirm('Avbestille denne GolfBox-bookingen?');">
+                                <input type="hidden" name="booking_guid" value="{{ booking.booking_guid }}">
+                                <input type="hidden" name="booking_start" value="{{ booking.booking_start }}">
+                                <input type="hidden" name="resource_guid" value="{{ booking.resource_guid }}">
+                                <button type="submit" name="action" value="cancel_golfbox_booking" class="button secondary">Avbestill</button>
+                            </form>
+                            {% else %}
+                            <span class="muted">Låst</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="muted">Ingen kommende GolfBox-bookinger.</p>
+        {% endif %}
+    </div>
+
+    <div class="golfbox-scheduled-card">
+        <div class="section-heading-row">
+            <h3>Planlagte AI-bookinger</h3>
         </div>
         {% if scheduled_bookings %}
         <div class="table-wrap">
@@ -89,8 +136,30 @@
                                 <p class="muted">{{ result.next_step }}</p>
                             {% elif result.status == "profile_info" %}
                                 <p>{{ result.message }}</p>
-                            {% elif result.status in ["not_enabled", "needs_player_details", "booking_unsupported_course", "booking_failed", "payment_required", "wrong_club", "wrong_membership", "unsupported_course"] %}
+                            {% elif result.status in ["not_enabled", "needs_player_details", "booking_unsupported_course", "booking_failed", "payment_required", "wrong_club", "wrong_membership", "unsupported_course", "booking_cancel_not_found", "error"] %}
                                 <p>{{ result.message }}</p>
+                                {% if result.bookings %}
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Dato</th>
+                                                <th>Tid</th>
+                                                <th>Bane</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for booking in result.bookings %}
+                                            <tr>
+                                                <td>{{ booking.date }}</td>
+                                                <td>{{ booking.time }}</td>
+                                                <td>{{ booking.club }}{% if booking.course %} - {{ booking.course }}{% endif %}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
                                 {% if result.available_slots %}
                                 <div class="table-wrap">
                                     <table>
@@ -120,7 +189,43 @@
                                 <form method="post" class="inline-form">
                                     <button type="submit" name="action" value="confirm_booking" class="button">Bekreft booking</button>
                                 </form>
-                            {% elif result.status in ["booking_created", "scheduled_booking_created", "recurring_booking_created", "scheduled_booking_cancelled"] %}
+                            {% elif result.status == "cancel_confirmation_required" %}
+                                <p>{{ result.message }}</p>
+                                <form method="post" class="inline-form">
+                                    <button type="submit" name="action" value="confirm_cancel" class="button">Bekreft avbestilling</button>
+                                </form>
+                            {% elif result.status == "cancel_booking_choices" %}
+                                <p>{{ result.message }}</p>
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Dato</th>
+                                                <th>Tid</th>
+                                                <th>Bane</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for booking in result.bookings %}
+                                            <tr>
+                                                <td>{{ booking.date }}</td>
+                                                <td>{{ booking.time }}</td>
+                                                <td>{{ booking.club }}{% if booking.course %} - {{ booking.course }}{% endif %}</td>
+                                                <td>
+                                                    <form method="post" class="inline-form" onsubmit="return confirm('Avbestille denne GolfBox-bookingen?');">
+                                                        <input type="hidden" name="booking_guid" value="{{ booking.booking_guid }}">
+                                                        <input type="hidden" name="booking_start" value="{{ booking.booking_start }}">
+                                                        <input type="hidden" name="resource_guid" value="{{ booking.resource_guid }}">
+                                                        <button type="submit" name="action" value="cancel_golfbox_booking" class="button secondary">Avbestill</button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% elif result.status in ["booking_created", "scheduled_booking_created", "recurring_booking_created", "scheduled_booking_cancelled", "booking_cancelled"] %}
                                 <p>{{ result.message }}</p>
                             {% elif result.available_slots %}
                                 <p>Jeg fant {{ result.available_slots|length }} ledige tider for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>
@@ -186,7 +291,6 @@
 
 <script>
     window.addEventListener("load", function () {
-        window.scrollTo(0, document.body.scrollHeight);
         var promptField = document.getElementById("prompt");
         if (promptField) {
             promptField.focus();
