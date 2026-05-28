@@ -4,6 +4,7 @@ Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pr
 
 ## [1.8.59] - 2026-05-28
 - Retter GolfBox AI slik at bookingforespørsler med ordet medlemsnummer ikke feiltolkes som spørsmål om egen GolfBox-profil.
+- Gjør spillerantall mer robust når GolfBox AI får “meg” sammen med en navngitt medspiller eller et medlemsnummer.
 
 ## [1.8.58] - 2026-05-28
 - Lar GolfBox AI opprette aktive ledighetssøk som sjekker jevnlig og booker automatisk når en passende starttid blir ledig.

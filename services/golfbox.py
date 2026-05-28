@@ -678,10 +678,11 @@ def _normalize_name(value):
 def _booking_player_memberships(user, interpretation, club_name=None):
     requested_names = interpretation.get("player_names") or []
     requested_member_numbers = interpretation.get("member_numbers") or []
+    include_current_user = interpretation.get("include_current_user")
     memberships = []
     current_membership = _ensure_membership_for_user(user, club_name)
     current_name = (getattr(user, "player", None).name if getattr(user, "player", None) else getattr(user, "username", "")) or ""
-    if not requested_names or any(_name_matches(current_name, name) for name in requested_names):
+    if include_current_user or not requested_names or any(_name_matches(current_name, name) for name in requested_names):
         memberships.append(current_membership or _self_booking_membership(user, club_name))
 
     for member_number in requested_member_numbers:
@@ -1093,18 +1094,23 @@ def _normalize_interpretation(data, prompt, user=None):
         member_numbers = []
     member_numbers = _clean_member_numbers(member_numbers) or fallback.get("member_numbers", [])
 
+    include_current_user = _prompt_references_current_user(prompt_lower)
+
     try:
         players = int(data.get("players") or fallback["players"])
     except (TypeError, ValueError):
         players = fallback["players"]
     players = max(1, min(4, players))
-    if _solo_booking_prompt(prompt_lower):
+    min_players_from_text = len(player_names) + len(member_numbers) + (1 if include_current_user else 0)
+    if _prompt_has_explicit_player_count(prompt_lower):
+        players = max(players, fallback["players"])
+    if _solo_booking_prompt(prompt_lower) and min_players_from_text <= 1:
         players = 1
         player_names = []
-    elif _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
+    elif include_current_user and not _prompt_has_explicit_player_count(prompt_lower):
         players = min(4, max(1, len(player_names) + len(member_numbers) + 1))
-    if member_numbers and not _prompt_has_explicit_player_count(prompt_lower):
-        players = min(4, max(players, len(player_names) + len(member_numbers) + (1 if _prompt_references_current_user(prompt_lower) else 0)))
+    if min_players_from_text:
+        players = min(4, max(players, min_players_from_text))
 
     play_date = str(data.get("date") or fallback["date"]).strip()
     time_from = str(data.get("time_from") or fallback["time_from"]).strip()
@@ -1128,6 +1134,7 @@ def _normalize_interpretation(data, prompt, user=None):
         "players": players,
         "player_names": player_names,
         "member_numbers": member_numbers,
+        "include_current_user": include_current_user,
         "date": play_date,
         "time_from": time_from,
         "time_to": time_to,
@@ -1157,6 +1164,7 @@ def _fallback_prompt_interpretation(prompt):
         "players": players,
         "player_names": [],
         "member_numbers": _member_numbers_from_prompt(prompt_lower),
+        "include_current_user": _prompt_references_current_user(prompt_lower),
         "date": _date_from_prompt(prompt_lower),
         "time_from": time_from,
         "time_to": time_to,
