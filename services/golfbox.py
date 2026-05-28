@@ -977,10 +977,11 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None, pending_canc
             booking_start=pending_cancel.get("booking_start"),
             resource_guid=pending_cancel.get("resource_guid"),
         )
-    profile_result = _profile_info_result(prompt_lower, user)
-    if profile_result:
-        profile_result["prompt"] = cleaned_prompt
-        return profile_result
+    if not _booking_or_cancel_prompt(prompt_lower):
+        profile_result = _profile_info_result(prompt_lower, user)
+        if profile_result:
+            profile_result["prompt"] = cleaned_prompt
+            return profile_result
 
     interpretation = _interpret_prompt_with_openai(cleaned_prompt, user)
     intent = interpretation["intent"]
@@ -1592,6 +1593,24 @@ def _watch_prompt(prompt_lower):
         "blir ledig",
     )
     return any(phrase in prompt_lower for phrase in watch_phrases)
+
+
+def _booking_or_cancel_prompt(prompt_lower):
+    booking_words = (
+        "book",
+        "booke",
+        "booker",
+        "booking",
+        "bestill",
+        "reserver",
+        "avbestill",
+        "avbook",
+        "kanseller",
+        "sjekk med jevne",
+        "følg med",
+        "folg med",
+    )
+    return any(word in prompt_lower for word in booking_words)
 
 
 def _is_confirmation_prompt(prompt_lower):
