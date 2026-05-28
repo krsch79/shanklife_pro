@@ -84,7 +84,7 @@
                         <th>Bane</th>
                         <th>Dato</th>
                         <th>Tid</th>
-                        <th>Gjennomføres</th>
+                        <th>Neste kjøring</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -225,7 +225,7 @@
                                         </tbody>
                                     </table>
                                 </div>
-                            {% elif result.status in ["booking_created", "scheduled_booking_created", "recurring_booking_created", "scheduled_booking_cancelled", "booking_cancelled"] %}
+                            {% elif result.status in ["booking_created", "scheduled_booking_created", "recurring_booking_created", "watch_booking_created", "scheduled_booking_cancelled", "booking_cancelled"] %}
                                 <p>{{ result.message }}</p>
                             {% elif result.available_slots %}
                                 <p>Jeg fant {{ result.available_slots|length }} ledige tider for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>

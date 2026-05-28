@@ -677,11 +677,19 @@ def _normalize_name(value):
 
 def _booking_player_memberships(user, interpretation, club_name=None):
     requested_names = interpretation.get("player_names") or []
+    requested_member_numbers = interpretation.get("member_numbers") or []
     memberships = []
     current_membership = _ensure_membership_for_user(user, club_name)
     current_name = (getattr(user, "player", None).name if getattr(user, "player", None) else getattr(user, "username", "")) or ""
     if not requested_names or any(_name_matches(current_name, name) for name in requested_names):
         memberships.append(current_membership or _self_booking_membership(user, club_name))
+
+    for member_number in requested_member_numbers:
+        memberships.append({
+            "player_name": f"Medlemsnummer {member_number}",
+            "member_number": member_number,
+            "club_name": club_name or "",
+        })
 
     for requested_name in requested_names:
         if _name_matches(current_name, requested_name):
@@ -984,6 +992,8 @@ def process_golfbox_prompt(prompt, user=None, pending_booking=None, pending_canc
     time_from = interpretation["time_from"]
     time_to = interpretation["time_to"]
     courses = interpretation["courses"]
+    if intent == "create_booking" and interpretation.get("watch"):
+        return _watch_booking_result(interpretation, cleaned_prompt, user)
     if intent == "create_booking" and interpretation.get("execute_at"):
         return _scheduled_booking_result(interpretation, cleaned_prompt, user)
 
@@ -1013,7 +1023,7 @@ def _interpret_prompt_with_openai(prompt, user):
     prompt_text = (
         f"I dag er {today}. Tolk golfmelding til JSON: "
         '{"intent":"find_availability|create_booking|cancel_booking|unknown",'
-        '"courses":[],"area":"","players":2,"player_names":[],'
+        '"courses":[],"area":"","players":2,"player_names":[],"member_numbers":[],"watch":false,'
         '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM",'
         '"execute_at":"","recurrence":{"frequency":"","weekday":"","execute_time":""}}. '
         "Regler: book/bestill/reserver=create_booking, ledig=find_availability, "
@@ -1022,6 +1032,8 @@ def _interpret_prompt_with_openai(prompt, user):
         "Bærum, Grini, Asker, Oppegård, Drøbak. Mangler dato: i dag. "
         "Mangler tidsrom: 06:00-22:00. Enkelt klokkeslett: time_from=klokkeslett "
         "og time_to=30 minutter senere. Mangler spillere: 2. "
+        "Medlemsnummer som 65-2560 legges i member_numbers. "
+        "Hvis brukeren ber deg sjekke jevnlig, følge med, prøve igjen eller booke hvis noe blir ledig, sett watch=true. "
         "Hvis brukeren ber om fast/repeterende booking, sett recurrence.frequency=weekly, "
         "recurrence.weekday til engelsk ukedag og recurrence.execute_time til klokkeslettet jobben skal kjøre. "
         "Hvis brukeren ber om at bookingen skal gjennomføres senere, sett execute_at "
@@ -1075,6 +1087,10 @@ def _normalize_interpretation(data, prompt, user=None):
     if not isinstance(player_names, list):
         player_names = []
     player_names = _clean_player_names(player_names, user)
+    member_numbers = data.get("member_numbers")
+    if not isinstance(member_numbers, list):
+        member_numbers = []
+    member_numbers = _clean_member_numbers(member_numbers) or fallback.get("member_numbers", [])
 
     try:
         players = int(data.get("players") or fallback["players"])
@@ -1085,7 +1101,9 @@ def _normalize_interpretation(data, prompt, user=None):
         players = 1
         player_names = []
     elif _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
-        players = min(4, max(1, len(player_names) + 1))
+        players = min(4, max(1, len(player_names) + len(member_numbers) + 1))
+    if member_numbers and not _prompt_has_explicit_player_count(prompt_lower):
+        players = min(4, max(players, len(player_names) + len(member_numbers) + (1 if _prompt_references_current_user(prompt_lower) else 0)))
 
     play_date = str(data.get("date") or fallback["date"]).strip()
     time_from = str(data.get("time_from") or fallback["time_from"]).strip()
@@ -1108,11 +1126,13 @@ def _normalize_interpretation(data, prompt, user=None):
         "area": area,
         "players": players,
         "player_names": player_names,
+        "member_numbers": member_numbers,
         "date": play_date,
         "time_from": time_from,
         "time_to": time_to,
         "execute_at": execute_at,
         "recurrence": recurrence,
+        "watch": bool(data.get("watch") or fallback.get("watch") or _watch_prompt(prompt_lower)),
     }
 
 
@@ -1128,18 +1148,20 @@ def _fallback_prompt_interpretation(prompt):
     time_from, time_to = _time_window_from_prompt(prompt_lower)
     players = _players_from_prompt(prompt_lower)
     if _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
-        players = 1
+        players = 1 + len(_member_numbers_from_prompt(prompt_lower))
     return {
         "intent": intent,
         "courses": courses,
         "area": "oslo" if "oslo-området" in prompt_lower or "osloområdet" in prompt_lower else "",
         "players": players,
         "player_names": [],
+        "member_numbers": _member_numbers_from_prompt(prompt_lower),
         "date": _date_from_prompt(prompt_lower),
         "time_from": time_from,
         "time_to": time_to,
         "execute_at": _execute_at_from_prompt(prompt_lower),
         "recurrence": _recurrence_from_prompt(prompt_lower),
+        "watch": _watch_prompt(prompt_lower),
     }
 
 
@@ -1542,6 +1564,36 @@ def _clean_player_names(player_names, user=None):
     return cleaned
 
 
+def _clean_member_numbers(member_numbers):
+    cleaned = []
+    for value in member_numbers:
+        match = re.search(r"\b(\d{1,5}-\d{1,8})\b", str(value))
+        if match and match.group(1) not in cleaned:
+            cleaned.append(match.group(1))
+    return cleaned
+
+
+def _member_numbers_from_prompt(prompt_lower):
+    return _clean_member_numbers(re.findall(r"\b\d{1,5}-\d{1,8}\b", prompt_lower))
+
+
+def _watch_prompt(prompt_lower):
+    watch_phrases = (
+        "sjekk jevnlig",
+        "jevne mellomrom",
+        "følg med",
+        "folg med",
+        "prøv igjen",
+        "prov igjen",
+        "hvis det ikke er noe ledig",
+        "hvis det ikke er ledig",
+        "hvis du finner ledig",
+        "blir noe ledig",
+        "blir ledig",
+    )
+    return any(phrase in prompt_lower for phrase in watch_phrases)
+
+
 def _is_confirmation_prompt(prompt_lower):
     return prompt_lower in {"ja", "ja takk", "bekreft", "book", "bestill", "ok", "kjør"} or "bekreft booking" in prompt_lower
 
@@ -1682,6 +1734,98 @@ def _scheduled_booking_result(interpretation, prompt, user):
     }
 
 
+def _watch_booking_result(interpretation, prompt, user):
+    if not _credentials_for_user(user):
+        return {
+            "intent": "create_booking",
+            "status": "configuration_required",
+            "message": "Legg GolfBox-innlogging inn på Min side før jeg kan følge med etter ledig tid.",
+            "available_slots": [],
+        }
+    courses = interpretation.get("courses") or [DEFAULT_GOLFBOX_COURSE]
+    if len(courses) != 1:
+        return {
+            "intent": "create_booking",
+            "status": "booking_unsupported_course",
+            "message": "Automatisk ledighetssjekk må peke på én konkret bane.",
+            "available_slots": [],
+        }
+    course_name = courses[0]
+    player_memberships = _booking_player_memberships(user, interpretation, course_name)
+    if len(player_memberships) != interpretation["players"]:
+        return {
+            "intent": "create_booking",
+            "status": "needs_player_details",
+            "message": "Jeg mangler GolfBox-medlemskap eller medlemsnummer for én eller flere spillere før jeg kan følge med.",
+            "available_slots": [],
+        }
+
+    availability = find_golfbox_availability(
+        course=course_name,
+        players=interpretation["players"],
+        play_date=interpretation["date"],
+        time_from=interpretation["time_from"],
+        time_to=interpretation["time_to"],
+        user=user,
+    )
+    availability["intent"] = "create_booking"
+    availability["prompt"] = prompt
+    availability["interpretation"] = interpretation
+    if availability.get("status") != "ok":
+        return availability
+    if availability.get("available_slots"):
+        return _booking_confirmation_result(availability, interpretation, user)
+
+    from models import GolfBoxWatchBooking
+
+    play_date = _parse_date(interpretation["date"])
+    start_time = _parse_time(interpretation["time_from"], "time_from")
+    end_time = _parse_time(interpretation["time_to"], "time_to")
+    expires_at = datetime.combine(play_date, end_time)
+    if expires_at <= server_now():
+        return {
+            "intent": "create_booking",
+            "status": "booking_failed",
+            "message": "Tidsrommet er allerede passert, så jeg kan ikke følge med på denne bookingen.",
+            "available_slots": [],
+        }
+
+    watch = GolfBoxWatchBooking(
+        created_by_user_id=user.id,
+        status="active",
+        course=course_name,
+        play_date=play_date,
+        time_from=start_time.strftime("%H:%M"),
+        time_to=end_time.strftime("%H:%M"),
+        interval_minutes=5,
+        next_run_at=server_now() + timedelta(minutes=5),
+        expires_at=expires_at,
+        players_json=json.dumps(player_memberships, ensure_ascii=False),
+        requested_prompt=prompt,
+    )
+    db.session.add(watch)
+    db.session.commit()
+    player_text = ", ".join(player["player_name"] for player in player_memberships)
+    return {
+        "intent": "create_booking",
+        "status": "watch_booking_created",
+        "watch_booking_id": watch.id,
+        "course": watch.course,
+        "date": watch.play_date.isoformat(),
+        "time_from": watch.time_from,
+        "time_to": watch.time_to,
+        "execute_at": watch.next_run_at.strftime("%Y-%m-%d %H:%M"),
+        "players": len(player_memberships),
+        "player_names": [player["player_name"] for player in player_memberships],
+        "message": (
+            f"Jeg fant ingen ledig tid nå, så jeg følger med på {watch.course} "
+            f"{watch.play_date.isoformat()} mellom {watch.time_from} og {watch.time_to} "
+            f"for {player_text}. Jeg sjekker hvert {watch.interval_minutes}. minutt og booker automatisk hvis jeg finner plass."
+        ),
+        "available_slots": [],
+    }
+
+
 def _recurring_booking_result(interpretation, prompt, user, course_name, player_memberships):
     recurrence = interpretation.get("recurrence") or {}
     if recurrence.get("frequency") != "weekly":
@@ -1783,7 +1927,7 @@ def confirm_golfbox_booking(pending_booking, user=None, notification_event="conf
 
 
 def upcoming_golfbox_scheduled_bookings(user):
-    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking
+    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking, GolfBoxWatchBooking
 
     bookings = (
         GolfBoxScheduledBooking.query
@@ -1799,14 +1943,22 @@ def upcoming_golfbox_scheduled_bookings(user):
         .order_by(GolfBoxRecurringBooking.next_run_at.asc(), GolfBoxRecurringBooking.course.asc())
         .all()
     )
+    watch_bookings = (
+        GolfBoxWatchBooking.query
+        .filter_by(created_by_user_id=user.id)
+        .filter(GolfBoxWatchBooking.status == "active")
+        .order_by(GolfBoxWatchBooking.play_date.asc(), GolfBoxWatchBooking.time_from.asc())
+        .all()
+    )
     return (
         [_scheduled_booking_view(booking) for booking in bookings]
         + [_recurring_booking_view(booking) for booking in recurring_bookings]
+        + [_watch_booking_view(booking) for booking in watch_bookings]
     )
 
 
 def cancel_golfbox_scheduled_booking(booking_id, user, booking_type="scheduled"):
-    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking
+    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking, GolfBoxWatchBooking
 
     if booking_type == "recurring":
         recurring = GolfBoxRecurringBooking.query.filter_by(id=booking_id, created_by_user_id=user.id).first()
@@ -1818,6 +1970,17 @@ def cancel_golfbox_scheduled_booking(booking_id, user, booking_type="scheduled")
         recurring.cancelled_at = server_now()
         db.session.commit()
         return recurring
+
+    if booking_type == "watch":
+        watch = GolfBoxWatchBooking.query.filter_by(id=booking_id, created_by_user_id=user.id).first()
+        if not watch:
+            raise ValueError("Fant ikke ledighetssøket.")
+        if watch.status != "active":
+            raise ValueError("Dette ledighetssøket kan ikke kanselleres lenger.")
+        watch.status = "cancelled"
+        watch.cancelled_at = server_now()
+        db.session.commit()
+        return watch
 
     booking = GolfBoxScheduledBooking.query.filter_by(id=booking_id, created_by_user_id=user.id).first()
     if not booking:
@@ -1833,7 +1996,7 @@ def cancel_golfbox_scheduled_booking(booking_id, user, booking_type="scheduled")
 
 
 def run_due_golfbox_scheduled_bookings(limit=10):
-    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking
+    from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking, GolfBoxWatchBooking
 
     due_bookings = (
         GolfBoxScheduledBooking.query
@@ -1877,6 +2040,18 @@ def run_due_golfbox_scheduled_bookings(limit=10):
         db.session.commit()
     remaining = max(0, limit - len(results))
     if remaining:
+        watch_bookings = (
+            GolfBoxWatchBooking.query
+            .filter(GolfBoxWatchBooking.status == "active")
+            .filter(GolfBoxWatchBooking.next_run_at <= server_now())
+            .order_by(GolfBoxWatchBooking.next_run_at.asc())
+            .limit(remaining)
+            .all()
+        )
+        for booking in watch_bookings:
+            results.append(_run_watch_golfbox_booking(booking))
+        remaining = max(0, limit - len(results))
+    if remaining:
         recurring_bookings = (
             GolfBoxRecurringBooking.query
             .filter(GolfBoxRecurringBooking.status == "active")
@@ -1888,6 +2063,70 @@ def run_due_golfbox_scheduled_bookings(limit=10):
         for booking in recurring_bookings:
             results.append(_run_recurring_golfbox_booking(booking))
     return results
+
+
+def _run_watch_golfbox_booking(booking):
+    now = server_now()
+    if now >= booking.expires_at:
+        booking.status = "expired"
+        booking.last_run_at = now
+        booking.last_result_message = "Ledighetssøket utløp uten booking."
+        booking.updated_at = now
+        db.session.commit()
+        return {"id": booking.id, "type": "watch", "status": "expired", "message": booking.last_result_message}
+    try:
+        player_memberships = json.loads(booking.players_json or "[]")
+        availability = find_golfbox_availability(
+            course=booking.course,
+            players=len(player_memberships) or 1,
+            play_date=booking.play_date.isoformat(),
+            time_from=booking.time_from,
+            time_to=booking.time_to,
+            user=booking.created_by_user,
+        )
+        if availability.get("status") == "ok" and availability.get("available_slots"):
+            selected_slot = availability["available_slots"][0]
+            pending_booking = {
+                "course": selected_slot["course"],
+                "date": selected_slot["date"],
+                "time": selected_slot["time"],
+                "players": len(player_memberships) or 1,
+                "player_memberships": player_memberships,
+                "club_guid": selected_slot["club_guid"],
+                "resource_guid": selected_slot["resource_guid"],
+            }
+            result = confirm_golfbox_booking(
+                pending_booking,
+                user=booking.created_by_user,
+                notification_event="scheduled_executed",
+            )
+            message = result.get("message")
+            status = result.get("status")
+            booking.booked_time = selected_slot["time"] if status == "booking_created" else None
+            booking.booked_at = now if status == "booking_created" else None
+            booking.status = "completed" if status == "booking_created" else "failed"
+            booking.last_error_message = None if status == "booking_created" else message
+        else:
+            message = availability.get("message") or "Ingen ledig tid funnet ennå."
+            status = "no_slot"
+            booking.next_run_at = now + timedelta(minutes=max(1, booking.interval_minutes or 5))
+            if booking.next_run_at > booking.expires_at:
+                booking.next_run_at = booking.expires_at
+            booking.last_error_message = None
+        booking.last_run_at = now
+        booking.last_result_message = message
+        booking.updated_at = now
+        db.session.commit()
+        return {"id": booking.id, "type": "watch", "status": status, "message": message}
+    except Exception as exc:
+        booking.last_run_at = now
+        booking.last_error_message = str(exc)
+        booking.next_run_at = now + timedelta(minutes=max(1, booking.interval_minutes or 5))
+        if booking.next_run_at > booking.expires_at:
+            booking.next_run_at = booking.expires_at
+        booking.updated_at = now
+        db.session.commit()
+        return {"id": booking.id, "type": "watch", "status": "failed", "message": str(exc)}
 
 
 def _run_recurring_golfbox_booking(booking):
@@ -1974,6 +2213,24 @@ def _recurring_booking_view(booking):
         "status": booking.status,
         "course": booking.course,
         "play_date": f"Hver {WEEKDAY_NAMES[booking.play_weekday]}",
+        "play_time": f"{booking.time_from}-{booking.time_to}",
+        "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
+        "players": [player.get("player_name") or player.get("member_number") for player in players],
+        "can_cancel": booking.status == "active",
+    }
+
+
+def _watch_booking_view(booking):
+    try:
+        players = json.loads(booking.players_json or "[]")
+    except json.JSONDecodeError:
+        players = []
+    return {
+        "id": booking.id,
+        "type": "watch",
+        "status": booking.status,
+        "course": booking.course,
+        "play_date": booking.play_date.isoformat(),
         "play_time": f"{booking.time_from}-{booking.time_to}",
         "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
         "players": [player.get("player_name") or player.get("member_number") for player in players],

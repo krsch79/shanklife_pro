@@ -165,6 +165,11 @@ def ensure_schema_updates(app):
             add_column_if_missing("golfbox_recurring_bookings", "last_error_message", "last_error_message TEXT")
             add_column_if_missing("golfbox_recurring_bookings", "cancelled_at", "cancelled_at DATETIME")
 
+        if "golfbox_watch_bookings" in table_names:
+            add_column_if_missing("golfbox_watch_bookings", "booked_at", "booked_at DATETIME")
+            add_column_if_missing("golfbox_watch_bookings", "booked_time", "booked_time VARCHAR(5)")
+            add_column_if_missing("golfbox_watch_bookings", "cancelled_at", "cancelled_at DATETIME")
+
 
 def ensure_shanklife_club_options(app):
     required_clubs = [

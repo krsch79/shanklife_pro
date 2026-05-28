@@ -1167,7 +1167,7 @@ def ai_tools():
                         session["golfbox_pending_cancel"] = pending_cancel
                         pending_booking = None
                         session.pop("golfbox_pending_booking", None)
-                    elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required", "scheduled_booking_created", "recurring_booking_created", "booking_cancelled"}:
+                    elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required", "scheduled_booking_created", "recurring_booking_created", "watch_booking_created", "booking_cancelled"}:
                         pending_booking = None
                         pending_cancel = None
                         session.pop("golfbox_pending_booking", None)

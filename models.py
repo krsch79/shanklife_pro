@@ -53,6 +53,7 @@ class User(db.Model):
     ai_fix_requests = db.relationship("AiFixRequest", back_populates="created_by_user")
     golfbox_scheduled_bookings = db.relationship("GolfBoxScheduledBooking", back_populates="created_by_user")
     golfbox_recurring_bookings = db.relationship("GolfBoxRecurringBooking", back_populates="created_by_user")
+    golfbox_watch_bookings = db.relationship("GolfBoxWatchBooking", back_populates="created_by_user")
 
 
 class GolfBoxScheduledBooking(db.Model):
@@ -112,6 +113,39 @@ class GolfBoxRecurringBooking(db.Model):
     cancelled_at = db.Column(db.DateTime, nullable=True)
 
     created_by_user = db.relationship("User", back_populates="golfbox_recurring_bookings")
+
+
+class GolfBoxWatchBooking(db.Model):
+    __tablename__ = "golfbox_watch_bookings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    status = db.Column(db.String(30), nullable=False, default="active")
+    course = db.Column(db.String(120), nullable=False)
+    play_date = db.Column(db.Date, nullable=False)
+    time_from = db.Column(db.String(5), nullable=False)
+    time_to = db.Column(db.String(5), nullable=False)
+    interval_minutes = db.Column(db.Integer, nullable=False, default=5)
+    next_run_at = db.Column(db.DateTime, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    players_json = db.Column(db.Text, nullable=False)
+    requested_prompt = db.Column(db.Text, nullable=True)
+    last_run_at = db.Column(db.DateTime, nullable=True)
+    last_result_message = db.Column(db.Text, nullable=True)
+    last_error_message = db.Column(db.Text, nullable=True)
+    booked_at = db.Column(db.DateTime, nullable=True)
+    booked_time = db.Column(db.String(5), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=server_now,
+        server_default=db.func.now(),
+        onupdate=server_now,
+    )
+    cancelled_at = db.Column(db.DateTime, nullable=True)
+
+    created_by_user = db.relationship("User", back_populates="golfbox_watch_bookings")
 
 
 class BalleTourInvitation(db.Model):
