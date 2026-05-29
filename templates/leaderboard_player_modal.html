@@ -7,7 +7,12 @@
     </div>
 
     <div class="leaderboard-modal-totals">
-        <div><strong>Score:</strong> {{ data.to_par_display }}</div>
+        <div>
+            <strong>Score:</strong> {{ data.to_par_display }}
+            {% if data.completed_holes > 0 and data.completed_holes < data.hole_count %}
+            <span class="muted">etter {{ data.completed_holes }} hull</span>
+            {% endif %}
+        </div>
         <div><strong>Totalt slag:</strong> {{ data.total_score }}</div>
     </div>
 

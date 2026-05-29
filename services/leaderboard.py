@@ -234,6 +234,8 @@ def build_round_player_modal_data(round_player_id):
     out_par = 0
     in_par = 0
     total_par = 0
+    completed_holes = 0
+    completed_par = 0
 
     for hole in holes:
         score = score_map.get(hole.hole_number)
@@ -247,6 +249,8 @@ def build_round_player_modal_data(round_player_id):
         total_par += par
 
         if score is not None:
+            completed_holes += 1
+            completed_par += par
             total_score += score
             if hole.hole_number <= 9:
                 out_score += score
@@ -265,8 +269,8 @@ def build_round_player_modal_data(round_player_id):
         )
 
     to_par = None
-    if total_score > 0:
-        to_par = total_score - total_par
+    if completed_holes > 0:
+        to_par = total_score - completed_par
 
     return {
         "round_player_id": round_player.id,
@@ -278,6 +282,7 @@ def build_round_player_modal_data(round_player_id):
         "hcp_for_round": round_player.hcp_for_round,
         "tee_name": round_player.selected_tee.name if round_player.selected_tee else "—",
         "hole_count": course.hole_count,
+        "completed_holes": completed_holes,
         "hole_rows": hole_rows,
         "out_score": out_score,
         "in_score": in_score if course.hole_count > 9 else None,

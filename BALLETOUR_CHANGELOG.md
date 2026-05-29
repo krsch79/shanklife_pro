@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.62] - 2026-05-29
+- Retter scorevisningen i live leaderboard-scorekortet slik at score mot par beregnes mot fullførte hull, ikke hele banen.
+
 ## [1.8.61] - 2026-05-28
 - Viser i GolfBox AI-chatten om siste melding ble tolket med OpenAI og lokale regler, eller kun lokale regler.
 
