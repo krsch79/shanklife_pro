@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.63] - 2026-05-29
+- Viser fullførte Shanklife-runder som kompakte scorekort, på samme måte som fullførte BalleTour-runder.
+
 ## [1.8.62] - 2026-05-29
 - Retter scorevisningen i live leaderboard-scorekortet slik at score mot par beregnes mot fullførte hull, ikke hele banen.
 

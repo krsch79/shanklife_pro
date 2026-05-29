@@ -740,6 +740,19 @@ def _score_shape_class(score, par):
 
 
 def _balletour_round_scorecard(round_obj):
+    return _round_scorecard_rows(round_obj)
+
+
+def _round_score_card(round_obj):
+    scorecard = _round_scorecard_rows(round_obj)
+    scorecard.update({
+        "round": round_obj,
+        "weather_summary": _round_weather_summary(round_obj),
+    })
+    return scorecard
+
+
+def _round_scorecard_rows(round_obj):
     holes = list(round_obj.course.holes)
     par_by_hole = {hole.hole_number: hole.par for hole in holes}
     rows = []
@@ -1040,7 +1053,8 @@ def finished_rounds():
         .order_by(Round.started_at.desc())
         .all()
     )
-    return render_template("rounds.html", rounds=rows, title="Fullførte runder")
+    score_cards = [_round_score_card(round_obj) for round_obj in rows]
+    return render_template("finished_rounds.html", score_cards=score_cards, title="Fullførte runder")
 
 
 @rounds_bp.route("/rounds/new", methods=["GET", "POST"])
