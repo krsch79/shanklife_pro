@@ -82,8 +82,8 @@
                     <tr>
                         <th>Hvem</th>
                         <th>Bane</th>
-                        <th>Dato</th>
-                        <th>Tid</th>
+                        <th>Spilledato</th>
+                        <th>Tid/tidsrom</th>
                         <th>Neste kjøring</th>
                         <th></th>
                     </tr>
@@ -93,7 +93,12 @@
                     <tr>
                         <td>{{ booking.players|join(", ") }}</td>
                         <td>{{ booking.course }}</td>
-                        <td>{{ booking.play_date }}</td>
+                        <td>
+                            {{ booking.play_date }}
+                            {% if booking.schedule_label %}
+                            <div class="muted">{{ booking.schedule_label }}</div>
+                            {% endif %}
+                        </td>
                         <td>{{ booking.play_time }}</td>
                         <td>{{ booking.execute_at }}</td>
                         <td>

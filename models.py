@@ -96,6 +96,7 @@ class GolfBoxRecurringBooking(db.Model):
     time_to = db.Column(db.String(5), nullable=False)
     execute_weekday = db.Column(db.Integer, nullable=False)
     execute_time = db.Column(db.String(5), nullable=False)
+    play_weeks_ahead = db.Column(db.Integer, nullable=False, default=0)
     next_run_at = db.Column(db.DateTime, nullable=False)
     players_json = db.Column(db.Text, nullable=False)
     requested_prompt = db.Column(db.Text, nullable=True)

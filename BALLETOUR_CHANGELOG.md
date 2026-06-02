@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.64] - 2026-06-02
+- Retter faste GolfBox AI-bookinger slik at “neste” eller “påfølgende” spilledag ikke bookes som samme dag som kjøringen.
+- Viser kommende spilledato og tid/tidsrom tydeligere i listen over planlagte AI-bookinger.
+
 ## [1.8.62] - 2026-05-29
 - Retter scorevisningen i live leaderboard-scorekortet slik at score mot par beregnes mot fullførte hull, ikke hele banen.
 

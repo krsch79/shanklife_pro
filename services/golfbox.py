@@ -1073,7 +1073,7 @@ def _interpret_prompt_with_openai(prompt, user):
         '"courses":[],"area":"","players":2,"include_current_user":false,'
         '"player_names":[],"member_numbers":[],"member_number_names":{},"watch":false,'
         '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM",'
-        '"execute_at":"","recurrence":{"frequency":"","weekday":"","execute_time":""}}. '
+        '"execute_at":"","recurrence":{"frequency":"","weekday":"","execute_time":"","play_weekday":"","play_weeks_ahead":0}}. '
         "Regler: book/bestill/reserver=create_booking, ledig=find_availability, "
         "avbestill/kanseller=cancel_booking. Oslo-området: area=oslo og courses=[]. "
         "Flere baner listes i courses. Kjente korte banenavn: Ballerud, Oslo, Haga, "
@@ -1088,6 +1088,8 @@ def _interpret_prompt_with_openai(prompt, user):
         "Hvis brukeren ber deg sjekke jevnlig, følge med, prøve igjen eller booke hvis noe blir ledig, sett watch=true. "
         "Hvis brukeren ber om fast/repeterende booking, sett recurrence.frequency=weekly, "
         "recurrence.weekday til engelsk ukedag og recurrence.execute_time til klokkeslettet jobben skal kjøre. "
+        "Sett recurrence.play_weekday til ukedagen starttiden skal spilles dersom den nevnes. "
+        "Hvis brukeren sier neste/påfølgende mandag om spilletid når jobben også kjører mandag, sett play_weeks_ahead=1. "
         "Hvis brukeren ber om at bookingen skal gjennomføres senere, sett execute_at "
         "til lokal ISO-dato og tid for selve gjennomføringen, ikke spilletiden. Bare JSON. "
         f"Melding: {prompt}"
@@ -1538,6 +1540,7 @@ def _normalize_recurrence(value, prompt_lower):
         value = {}
     frequency = str(value.get("frequency") or "").strip().lower()
     weekday_value = str(value.get("weekday") or "").strip().lower()
+    play_weekday_value = str(value.get("play_weekday") or "").strip().lower()
     execute_time = str(value.get("execute_time") or "").strip()
     fallback = _recurrence_from_prompt(prompt_lower)
     if frequency not in {"weekly", "hver_uke", "ukentlig"}:
@@ -1548,10 +1551,16 @@ def _normalize_recurrence(value, prompt_lower):
     if not execute_time:
         return fallback
     parsed_time = _parse_time(execute_time, "execute_time")
+    play_weekday = _weekday_number(play_weekday_value)
+    if play_weekday is None:
+        play_weekday = fallback.get("play_weekday", execute_weekday)
+    play_weeks_ahead = _normalize_play_weeks_ahead(value.get("play_weeks_ahead"), prompt_lower, execute_weekday, play_weekday)
     return {
         "frequency": "weekly",
         "execute_weekday": execute_weekday,
         "execute_time": parsed_time.strftime("%H:%M"),
+        "play_weekday": play_weekday,
+        "play_weeks_ahead": play_weeks_ahead,
     }
 
 
@@ -1566,11 +1575,48 @@ def _recurrence_from_prompt(prompt_lower):
     if not match:
         return {}
     weekday_text, hour, minute = match.groups()
+    execute_weekday = _weekday_number(weekday_text)
+    play_weekday = _play_weekday_from_prompt(prompt_lower, execute_weekday)
     return {
         "frequency": "weekly",
-        "execute_weekday": _weekday_number(weekday_text),
+        "execute_weekday": execute_weekday,
         "execute_time": _format_prompt_time(hour, minute),
+        "play_weekday": play_weekday,
+        "play_weeks_ahead": _play_weeks_ahead_from_prompt(prompt_lower, execute_weekday, play_weekday),
     }
+
+
+def _play_weekday_from_prompt(prompt_lower, execute_weekday):
+    weekday_pattern = "|".join(WEEKDAY_NAMES)
+    explicit_match = re.search(
+        rf"(?:neste|påfølgende)\s+({weekday_pattern})",
+        prompt_lower,
+    )
+    if explicit_match:
+        return _weekday_number(explicit_match.group(1))
+    booking_match = re.search(
+        rf"(?:book|bestill|reserver)[^,.;]*?\b({weekday_pattern})\b",
+        prompt_lower,
+    )
+    if booking_match:
+        return _weekday_number(booking_match.group(1))
+    return execute_weekday
+
+
+def _play_weeks_ahead_from_prompt(prompt_lower, execute_weekday, play_weekday):
+    if execute_weekday == play_weekday and re.search(rf"\b(?:neste|påfølgende)\s+{WEEKDAY_NAMES[play_weekday]}\b", prompt_lower):
+        return 1
+    return 0
+
+
+def _normalize_play_weeks_ahead(raw_value, prompt_lower, execute_weekday, play_weekday):
+    try:
+        value = int(raw_value or 0)
+    except (TypeError, ValueError):
+        value = 0
+    value = max(0, min(4, value))
+    fallback_value = _play_weeks_ahead_from_prompt(prompt_lower, execute_weekday, play_weekday)
+    return max(value, fallback_value)
 
 
 def _weekday_number(value):
@@ -1987,16 +2033,19 @@ def _recurring_booking_result(interpretation, prompt, user, course_name, player_
 
     execute_weekday = int(recurrence["execute_weekday"])
     execute_time = recurrence["execute_time"]
+    play_weekday = int(recurrence.get("play_weekday", execute_weekday))
+    play_weeks_ahead = int(recurrence.get("play_weeks_ahead", 0) or 0)
     next_run_at = _next_weekday_run(execute_weekday, execute_time)
     recurring = GolfBoxRecurringBooking(
         created_by_user_id=user.id,
         status="active",
         course=course_name,
-        play_weekday=execute_weekday,
+        play_weekday=play_weekday,
         time_from=interpretation["time_from"],
         time_to=interpretation["time_to"],
         execute_weekday=execute_weekday,
         execute_time=execute_time,
+        play_weeks_ahead=play_weeks_ahead,
         next_run_at=next_run_at,
         players_json=json.dumps(player_memberships, ensure_ascii=False),
         requested_prompt=prompt,
@@ -2004,11 +2053,13 @@ def _recurring_booking_result(interpretation, prompt, user, course_name, player_
     db.session.add(recurring)
     db.session.commit()
     player_text = ", ".join(player["player_name"] for player in player_memberships)
+    first_play_date = _next_play_date_for_recurring(recurring)
     return {
         "intent": "create_booking",
         "status": "recurring_booking_created",
         "recurring_booking_id": recurring.id,
         "course": recurring.course,
+        "play_date": first_play_date.isoformat(),
         "time_from": recurring.time_from,
         "time_to": recurring.time_to,
         "execute_at": recurring.next_run_at.strftime("%Y-%m-%d %H:%M"),
@@ -2016,8 +2067,9 @@ def _recurring_booking_result(interpretation, prompt, user, course_name, player_
         "player_names": [player["player_name"] for player in player_memberships],
         "message": (
             f"Jeg har lagt inn fast ukentlig booking: {recurring.course} hver "
-            f"{WEEKDAY_NAMES[execute_weekday]} mellom {recurring.time_from} og {recurring.time_to} "
-            f"for {player_text}. Første forsøk kjøres {recurring.next_run_at:%Y-%m-%d %H:%M}."
+            f"{WEEKDAY_NAMES[play_weekday]} mellom {recurring.time_from} og {recurring.time_to} "
+            f"for {player_text}. Første forsøk kjøres {recurring.next_run_at:%Y-%m-%d %H:%M} "
+            f"og gjelder {first_play_date.isoformat()}."
         ),
         "available_slots": [],
     }
@@ -2328,6 +2380,11 @@ def _run_recurring_golfbox_booking(booking):
 def _next_play_date_for_recurring(booking):
     base = booking.next_run_at.date()
     days_ahead = (booking.play_weekday - base.weekday()) % 7
+    play_weeks_ahead = max(0, int(getattr(booking, "play_weeks_ahead", 0) or 0))
+    if days_ahead == 0 and play_weeks_ahead:
+        days_ahead = 7 * play_weeks_ahead
+    elif play_weeks_ahead > 1:
+        days_ahead += 7 * (play_weeks_ahead - 1)
     return base + timedelta(days=days_ahead)
 
 
@@ -2354,12 +2411,14 @@ def _recurring_booking_view(booking):
         players = json.loads(booking.players_json or "[]")
     except json.JSONDecodeError:
         players = []
+    play_date = _next_play_date_for_recurring(booking)
     return {
         "id": booking.id,
         "type": "recurring",
         "status": booking.status,
         "course": booking.course,
-        "play_date": f"Hver {WEEKDAY_NAMES[booking.play_weekday]}",
+        "play_date": play_date.isoformat(),
+        "schedule_label": f"Hver {WEEKDAY_NAMES[booking.play_weekday]}",
         "play_time": f"{booking.time_from}-{booking.time_to}",
         "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
         "players": [player.get("player_name") or player.get("member_number") for player in players],
