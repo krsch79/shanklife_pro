@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.65] - 2026-06-02
+- Viser både navn og GolfBox-medlemsnummer for spillere i listen over planlagte AI-bookinger.
+
 ## [1.8.64] - 2026-06-02
 - Retter faste GolfBox AI-bookinger slik at “neste” eller “påfølgende” spilledag ikke bookes som samme dag som kjøringen.
 - Viser kommende spilledato og tid/tidsrom tydeligere i listen over planlagte AI-bookinger.

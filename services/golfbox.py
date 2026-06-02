@@ -2401,7 +2401,7 @@ def _scheduled_booking_view(booking):
         "play_date": booking.play_date.isoformat(),
         "play_time": booking.play_time,
         "execute_at": booking.execute_at.strftime("%Y-%m-%d %H:%M"),
-        "players": [player.get("player_name") or player.get("member_number") for player in players],
+        "players": _booking_player_labels(players),
         "can_cancel": booking.status == "scheduled" and server_now() < booking.execute_at - timedelta(minutes=1),
     }
 
@@ -2421,7 +2421,7 @@ def _recurring_booking_view(booking):
         "schedule_label": f"Hver {WEEKDAY_NAMES[booking.play_weekday]}",
         "play_time": f"{booking.time_from}-{booking.time_to}",
         "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
-        "players": [player.get("player_name") or player.get("member_number") for player in players],
+        "players": _booking_player_labels(players),
         "can_cancel": booking.status == "active",
     }
 
@@ -2439,9 +2439,23 @@ def _watch_booking_view(booking):
         "play_date": booking.play_date.isoformat(),
         "play_time": f"{booking.time_from}-{booking.time_to}",
         "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
-        "players": [player.get("player_name") or player.get("member_number") for player in players],
+        "players": _booking_player_labels(players),
         "can_cancel": booking.status == "active",
     }
+
+
+def _booking_player_labels(players):
+    labels = []
+    for player in players:
+        name = (player.get("player_name") or "").strip()
+        member_number = (player.get("member_number") or "").strip()
+        if name and member_number:
+            labels.append(f"{name} ({member_number})")
+        elif name:
+            labels.append(name)
+        elif member_number:
+            labels.append(member_number)
+    return labels
 
 
 def _players_from_prompt(prompt_lower):
