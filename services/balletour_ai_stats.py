@@ -2,16 +2,18 @@ import json
 import os
 from collections import defaultdict
 
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 from extensions import db
 from models import Club, CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 
 
-MAX_RECENT_ROUNDS_PER_PLAYER = 12
-MAX_CLUB_ROWS_PER_PLAYER = 12
-MAX_TEE_PLAYERS = 8
+MAX_RECENT_ROUNDS_PER_PLAYER = 5
+MAX_CLUB_ROWS_PER_PLAYER = 8
+MAX_TEE_PLAYERS = 6
 MAX_TEE_HOLES = 18
+MAX_HOLE_PLAYERS = 8
+MAX_HOLE_CLUBS = 6
 
 
 def ask_balletour_stats_ai(series, memberships, prompt, current_user=None):
@@ -31,44 +33,54 @@ def ask_balletour_stats_ai(series, memberships, prompt, current_user=None):
 
     data_context = build_balletour_stats_context(series, memberships, current_user=current_user, prompt=prompt)
     client = OpenAI(api_key=api_key)
-    response = client.responses.create(
-        model=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": (
-                            "Du er BalleTour sin statistikkassistent. Svar på norsk, konkret og praktisk. "
-                            "Bruk bare tall og observasjoner fra JSON-grunnlaget du får. Ikke finn opp runder, "
-                            "spillere eller tall. Hvis datagrunnlaget ikke kan svare på spørsmålet, si hva som "
-                            "mangler og foreslå nærmeste relevante analyse. Forklar gjerne kort hvordan du tolker "
-                            "tallene, og avslutt med 1-3 praktiske observasjoner når det passer. "
-                            "BalleTour-banen spilles forskjellig fra rød og gul tee. Hvis spørsmålet nevner en tee, "
-                            "skal du bruke tallene for den tee-en. Hvis spørsmålet ikke nevner tee, skal du være "
-                            "tydelig på om du bruker samlet grunnlag eller sammenligner tee for tee. Ikke trekk "
-                            "sterke konklusjoner på tvers av tee uten å si at tee-forskjellen kan påvirke svaret."
-                        ),
-                    }
-                ],
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": (
-                            "Spørsmål fra bruker:\n"
-                            f"{prompt}\n\n"
-                            "BalleTour-statistikkgrunnlag som JSON:\n"
-                            f"{json.dumps(data_context, ensure_ascii=False)}"
-                        ),
-                    }
-                ],
-            },
-        ],
-    )
+    try:
+        response = client.responses.create(
+            model=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
+            input=[
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": (
+                                "Du er BalleTour sin statistikkassistent. Svar på norsk, konkret og praktisk. "
+                                "Bruk bare tall og observasjoner fra JSON-grunnlaget du får. Ikke finn opp runder, "
+                                "spillere eller tall. Hvis datagrunnlaget ikke kan svare på spørsmålet, si hva som "
+                                "mangler og foreslå nærmeste relevante analyse. Forklar gjerne kort hvordan du tolker "
+                                "tallene, og avslutt med 1-3 praktiske observasjoner når det passer. "
+                                "BalleTour-banen spilles forskjellig fra rød og gul tee. Hvis spørsmålet nevner en tee, "
+                                "skal du bruke tallene for den tee-en. Hvis spørsmålet ikke nevner tee, skal du være "
+                                "tydelig på om du bruker samlet grunnlag eller sammenligner tee for tee. Ikke trekk "
+                                "sterke konklusjoner på tvers av tee uten å si at tee-forskjellen kan påvirke svaret."
+                            ),
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": (
+                                "Spørsmål fra bruker:\n"
+                                f"{prompt}\n\n"
+                                "BalleTour-statistikkgrunnlag som JSON:\n"
+                                f"{json.dumps(data_context, ensure_ascii=False, separators=(',', ':'))}"
+                            ),
+                        }
+                    ],
+                },
+            ],
+        )
+    except RateLimitError:
+        return {
+            "answer": (
+                "Statistikkgrunnlaget ble fortsatt for stort for OpenAI akkurat nå. "
+                "Prøv å avgrense spørsmålet med spiller, hull eller tee, så henter jeg et smalere grunnlag."
+            ),
+            "data_context": data_context,
+            "used_openai": False,
+        }
     return {
         "answer": response.output_text.strip(),
         "data_context": data_context,
@@ -112,9 +124,11 @@ def build_balletour_stats_context(series, memberships, current_user=None, prompt
     players.sort(key=lambda row: (row["avg_score"] is None, row["avg_score"] or 9999, row["name"]))
     course_par = sum(par_by_hole.values())
     tee_breakdown = {}
+    tee_hint = _detect_tee_hint(prompt)
     for tee_key, tee_rows in sorted(by_tee.items(), key=lambda item: item[0]):
         if not tee_key:
             continue
+        include_details = tee_hint not in ("gul", "rød") or tee_key == tee_hint
         tee_breakdown[tee_key] = _tee_context(
             tee_key,
             memberships,
@@ -122,6 +136,7 @@ def build_balletour_stats_context(series, memberships, current_user=None, prompt
             tee_rows,
             completed_rounds_by_tee.get(tee_key, {}),
             par_by_hole,
+            include_details=include_details,
         )
     return {
         "course": {
@@ -153,7 +168,7 @@ def build_balletour_stats_context(series, memberships, current_user=None, prompt
             "scored_holes": len(entry_rows),
             "note": "Bare fullførte BalleTour-runder er inkludert i AI-grunnlaget.",
             "tee_note": "Bruk tee_breakdown for analyser der rød og gul tee kan gi ulike svar.",
-            "tee_hint_from_question": _detect_tee_hint(prompt),
+            "tee_hint_from_question": tee_hint,
         },
         "leaderboard": [
             {
@@ -166,8 +181,11 @@ def build_balletour_stats_context(series, memberships, current_user=None, prompt
             }
             for index, player in enumerate(players, start=1)
         ],
-        "players": players,
-        "holes": [_hole_context(hole_number, rows, par_by_hole) for hole_number, rows in sorted(by_hole.items())],
+        "players": [_compact_player(player) for player in players],
+        "holes": [
+            _hole_context(hole_number, rows, par_by_hole)
+            for hole_number, rows in sorted(by_hole.items())
+        ],
         "tee_breakdown": tee_breakdown,
         "field_summary": _field_summary(players, entry_rows),
     }
@@ -278,7 +296,7 @@ def _tee_lengths_by_hole(course):
     return by_hole
 
 
-def _tee_context(tee_name, memberships, player_names, rows, completed_rounds_by_player, par_by_hole):
+def _tee_context(tee_name, memberships, player_names, rows, completed_rounds_by_player, par_by_hole, include_details=True):
     by_player = defaultdict(list)
     by_hole = defaultdict(list)
     for row in rows:
@@ -299,7 +317,7 @@ def _tee_context(tee_name, memberships, player_names, rows, completed_rounds_by_
         _hole_context(hole_number, hole_rows, par_by_hole)
         for hole_number, hole_rows in sorted(by_hole.items())
     ][:MAX_TEE_HOLES]
-    return {
+    context = {
         "tee": tee_name,
         "dataset": {
             "players": len(players),
@@ -317,10 +335,14 @@ def _tee_context(tee_name, memberships, player_names, rows, completed_rounds_by_
             }
             for index, player in enumerate(players, start=1)
         ],
-        "players": players[:MAX_TEE_PLAYERS],
-        "holes": holes,
         "field_summary": _field_summary(players, rows),
     }
+    if include_details:
+        context["players"] = [_compact_player(player) for player in players[:MAX_TEE_PLAYERS]]
+        context["holes"] = holes
+    else:
+        context["details_note"] = "Detaljer utelatt fordi spørsmålet peker på en annen tee."
+    return context
 
 
 def _player_context(player_id, player_name, rows, completed_rounds, par_by_hole):
@@ -365,6 +387,26 @@ def _player_context(player_id, player_name, rows, completed_rounds, par_by_hole)
     }
 
 
+def _compact_player(player):
+    return {
+        "player_id": player["player_id"],
+        "name": player["name"],
+        "completed_rounds": player["completed_rounds"],
+        "scored_holes": player["scored_holes"],
+        "avg_score": player["avg_score"],
+        "avg_to_par": player["avg_to_par"],
+        "best_score": player["best_score"],
+        "best_to_par": player["best_to_par"],
+        "worst_to_par": player["worst_to_par"],
+        "score_distribution": player["score_distribution"],
+        "par_type_averages": player["par_type_averages"],
+        "putting": player["putting"],
+        "green": player["green"],
+        "clubs": player["clubs"],
+        "recent_rounds": player["recent_rounds"],
+    }
+
+
 def _player_hole_context(hole_number, rows, par_by_hole):
     par = par_by_hole.get(hole_number)
     scores = [row["strokes"] for row in rows]
@@ -392,9 +434,16 @@ def _hole_context(hole_number, rows, par_by_hole):
             "avg_to_par": _round(_avg([row["to_par"] for row in player_rows]), 2),
             "best": min((row["strokes"] for row in player_rows), default=None),
         }
-        for name, player_rows in sorted(_group_by(rows, "player_name").items())
+        for name, player_rows in sorted(
+            _group_by(rows, "player_name").items(),
+            key=lambda item: (_avg([row["to_par"] for row in item[1]]) is None, _avg([row["to_par"] for row in item[1]]) or 999, item[0]),
+        )[:MAX_HOLE_PLAYERS]
     ]
-    context["clubs"] = [_club_context(club, club_rows) for club, club_rows in _top_items(_group_by(rows, "club"), 10) if club]
+    context["clubs"] = [
+        _club_context(club, club_rows)
+        for club, club_rows in _top_items(_group_by(rows, "club"), MAX_HOLE_CLUBS)
+        if club
+    ]
     return context
 
 

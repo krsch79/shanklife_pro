@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.70] - 2026-06-05
+- Komprimerer datagrunnlaget som sendes til OpenAI i BalleTour sin AI-statistikkchat, slik at tee-baserte spørsmål ikke treffer token-grensen.
+- Viser en ryddigere feilmelding hvis OpenAI likevel avviser et for stort statistikkgrunnlag.
+
 ## [1.8.69] - 2026-06-05
 - Lar BalleTour sin AI-statistikkchat scrolle automatisk ned til siste spørsmål eller svar når siden lastes etter en ny melding.
 
