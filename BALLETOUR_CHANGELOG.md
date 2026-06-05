@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.67] - 2026-06-05
+- Legger til AI-statistikkchat for BalleTour, der brukeren kan spørre om score, hull, putting, køller, greenmønster og trender basert på lokalt beregnet datagrunnlag.
+
 ## [1.8.66] - 2026-06-05
 - Viser en liten jobb-popup med sprettende golfball når brukeren starter tidkrevende handlinger, slik at samme skjema ikke sendes flere ganger.
 

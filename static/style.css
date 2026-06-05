@@ -376,6 +376,22 @@ input.submit-is-loading {
     margin: 0;
 }
 
+.ai-example-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.ai-example-button {
+    text-align: left;
+    white-space: normal;
+}
+
+.ai-answer {
+    white-space: pre-wrap;
+}
+
 .ai-list-heading {
     margin-top: 18px;
 }

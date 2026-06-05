@@ -32,6 +32,7 @@ from services.golfbox import (
     upcoming_golfbox_bookings,
     upcoming_golfbox_scheduled_bookings,
 )
+from services.balletour_ai_stats import ask_balletour_stats_ai
 
 balletour_bp = Blueprint("balletour", __name__, url_prefix="/balletour")
 MAX_BALLETOUR_ROUND_PLAYERS = 4
@@ -1187,6 +1188,64 @@ def ai_tools():
             golfbox_connection=golfbox_connection_summary(g.current_user),
             golfbox_bookings=upcoming_golfbox_bookings(g.current_user),
             scheduled_bookings=upcoming_golfbox_scheduled_bookings(g.current_user),
+            **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/stats/ai", methods=["GET", "POST"])
+@login_required
+def ai_stats():
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        memberships = _balletour_memberships_with_rounds(
+            series,
+            get_balletour_memberships(),
+            statuses=("finished",),
+        )
+        chat_messages = session.get("balletour_stats_ai_chat", [])
+        if request.method == "GET":
+            chat_messages = []
+            session.pop("balletour_stats_ai_chat", None)
+
+        if request.method == "POST":
+            action = request.form.get("action", "").strip()
+            prompt = request.form.get("prompt", "").strip()
+            if action == "clear":
+                chat_messages = []
+                session.pop("balletour_stats_ai_chat", None)
+            elif prompt:
+                chat_messages.append({"role": "user", "text": prompt})
+                try:
+                    result = ask_balletour_stats_ai(
+                        series,
+                        memberships,
+                        prompt,
+                        current_user=g.current_user,
+                    )
+                    chat_messages.append({
+                        "role": "assistant",
+                        "text": result["answer"],
+                        "used_openai": result.get("used_openai", False),
+                        "context_summary": result.get("data_context", {}).get("dataset", {}),
+                    })
+                except Exception as exc:
+                    chat_messages.append({"role": "assistant", "error": str(exc)})
+            else:
+                flash("Skriv et statistikkspørsmål først.", "error")
+            session["balletour_stats_ai_chat"] = chat_messages[-10:]
+
+        return render_template(
+            "balletour_ai_stats.html",
+            series=series,
+            chat_messages=chat_messages,
+            example_prompts=[
+                "Hva bør jeg trene på basert på de siste BalleTour-tallene?",
+                "Hvem er best på hull 4, og hvorfor?",
+                "Sammenlign puttingen til Kristian og Erik.",
+                "Hvilke køller gir best score på par 3-hullene?",
+                "Hvor taper jeg flest slag sammenlignet med feltet?",
+            ],
             **_balletour_database_context(),
         )
 
