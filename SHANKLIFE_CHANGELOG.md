@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.66] - 2026-06-05
+- Viser en liten jobb-popup med sprettende golfball når brukeren starter tidkrevende handlinger, slik at samme skjema ikke sendes flere ganger.
+
 ## [1.8.65] - 2026-06-02
 - Viser både navn og GolfBox-medlemsnummer for spillere i listen over planlagte AI-bookinger.
 

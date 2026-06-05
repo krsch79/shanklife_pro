@@ -138,6 +138,117 @@ nav a {
     padding: 0;
 }
 
+button.submit-is-loading,
+input.submit-is-loading {
+    cursor: progress;
+    opacity: 0.76;
+}
+
+.loading-popup {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(15, 23, 42, 0.24);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+    z-index: 2000;
+}
+
+.loading-popup.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.loading-card {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    width: min(420px, 100%);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+    padding: 18px;
+}
+
+.loading-card strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 1.1rem;
+}
+
+.loading-card p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.bouncing-golf-ball {
+    position: relative;
+    height: 76px;
+}
+
+.golf-ball {
+    position: absolute;
+    left: 19px;
+    bottom: 18px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 15px 13px, rgba(148, 163, 184, 0.55) 0 2px, transparent 3px),
+        radial-gradient(circle at 27px 11px, rgba(148, 163, 184, 0.45) 0 2px, transparent 3px),
+        radial-gradient(circle at 20px 25px, rgba(148, 163, 184, 0.45) 0 2px, transparent 3px),
+        radial-gradient(circle at 31px 27px, rgba(148, 163, 184, 0.4) 0 2px, transparent 3px),
+        #ffffff;
+    border: 1px solid #cbd5e1;
+    box-shadow: inset -7px -9px 12px rgba(148, 163, 184, 0.26);
+    animation: golf-ball-bounce 760ms cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+.golf-ball-shadow {
+    position: absolute;
+    left: 16px;
+    bottom: 9px;
+    width: 48px;
+    height: 9px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.2);
+    animation: golf-ball-shadow 760ms cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+@keyframes golf-ball-bounce {
+    0%,
+    100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-28px) rotate(18deg);
+    }
+}
+
+@keyframes golf-ball-shadow {
+    0%,
+    100% {
+        transform: scaleX(1);
+        opacity: 0.28;
+    }
+    50% {
+        transform: scaleX(0.62);
+        opacity: 0.12;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .golf-ball,
+    .golf-ball-shadow {
+        animation: none;
+    }
+}
+
 .narrow-form {
     max-width: 440px;
 }

@@ -95,5 +95,72 @@
 
         {% block content %}{% endblock %}
     </main>
+    <div class="loading-popup" id="loading-popup" role="status" aria-live="polite" aria-hidden="true">
+        <div class="loading-card">
+            <div class="bouncing-golf-ball" aria-hidden="true">
+                <span class="golf-ball"></span>
+                <span class="golf-ball-shadow"></span>
+            </div>
+            <div>
+                <strong>Jobber med saken</strong>
+                <p id="loading-popup-message">Golfballen er sendt av gårde...</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function () {
+            const popup = document.getElementById("loading-popup");
+            const message = document.getElementById("loading-popup-message");
+            const messages = [
+                "Golfballen er sendt av gårde...",
+                "Vi leser greenen og jobber videre...",
+                "Et lite svingslag, så er vi der...",
+                "Holder linjen mens Shanklife jobber..."
+            ];
+
+            function showLoadingPopup() {
+                if (!popup) {
+                    return;
+                }
+                if (message) {
+                    message.textContent = messages[Math.floor(Math.random() * messages.length)];
+                }
+                popup.classList.add("is-visible");
+                popup.setAttribute("aria-hidden", "false");
+            }
+
+            function shouldHandleForm(form) {
+                if (!form || form.dataset.noLoading === "true") {
+                    return false;
+                }
+                const method = (form.getAttribute("method") || "get").toLowerCase();
+                if (method !== "post") {
+                    return false;
+                }
+                return true;
+            }
+
+            document.addEventListener("submit", function (event) {
+                const form = event.target;
+                if (!shouldHandleForm(form)) {
+                    return;
+                }
+                if (form.dataset.loadingSubmitted === "true") {
+                    event.preventDefault();
+                    return;
+                }
+
+                if (event.defaultPrevented) {
+                    return;
+                }
+                form.dataset.loadingSubmitted = "true";
+                form.querySelectorAll("button[type='submit'], input[type='submit']").forEach(function (button) {
+                    button.setAttribute("aria-disabled", "true");
+                    button.classList.add("submit-is-loading");
+                });
+                showLoadingPopup();
+            });
+        }());
+    </script>
 </body>
 </html>
