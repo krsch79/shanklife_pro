@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.68] - 2026-06-05
+- Forbedrer BalleTour sin AI-statistikkchat slik at datagrunnlaget deles per tee og tar hensyn til ulike hull-lengder fra rød og gul tee.
+
 ## [1.8.67] - 2026-06-05
 - Legger til en BalleTour-spesifikk AI-statistikkchat med lokalt beregnet datagrunnlag for score, hull, putting, køller, greenmønster og trender.
 

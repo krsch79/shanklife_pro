@@ -21,7 +21,8 @@
             {% endfor %}
         </div>
         <p class="muted">
-            AI-en får et lokalt beregnet statistikkgrunnlag fra BalleTour-rundene, og skal ikke finne opp tall.
+            AI-en får et lokalt beregnet statistikkgrunnlag fra BalleTour-rundene, delt på tee. Skriv gjerne
+            rød eller gul tee i spørsmålet når det påvirker svaret.
         </p>
     </div>
 
@@ -58,7 +59,7 @@
         <div class="chat-message assistant-message">
             <div class="chat-bubble">
                 <p>Hva vil du finne ut av i BalleTour-statistikken?</p>
-                <p class="muted">Eksempel: Hvor taper jeg flest slag sammenlignet med feltet?</p>
+                <p class="muted">Eksempel: Hvor taper jeg flest slag sammenlignet med feltet fra gul tee?</p>
             </div>
         </div>
         {% endif %}
@@ -69,7 +70,7 @@
         <textarea
             id="prompt"
             name="prompt"
-            placeholder="Spør om f.eks. hull, køller, putting, greenmønster, beste spiller eller utvikling"
+            placeholder="Spør om f.eks. hull, køller, putting, greenmønster, beste spiller eller utvikling fra rød/gul tee"
             required
         ></textarea>
         <div class="button-row compact">

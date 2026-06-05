@@ -1240,11 +1240,11 @@ def ai_stats():
             series=series,
             chat_messages=chat_messages,
             example_prompts=[
-                "Hva bør jeg trene på basert på de siste BalleTour-tallene?",
-                "Hvem er best på hull 4, og hvorfor?",
-                "Sammenlign puttingen til Kristian og Erik.",
-                "Hvilke køller gir best score på par 3-hullene?",
-                "Hvor taper jeg flest slag sammenlignet med feltet?",
+                "Hva bør jeg trene på basert på de siste BalleTour-tallene fra gul tee?",
+                "Hvem er best på hull 4 fra rød tee, og hvorfor?",
+                "Sammenlign puttingen til Kristian og Erik på gul tee.",
+                "Hvilke køller gir best score på par 3-hullene fra rød tee?",
+                "Hvor taper jeg flest slag sammenlignet med feltet fra gul tee?",
             ],
             **_balletour_database_context(),
         )
