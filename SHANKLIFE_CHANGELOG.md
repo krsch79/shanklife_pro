@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.69] - 2026-06-05
+- Lar BalleTour sin AI-statistikkchat scrolle automatisk ned til siste spørsmål eller svar når siden lastes etter en ny melding.
+
 ## [1.8.68] - 2026-06-05
 - Forbedrer BalleTour sin AI-statistikkchat slik at datagrunnlaget deles per tee og tar hensyn til ulike hull-lengder fra rød og gul tee.
 

@@ -30,11 +30,11 @@
         {% if chat_messages %}
             {% for message in chat_messages %}
                 {% if message.role == "user" %}
-                <div class="chat-message user-message">
+                <div class="chat-message user-message" {% if loop.last %}data-scroll-target="latest-chat-message"{% endif %}>
                     <div class="chat-bubble">{{ message.text }}</div>
                 </div>
                 {% else %}
-                <div class="chat-message assistant-message">
+                <div class="chat-message assistant-message" {% if loop.last %}data-scroll-target="latest-chat-message"{% endif %}>
                     <div class="chat-bubble">
                         {% if message.error %}
                             <p>{{ message.error }}</p>
@@ -93,6 +93,13 @@
             });
         });
         window.addEventListener("load", function () {
+            const latestMessage = document.querySelector('[data-scroll-target="latest-chat-message"]');
+            if (latestMessage) {
+                requestAnimationFrame(() => {
+                    latestMessage.scrollIntoView({ behavior: "smooth", block: "end" });
+                });
+                return;
+            }
             promptField?.focus();
         });
     }());
