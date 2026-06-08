@@ -1,12 +1,13 @@
 from collections import defaultdict
 
-from flask import Blueprint, g, render_template, request
+from flask import Blueprint, flash, g, render_template, request, session
 from sqlalchemy import or_
 
 from extensions import db
 from models import Club, CourseHole, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
 from routes.auth import login_required
 from services.balletour import get_balletour_course_id
+from services.shanklife_ai_stats import ask_shanklife_stats_ai
 
 stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
 
@@ -16,6 +17,52 @@ def _exclude_balletour_course(query):
     if balletour_course_id:
         return query.filter(Round.course_id != balletour_course_id)
     return query
+
+
+@stats_bp.route("/ai", methods=["GET", "POST"])
+@login_required
+def ai_stats():
+    chat_messages = session.get("shanklife_stats_ai_chat", [])
+    if request.method == "GET":
+        chat_messages = []
+        session.pop("shanklife_stats_ai_chat", None)
+
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        prompt = request.form.get("prompt", "").strip()
+        if action == "clear":
+            chat_messages = []
+            session.pop("shanklife_stats_ai_chat", None)
+        elif prompt:
+            chat_messages.append({"role": "user", "text": prompt})
+            try:
+                result = ask_shanklife_stats_ai(prompt, current_user=g.current_user)
+                chat_messages.append({
+                    "role": "assistant",
+                    "text": result["answer"],
+                    "used_openai": result.get("used_openai", False),
+                    "context_summary": result.get("data_context", {}).get("dataset", {}),
+                })
+            except Exception as exc:
+                chat_messages.append({
+                    "role": "assistant",
+                    "error": f"Jeg klarte ikke å analysere statistikken akkurat nå: {exc}",
+                })
+        else:
+            flash("Skriv et statistikkspørsmål først.", "error")
+        session["shanklife_stats_ai_chat"] = chat_messages[-10:]
+
+    return render_template(
+        "shanklife_ai_stats.html",
+        chat_messages=chat_messages,
+        example_prompts=[
+            "Hva bør jeg trene mest på basert på rundene mine?",
+            "På hvilken bane spiller jeg best i forhold til par?",
+            "Hvor taper jeg flest slag sammenlignet med de andre spillerne?",
+            "Hvordan er fairwaytreffene mine fordelt mellom treff, venstre og høyre?",
+            "Hvilke køller gir meg best resultater på par 4 og par 5?",
+        ],
+    )
 
 
 def _percent(numerator, denominator):

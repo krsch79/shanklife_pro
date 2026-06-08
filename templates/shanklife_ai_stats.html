@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}AI statistikk - Shanklife Pro{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <h2>AI statistikk</h2>
+        <p class="muted">Spør om score, baner, hull, putting, GIR, fairway, køller og utvikling</p>
+    </div>
+    <div class="page-title-actions">
+        <a class="button secondary" href="{{ url_for('stats.index') }}">Vanlig statistikk</a>
+    </div>
+</div>
+
+<section class="golfbox-chat-shell">
+    <div class="form-card">
+        <h3>Forslag</h3>
+        <div class="ai-example-list">
+            {% for example in example_prompts %}
+            <button type="button" class="button secondary ai-example-button" data-example="{{ example }}">{{ example }}</button>
+            {% endfor %}
+        </div>
+        <p class="muted">
+            AI-en bruker fullførte Shanklife-runder fra andre baner enn Ballerud/BalleTour.
+            Nevn gjerne spiller, bane, hull eller tee for et mer presist svar.
+        </p>
+    </div>
+
+    <div class="golfbox-chat-log">
+        {% if chat_messages %}
+            {% for message in chat_messages %}
+                {% if message.role == "user" %}
+                <div class="chat-message user-message" {% if loop.last %}data-scroll-target="latest-chat-message"{% endif %}>
+                    <div class="chat-bubble">{{ message.text }}</div>
+                </div>
+                {% else %}
+                <div class="chat-message assistant-message" {% if loop.last %}data-scroll-target="latest-chat-message"{% endif %}>
+                    <div class="chat-bubble">
+                        {% if message.error %}
+                            <p>{{ message.error }}</p>
+                        {% else %}
+                            <div class="ai-answer">{{ message.text }}</div>
+                            <p class="muted">
+                                {% if message.used_openai %}
+                                Tolket med OpenAI på lokalt Shanklife-grunnlag.
+                                {% else %}
+                                OpenAI ble ikke brukt.
+                                {% endif %}
+                                {% if message.context_summary %}
+                                Grunnlag: {{ message.context_summary.players }} spillere,
+                                {{ message.context_summary.courses }} baner,
+                                {{ message.context_summary.finished_round_players }} runder/spillere og
+                                {{ message.context_summary.scored_holes }} hullscorer.
+                                {% endif %}
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+        <div class="chat-message assistant-message">
+            <div class="chat-bubble">
+                <p>Hva vil du finne ut av i Shanklife-statistikken?</p>
+                <p class="muted">Eksempel: På hvilken bane spiller jeg best i forhold til par?</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="post" class="golfbox-chat-form">
+        <label for="prompt">Spørsmål</label>
+        <textarea
+            id="prompt"
+            name="prompt"
+            placeholder="Spør om f.eks. spiller, bane, hull, tee, score, putting, GIR, fairway eller køller"
+            required
+        ></textarea>
+        <div class="button-row compact">
+            <button type="submit" class="button">Spør AI</button>
+            {% if chat_messages %}
+            <button type="submit" name="action" value="clear" class="button secondary" formnovalidate>Tøm chat</button>
+            {% endif %}
+        </div>
+    </form>
+</section>
+
+<script>
+    (function () {
+        const promptField = document.getElementById("prompt");
+        document.querySelectorAll(".ai-example-button").forEach((button) => {
+            button.addEventListener("click", () => {
+                if (!promptField) return;
+                promptField.value = button.dataset.example || "";
+                promptField.focus();
+            });
+        });
+        window.addEventListener("load", function () {
+            const latestMessage = document.querySelector('[data-scroll-target="latest-chat-message"]');
+            if (latestMessage) {
+                requestAnimationFrame(() => {
+                    latestMessage.scrollIntoView({ behavior: "smooth", block: "end" });
+                });
+                return;
+            }
+            promptField?.focus();
+        });
+    }());
+</script>
+{% endblock %}

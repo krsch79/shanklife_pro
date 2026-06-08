@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.71] - 2026-06-08
+- Legger til en egen AI-statistikkchat for Shanklife-runder på andre baner enn Ballerud/BalleTour.
+- Lar brukeren spørre om spillere, baner, teer, hull, score, putting, GIR, fairwaytreff, missretning og køllevalg.
+
 ## [1.8.70] - 2026-06-05
 - Komprimerer datagrunnlaget som sendes til OpenAI i BalleTour sin AI-statistikkchat, slik at tee-baserte spørsmål ikke treffer token-grensen.
 - Viser en ryddigere feilmelding hvis OpenAI likevel avviser et for stort statistikkgrunnlag.
