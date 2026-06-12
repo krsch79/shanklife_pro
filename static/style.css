@@ -1887,6 +1887,21 @@ th {
     -webkit-overflow-scrolling: touch;
 }
 
+.course-hole-table .course-par-input {
+    width: 68px;
+    min-width: 68px;
+}
+
+.course-import-summary {
+    width: auto;
+    min-width: min(100%, 520px);
+}
+
+.course-import-summary th,
+.course-import-summary td {
+    white-space: nowrap;
+}
+
 .compact-table-wrap {
     max-height: calc(100vh - 230px);
     overflow: auto;
@@ -2363,6 +2378,13 @@ th {
 
     .form-card {
         padding: 10px;
+    }
+
+    .course-hole-table .course-par-input {
+        width: 72px;
+        min-width: 72px;
+        padding-left: 8px;
+        padding-right: 8px;
     }
 
     .settings-grid {

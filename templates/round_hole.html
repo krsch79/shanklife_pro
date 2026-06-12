@@ -21,11 +21,19 @@
         <div><strong>{{ hole.par }}</strong><span>Par</span></div>
         <div class="hole-vs-par-cell">
             {% if previous_vs_par_rows|length == 1 %}
-            <strong>{{ previous_vs_par_rows[0].display }}</strong>
+            <strong
+                data-live-vs-par
+                data-round-player-id="{{ previous_vs_par_rows[0].player.id }}"
+                data-base-vs-par="{{ previous_vs_par_rows[0].value if previous_vs_par_rows[0].value is not none else '' }}"
+            >{{ previous_vs_par_rows[0].display }}</strong>
             {% else %}
             <strong>
                 {% for row in previous_vs_par_rows %}
-                <small>{{ row.player.player_name_snapshot }} {{ row.display }}</small>{% if not loop.last %}<br>{% endif %}
+                <small
+                    data-live-vs-par
+                    data-round-player-id="{{ row.player.id }}"
+                    data-base-vs-par="{{ row.value if row.value is not none else '' }}"
+                >{{ row.player.player_name_snapshot }} <span data-live-vs-par-value>{{ row.display }}</span></small>{% if not loop.last %}<br>{% endif %}
                 {% endfor %}
             </strong>
             {% endif %}
@@ -52,7 +60,9 @@
                     <span>Score</span>
                     <select
                         name="score_{{ rp.id }}"
-                        {% if stat_values %}class="stat-score-select"{% endif %}
+                        class="hole-score-select{% if stat_values %} stat-score-select{% endif %}"
+                        data-round-player-id="{{ rp.id }}"
+                        data-hole-par="{{ hole.par }}"
                         {% if round.status == 'finished' %}disabled{% endif %}
                     >
                         <option value="" {% if not entry or entry.strokes is none %}selected{% endif %}>—</option>
@@ -264,6 +274,30 @@
     const isFinishedRound = "{{ round.status }}" === "finished";
     const errorPanel = document.getElementById("hole-form-errors");
 
+    function formatVsPar(value) {
+        if (value === 0) return "E";
+        return value > 0 ? `+${value}` : String(value);
+    }
+
+    function updateLiveVsPar(row) {
+        if (!row) return;
+        const scoreSelect = scoreSelectForRow(row);
+        if (!scoreSelect) return;
+        const display = document.querySelector(
+            `[data-live-vs-par][data-round-player-id="${scoreSelect.dataset.roundPlayerId}"]`
+        );
+        if (!display) return;
+        const base = Number.parseInt(display.dataset.baseVsPar, 10);
+        const score = Number.parseInt(scoreSelect.value, 10);
+        const par = Number.parseInt(scoreSelect.dataset.holePar, 10);
+        let value = Number.isInteger(base) ? base : null;
+        if (value !== null && Number.isInteger(score) && Number.isInteger(par)) {
+            value += score - par;
+        }
+        const target = display.querySelector("[data-live-vs-par-value]") || display;
+        target.textContent = value === null ? "—" : formatVsPar(value);
+    }
+
     function playerNameForRow(row) {
         return row.querySelector(".hole-player-meta strong")?.textContent.trim() || "Spiller";
     }
@@ -404,12 +438,20 @@
     }
 
     document.querySelectorAll(".hole-player-row.with-stats").forEach((row) => {
-        row.querySelector(".stat-score-select")?.addEventListener("change", () => syncAfterScoreControls(row));
+        row.querySelector(".stat-score-select")?.addEventListener("change", () => {
+            updateLiveVsPar(row);
+            syncAfterScoreControls(row);
+        });
         row.querySelector(".stat-putts-select")?.addEventListener("focus", () => syncPuttsOptionsForRow(row));
+        updateLiveVsPar(row);
         syncAfterScoreControls(row);
     });
     document.querySelectorAll(".hole-player-row:not(.with-stats)").forEach((row) => {
-        scoreSelectForRow(row)?.addEventListener("change", () => syncAfterScoreControls(row));
+        scoreSelectForRow(row)?.addEventListener("change", () => {
+            updateLiveVsPar(row);
+            syncAfterScoreControls(row);
+        });
+        updateLiveVsPar(row);
         syncAfterScoreControls(row);
     });
 

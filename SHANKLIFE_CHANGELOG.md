@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.72] - 2026-06-12
+- Bytter OpenAI-modellen i løsningen til GPT-5.2.
+- Gjør par-feltet bredere på mobil ved opprettelse av bane og viser beregnet par og lengde for front 9, back 9 og totalt.
+- Oppdaterer score mot par umiddelbart når en hullscore velges under runden.
+
 ## [1.8.71] - 2026-06-08
 - Legger til en egen AI-statistikkchat for Shanklife-runder på andre baner enn Ballerud/BalleTour.
 - Lar brukeren spørre om spillere, baner, teer, hull, score, putting, GIR, fairwaytreff, missretning og køllevalg.

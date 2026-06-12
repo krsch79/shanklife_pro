@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.72] - 2026-06-12
+- Bytter OpenAI-modellen i løsningen til GPT-5.2.
+- Oppdaterer score mot par umiddelbart når en hullscore velges under runden.
+
 ## [1.8.70] - 2026-06-05
 - Komprimerer datagrunnlaget som sendes til OpenAI i BalleTour sin AI-statistikkchat, slik at tee-baserte spørsmål ikke treffer token-grensen.
 - Viser en ryddigere feilmelding hvis OpenAI likevel avviser et for stort statistikkgrunnlag.

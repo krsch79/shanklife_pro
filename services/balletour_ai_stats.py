@@ -35,7 +35,7 @@ def ask_balletour_stats_ai(series, memberships, prompt, current_user=None):
     client = OpenAI(api_key=api_key)
     try:
         response = client.responses.create(
-            model=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
+            model=os.environ.get("OPENAI_MODEL", "gpt-5.2"),
             input=[
                 {
                     "role": "system",

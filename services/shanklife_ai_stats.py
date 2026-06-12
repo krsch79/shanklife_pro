@@ -32,7 +32,7 @@ def ask_shanklife_stats_ai(prompt, current_user=None):
 
     try:
         response = OpenAI(api_key=api_key).responses.create(
-            model=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
+            model=os.environ.get("OPENAI_MODEL", "gpt-5.2"),
             input=[
                 {
                     "role": "system",

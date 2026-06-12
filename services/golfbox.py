@@ -1096,7 +1096,7 @@ def _interpret_prompt_with_openai(prompt, user):
     )
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     response = client.responses.create(
-        model=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
+        model=os.environ.get("OPENAI_MODEL", "gpt-5.2"),
         input=[{
             "role": "user",
             "content": [{"type": "input_text", "text": prompt_text}],

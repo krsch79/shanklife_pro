@@ -52,7 +52,7 @@
 
     <h3>Hulloppsett</h3>
     <div class="table-wrap">
-        <table>
+        <table class="course-hole-table">
             <thead>
                 <tr>
                     <th>Hull</th>
@@ -68,7 +68,17 @@
                 <tr>
                     <td>{{ hole.hole_number }}</td>
                     <td>
-                        <input type="number" name="par_{{ hole.hole_number }}" value="{{ hole.par }}" min="3" max="6" required>
+                        <input
+                            type="number"
+                            name="par_{{ hole.hole_number }}"
+                            value="{{ hole.par }}"
+                            min="3"
+                            max="6"
+                            class="course-par-input"
+                            data-course-par
+                            data-hole-number="{{ hole.hole_number }}"
+                            required
+                        >
                     </td>
                     <td>
                         <input type="number" name="index_{{ hole.hole_number }}" value="{{ hole.stroke_index }}" min="1" max="{{ hole_count }}" required>
@@ -81,10 +91,44 @@
                             value="{{ tee.lengths[hole.hole_number] }}"
                             min="50"
                             max="650"
+                            data-course-length
+                            data-tee-index="{{ tee.index }}"
+                            data-hole-number="{{ hole.hole_number }}"
                             required
                         >
                     </td>
                     {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Kontrollsummer</h3>
+    <p class="muted">Regnes direkte fra feltene over, slik at du kan kontrollere bildeanalysen.</p>
+    <div class="table-wrap">
+        <table class="course-import-summary">
+            <thead>
+                <tr>
+                    <th>Verdi</th>
+                    <th>Front 9</th>
+                    <th>Back 9</th>
+                    <th>Totalt</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th>Par</th>
+                    <td data-par-summary="front">—</td>
+                    <td data-par-summary="back">—</td>
+                    <td data-par-summary="total">—</td>
+                </tr>
+                {% for tee in tees_data %}
+                <tr>
+                    <th>{{ tee.name }} lengde</th>
+                    <td data-length-summary="{{ tee.index }}:front">—</td>
+                    <td data-length-summary="{{ tee.index }}:back">—</td>
+                    <td data-length-summary="{{ tee.index }}:total">—</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -147,4 +191,65 @@
 })();
 </script>
 {% endif %}
+<script>
+(function () {
+    const holeCount = Number({{ hole_count|tojson }});
+
+    function numericValue(input) {
+        const value = Number.parseInt(input?.value || "", 10);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    function sumInputs(inputs) {
+        const values = inputs.map(numericValue);
+        if (!values.length || values.some((value) => value === null)) {
+            return null;
+        }
+        return values.reduce((total, value) => total + value, 0);
+    }
+
+    function displaySummary(selector, value, suffix = "") {
+        const element = document.querySelector(selector);
+        if (element) {
+            element.textContent = value === null ? "—" : `${value}${suffix}`;
+        }
+    }
+
+    function splitByNine(inputs) {
+        const front = inputs.filter((input) => Number(input.dataset.holeNumber) <= 9);
+        const back = inputs.filter((input) => Number(input.dataset.holeNumber) >= 10);
+        return {
+            front: sumInputs(front),
+            back: holeCount > 9 ? sumInputs(back) : null,
+            total: sumInputs(inputs),
+        };
+    }
+
+    function updateCourseSummaries() {
+        const parInputs = Array.from(document.querySelectorAll("[data-course-par]"));
+        const par = splitByNine(parInputs);
+        displaySummary('[data-par-summary="front"]', par.front);
+        displaySummary('[data-par-summary="back"]', par.back);
+        displaySummary('[data-par-summary="total"]', par.total);
+
+        const teeIndexes = new Set(
+            Array.from(document.querySelectorAll("[data-course-length]"))
+                .map((input) => input.dataset.teeIndex)
+        );
+        teeIndexes.forEach((teeIndex) => {
+            const inputs = Array.from(document.querySelectorAll(`[data-course-length][data-tee-index="${teeIndex}"]`));
+            const lengths = splitByNine(inputs);
+            displaySummary(`[data-length-summary="${teeIndex}:front"]`, lengths.front, " m");
+            displaySummary(`[data-length-summary="${teeIndex}:back"]`, lengths.back, " m");
+            displaySummary(`[data-length-summary="${teeIndex}:total"]`, lengths.total, " m");
+        });
+    }
+
+    document.querySelectorAll("[data-course-par], [data-course-length]").forEach((input) => {
+        input.addEventListener("input", updateCourseSummaries);
+        input.addEventListener("change", updateCourseSummaries);
+    });
+    updateCourseSummaries();
+})();
+</script>
 {% endblock %}

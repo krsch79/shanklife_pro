@@ -156,7 +156,7 @@ REGLER:
 """
 
     response = client.responses.create(
-        model="gpt-4.1",
+        model="gpt-5.2",
         input=[{
             "role": "user",
             "content": [
@@ -314,7 +314,7 @@ REGLER:
 """
 
     response = client.responses.create(
-        model="gpt-4.1",
+        model="gpt-5.2",
         input=[{
             "role": "user",
             "content": [
