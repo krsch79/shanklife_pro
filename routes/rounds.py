@@ -22,6 +22,13 @@ from models import (
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
+from services.round_length import (
+    allowed_round_hole_counts,
+    course_supports_nine_hole_round,
+    round_handicap_stroke_index,
+    round_hole_count,
+    round_holes,
+)
 from services.balletour import get_balletour_course_id, get_balletour_memberships, get_balletour_series
 from services.time import format_server_datetime, server_now
 from services.user_notifications import (
@@ -95,6 +102,7 @@ def build_course_tee_options(courses):
                 "name": tee.name,
                 "total_par": total_par,
                 "hole_count": course.hole_count,
+                "supports_nine_hole_round": course_supports_nine_hole_round(course),
                 "ratings": {
                     rating.gender: {
                         "slope": rating.slope,
@@ -137,6 +145,7 @@ def new_round_form_state(courses, players):
         course_tee_options=course_tee_options,
         player_hcps=player_hcps,
         player_genders=player_genders,
+        selected_round_hole_count=request.form.get("round_hole_count", "").strip(),
     )
 
 
@@ -161,11 +170,13 @@ def _parse_tee(raw_value, course_tees, player_name):
     return selected_tee_id
 
 
-def _create_round(course, round_players_payload, stats_user_id=None):
+def _create_round(course, round_players_payload, stats_user_id=None, played_hole_count=None):
+    selected_hole_count = played_hole_count or course.hole_count
     round_obj = Round(
         course_id=course.id,
         status="ongoing",
         started_at=server_now(),
+        played_hole_count=selected_hole_count,
         stats_user_id=stats_user_id,
     )
     db.session.add(round_obj)
@@ -186,7 +197,7 @@ def _create_round(course, round_players_payload, stats_user_id=None):
         round_player_rows.append(rp)
 
     for rp in round_player_rows:
-        for hole in range(1, course.hole_count + 1):
+        for hole in range(1, selected_hole_count + 1):
             db.session.add(
                 ScoreEntry(
                     round_id=round_obj.id,
@@ -197,6 +208,18 @@ def _create_round(course, round_players_payload, stats_user_id=None):
             )
 
     return round_obj
+
+
+def _parse_round_hole_count(course):
+    raw_value = request.form.get("round_hole_count", "").strip()
+    try:
+        selected_hole_count = int(raw_value or course.hole_count)
+    except ValueError as exc:
+        raise ValueError("Ugyldig valg av antall hull.") from exc
+
+    if selected_hole_count not in allowed_round_hole_counts(course):
+        raise ValueError("Denne banen kan ikke spilles med valgt antall hull.")
+    return selected_hole_count
 
 
 def _current_user_can_track_stats(round_obj):
@@ -606,7 +629,7 @@ def _shanklife_rounds_query():
 
 def _balletour_round_summary(round_obj):
     rows = []
-    course_par = sum(hole.par for hole in round_obj.course.holes)
+    course_par = sum(hole.par for hole in round_holes(round_obj))
     for round_player in sorted(round_obj.round_players, key=lambda rp: rp.id):
         entries = [
             entry for entry in round_player.score_entries
@@ -753,7 +776,7 @@ def _round_score_card(round_obj):
 
 
 def _round_scorecard_rows(round_obj):
-    holes = list(round_obj.course.holes)
+    holes = round_holes(round_obj)
     par_by_hole = {hole.hole_number: hole.par for hole in holes}
     rows = []
 
@@ -846,8 +869,8 @@ def _score_totals(round_obj, round_player_id):
             in_total += score_entry.strokes
 
     return {
-        "out": out_total if round_obj.course.hole_count >= 9 else total_strokes,
-        "in": in_total if round_obj.course.hole_count > 9 else None,
+        "out": out_total if round_hole_count(round_obj) >= 9 else total_strokes,
+        "in": in_total if round_hole_count(round_obj) > 9 else None,
         "total": total_strokes,
     }
 
@@ -867,10 +890,10 @@ def _next_unscored_hole_number(round_obj):
             scored_by_hole.setdefault(entry.hole_number, set()).add(entry.round_player_id)
 
     expected_player_count = len(round_player_ids)
-    for hole in round_obj.course.holes:
+    for hole in round_holes(round_obj):
         if len(scored_by_hole.get(hole.hole_number, set())) < expected_player_count:
             return hole.hole_number
-    return round_obj.course.hole_count
+    return round_hole_count(round_obj)
 
 
 def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
@@ -1081,6 +1104,12 @@ def new_round():
             flash("Valgt bane finnes ikke.", "error")
             return new_round_form_state(courses, players)
 
+        try:
+            selected_hole_count = _parse_round_hole_count(course)
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return new_round_form_state(courses, players)
+
         course_tees = {tee.id: tee for tee in course.tees}
         if not course_tees:
             flash("Valgt bane har ingen tees. Legg til minst ett tee-sett på banen først.", "error")
@@ -1210,7 +1239,11 @@ def new_round():
             flash("Du må velge mellom 1 og 4 spillere totalt.", "error")
             return new_round_form_state(courses, players)
 
-        round_obj = _create_round(course, round_players_payload)
+        round_obj = _create_round(
+            course,
+            round_players_payload,
+            played_hole_count=selected_hole_count,
+        )
         db.session.commit()
         _send_shanklife_round_started_mail(round_obj)
         flash("Runde opprettet.", "success")
@@ -1279,6 +1312,12 @@ def new_stats_round():
         course = Course.query.get(course_id)
         if not course:
             flash("Valgt bane finnes ikke.", "error")
+            return new_stats_round_form_state(courses, players)
+
+        try:
+            selected_hole_count = _parse_round_hole_count(course)
+        except ValueError as exc:
+            flash(str(exc), "error")
             return new_stats_round_form_state(courses, players)
 
         course_tees = {tee.id: tee for tee in course.tees}
@@ -1378,7 +1417,12 @@ def new_stats_round():
             flash("Du kan ikke ha samme spiller mer enn én gang i samme runde.", "error")
             return new_stats_round_form_state(courses, players)
 
-        round_obj = _create_round(course, round_players_payload, stats_user_id=g.current_user.id)
+        round_obj = _create_round(
+            course,
+            round_players_payload,
+            stats_user_id=g.current_user.id,
+            played_hole_count=selected_hole_count,
+        )
         db.session.commit()
         _send_shanklife_round_started_mail(round_obj)
         flash("Runde med statistikk opprettet.", "success")
@@ -1427,8 +1471,9 @@ def continue_round(round_id):
 def round_hole(round_id, hole_number):
     round_obj = Round.query.get_or_404(round_id)
     course = round_obj.course
+    played_hole_count = round_hole_count(round_obj)
 
-    if hole_number < 1 or hole_number > course.hole_count:
+    if hole_number < 1 or hole_number > played_hole_count:
         flash("Ugyldig hullnummer.", "error")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
 
@@ -1469,7 +1514,7 @@ def round_hole(round_id, hole_number):
         if action == "previous":
             target_hole = max(1, hole_number - 1)
         else:
-            target_hole = min(course.hole_count, hole_number + 1)
+            target_hole = min(played_hole_count, hole_number + 1)
 
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=target_hole))
 
@@ -1504,6 +1549,7 @@ def round_hole(round_id, hole_number):
         round=round_obj,
         course=course,
         hole=hole,
+        display_stroke_index=round_handicap_stroke_index(round_obj, hole),
         round_players=round_players,
         previous_vs_par_rows=_previous_vs_par_rows(round_obj, round_players, hole_number),
         score_entries=score_entries,
@@ -1520,8 +1566,9 @@ def round_hole(round_id, hole_number):
         hole_images=hole_images,
         image_tag_choices=_round_image_tag_choices(round_obj),
         is_balletour_scoring_page=_is_balletour_round(round_obj),
+        played_hole_count=played_hole_count,
         previous_hole=hole_number - 1 if hole_number > 1 else None,
-        next_hole=hole_number + 1 if hole_number < course.hole_count else None,
+        next_hole=hole_number + 1 if hole_number < played_hole_count else None,
     )
 
 
@@ -1531,7 +1578,7 @@ def upload_round_hole_image(round_id, hole_number):
     round_obj = Round.query.get_or_404(round_id)
     course = round_obj.course
 
-    if hole_number < 1 or hole_number > course.hole_count:
+    if hole_number < 1 or hole_number > round_hole_count(round_obj):
         flash("Ugyldig hullnummer.", "error")
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
 
@@ -1628,7 +1675,7 @@ def autosave_score(round_id):
     if not round_player:
         return jsonify({"ok": False, "error": "Fant ikke spiller i runden."}), 404
 
-    if hole_number < 1 or hole_number > round_obj.course.hole_count:
+    if hole_number < 1 or hole_number > round_hole_count(round_obj):
         return jsonify({"ok": False, "error": "Ugyldig hullnummer."}), 400
 
     hole = next((item for item in round_obj.course.holes if item.hole_number == hole_number), None)
@@ -1738,7 +1785,7 @@ def balletour_round_scorecard(round_id):
         return_hole = int(hole_number_raw)
     except ValueError:
         return_hole = 1
-    if return_hole < 1 or return_hole > round_obj.course.hole_count:
+    if return_hole < 1 or return_hole > round_hole_count(round_obj):
         return_hole = 1
 
     return render_template(
@@ -1756,10 +1803,12 @@ def round_score(round_id):
     course = round_obj.course
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     stats_rp = _stats_round_player(round_obj)
+    played_holes = round_holes(round_obj)
+    played_hole_count = round_hole_count(round_obj)
 
     if request.method == "POST":
         for rp in round_players:
-            for hole in range(1, course.hole_count + 1):
+            for hole in range(1, played_hole_count + 1):
                 field_name = f"score_{rp.id}_{hole}"
                 raw_value = request.form.get(field_name, "").strip()
 
@@ -1865,7 +1914,7 @@ def round_score(round_id):
         in_total = 0
         grand_total = 0
 
-        for hole in range(1, course.hole_count + 1):
+        for hole in range(1, played_hole_count + 1):
             entry = entries.get(hole)
             strokes = entry.strokes if entry else None
             player_scores[hole] = strokes
@@ -1884,8 +1933,8 @@ def round_score(round_id):
 
         score_map[rp.id] = player_scores
         totals[rp.id] = {
-            "out": out_total if course.hole_count >= 9 else grand_total,
-            "in": in_total if course.hole_count > 9 else None,
+            "out": out_total if played_hole_count >= 9 else grand_total,
+            "in": in_total if played_hole_count > 9 else None,
             "total": grand_total,
         }
 
@@ -1902,17 +1951,17 @@ def round_score(round_id):
             rp.hcp_for_round,
             rating,
             total_par,
-            course.hole_count,
+            played_hole_count,
         )
-        playing_handicap_map[rp.id] = received_strokes_for_round(playing_handicap, course.hole_count)
+        playing_handicap_map[rp.id] = received_strokes_for_round(playing_handicap, played_hole_count)
         received_strokes_map[rp.id] = {}
-        for hole_obj in course.holes:
+        for hole_obj in played_holes:
             received_strokes = 0
             if playing_handicap is not None:
                 received_strokes = strokes_received_for_hole(
                     playing_handicap,
-                    hole_obj.stroke_index,
-                    course.hole_count,
+                    round_handicap_stroke_index(round_obj, hole_obj),
+                    played_hole_count,
                 )
             received_strokes_map[rp.id][hole_obj.hole_number] = max(received_strokes, 0)
 
@@ -1920,6 +1969,12 @@ def round_score(round_id):
         "round_score.html",
         round=round_obj,
         course=course,
+        played_holes=played_holes,
+        played_hole_count=played_hole_count,
+        hole_index_map={
+            hole.hole_number: round_handicap_stroke_index(round_obj, hole)
+            for hole in played_holes
+        },
         round_players=round_players,
         score_map=score_map,
         totals=totals,
@@ -1931,7 +1986,7 @@ def round_score(round_id):
         stats_map=stats_map,
         score_options_by_hole={
             hole.hole_number: _score_options_for_par(hole.par)
-            for hole in course.holes
+            for hole in played_holes
         },
         putt_options=list(range(0, 6)),
         last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,

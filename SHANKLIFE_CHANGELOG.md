@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.73] - 2026-06-15
+- Lar brukeren velge 9 eller 18 hull ved rundestart når en 18-hullsbane består av to identiske 9-hullssløyfer.
+- Beregner og fordeler mottatte slag som en 9-hullsrunde når bare første sløyfe spilles, også når banen har 18-hulls slope og course rating.
+- Tilpasser scoreføring, scorekort, live leaderboard, statistikk og GolfBox-grunnlag til valgt rundelengde.
+
 ## [1.8.72] - 2026-06-12
 - Bytter OpenAI-modellen i løsningen til GPT-5.2.
 - Gjør par-feltet bredere på mobil ved opprettelse av bane og viser beregnet par og lengde for front 9, back 9 og totalt.

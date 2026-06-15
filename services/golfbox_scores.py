@@ -9,6 +9,7 @@ import httpx
 from models import CourseHole, CourseTeeLength, ScoreEntry
 from services.golfbox import GOLFBOX_BASE_URL, _credentials_for_user, _form_inputs, _login, user_has_golfbox_credentials
 from services.handicap import round_half_up
+from services.round_length import round_handicap_stroke_index, round_hole_count, round_holes
 from services.time import format_server_datetime, server_now
 
 
@@ -17,7 +18,7 @@ SCORE_FORM_PATH = "/site/my_golfbox/score/whs/newWHSScore.asp?selected={238637A4
 
 def round_player_score_payload(round_player):
     round_obj = round_player.round
-    holes = sorted(round_obj.course.holes, key=lambda hole: hole.hole_number)
+    holes = round_holes(round_obj)
     entries = {
         entry.hole_number: entry
         for entry in ScoreEntry.query.filter_by(round_player_id=round_player.id).all()
@@ -29,7 +30,7 @@ def round_player_score_payload(round_player):
             {
                 "hole_number": hole.hole_number,
                 "par": hole.par,
-                "stroke_index": hole.stroke_index,
+                "stroke_index": round_handicap_stroke_index(round_obj, hole),
                 "strokes": entry.strokes if entry else None,
                 "length": _tee_length(round_player, hole),
             }
@@ -39,7 +40,7 @@ def round_player_score_payload(round_player):
         "round_player_id": round_player.id,
         "course_name": round_obj.course.name,
         "tee_name": round_player.selected_tee.name if round_player.selected_tee else "",
-        "hole_count": round_obj.course.hole_count,
+        "hole_count": round_hole_count(round_obj),
         "played_at": round_obj.finished_at or round_obj.started_at,
         "hcp": round_player.hcp_for_round,
         "rows": rows,

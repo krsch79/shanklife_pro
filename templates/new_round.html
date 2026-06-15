@@ -15,7 +15,14 @@
         {% endfor %}
     </select>
 
-    <p class="muted">Velg bane først. Deretter velger du spillere og tee for hver.</p>
+    <div id="round-hole-count-field" hidden>
+        <label for="round_hole_count">Antall hull</label>
+        <select id="round_hole_count" name="round_hole_count" data-selected="{{ selected_round_hole_count }}">
+            <option value="">Velg antall hull</option>
+        </select>
+    </div>
+
+    <p class="muted">Velg bane og rundelengde først. Deretter velger du spillere og tee for hver.</p>
 
     <h3>Velg spillere (maks 4)</h3>
     <div class="player-slots">
@@ -66,6 +73,8 @@
 <script>
 (function () {
     const courseSelect = document.getElementById("course_id");
+    const roundHoleCountField = document.getElementById("round-hole-count-field");
+    const roundHoleCountSelect = document.getElementById("round_hole_count");
     const playerSelects = document.querySelectorAll(".player-select");
     const teeSelects = document.querySelectorAll(".tee-select");
     const courseTeeOptions = {{ course_tee_options|tojson }};
@@ -102,11 +111,11 @@
         return roundHalfUp(handicap * (rating.slope / 113) + (rating.course_rating - handicapPar));
     }
 
-    function calculateReceivedStrokes(playingHandicap, tee) {
-        if (playingHandicap === null || !tee) {
+    function calculateReceivedStrokes(playingHandicap) {
+        if (playingHandicap === null) {
             return null;
         }
-        if (Number(tee.hole_count) === 9) {
+        if (Number(roundHoleCountSelect.value) === 9) {
             return playingHandicap >= 0
                 ? Math.ceil(playingHandicap / 2)
                 : -Math.ceil(Math.abs(playingHandicap) / 2);
@@ -151,7 +160,7 @@
             return;
         }
 
-        const receivedStrokes = calculateReceivedStrokes(playingHandicap, tee);
+        const receivedStrokes = calculateReceivedStrokes(playingHandicap);
         activeDisplay.textContent = `Mottatte slag: ${Math.max(receivedStrokes, 0)}`;
     }
 
@@ -159,6 +168,33 @@
         document.querySelectorAll(".player-slot").forEach((slotEl) => {
             updateReceivedStrokes(slotEl);
         });
+    }
+
+    function refreshRoundHoleCount() {
+        const selectedCourseId = String(courseSelect.value || "");
+        const tee = (courseTeeOptions[selectedCourseId] || [])[0] || null;
+        const previousValue = roundHoleCountSelect.dataset.selected || roundHoleCountSelect.value || "";
+        const allowedCounts = tee
+            ? (tee.supports_nine_hole_round ? [9, 18] : [Number(tee.hole_count)])
+            : [];
+
+        roundHoleCountSelect.innerHTML = "";
+        allowedCounts.forEach((holeCount) => {
+            const option = document.createElement("option");
+            option.value = String(holeCount);
+            option.textContent = holeCount === 9 && Number(tee.hole_count) === 18
+                ? "9 hull (første sløyfe)"
+                : `${holeCount} hull`;
+            option.selected = String(holeCount) === String(previousValue);
+            roundHoleCountSelect.appendChild(option);
+        });
+
+        if (!roundHoleCountSelect.value && allowedCounts.length) {
+            roundHoleCountSelect.value = String(allowedCounts[allowedCounts.length - 1]);
+        }
+        roundHoleCountField.hidden = !tee;
+        roundHoleCountSelect.disabled = !tee;
+        roundHoleCountSelect.dataset.selected = "";
     }
 
     function populateTeeSelect(selectEl, options, selectedValue) {
@@ -234,9 +270,12 @@
         teeSelects.forEach((selectEl) => {
             selectEl.dataset.selected = "";
         });
+        refreshRoundHoleCount();
         refreshAllTeeSelects();
         updateAllReceivedStrokes();
     });
+
+    roundHoleCountSelect.addEventListener("change", updateAllReceivedStrokes);
 
     playerSelects.forEach((select) => {
         select.addEventListener("change", function () {
@@ -263,6 +302,7 @@
         handlePlayerSelection(slotEl);
     });
 
+    refreshRoundHoleCount();
     refreshAllTeeSelects();
     updateAllReceivedStrokes();
 })();

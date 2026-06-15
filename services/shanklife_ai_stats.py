@@ -7,6 +7,7 @@ from openai import OpenAI, RateLimitError
 from extensions import db
 from models import Club, Course, CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 from services.balletour import get_balletour_course_id
+from services.round_length import round_holes
 
 
 MAX_PLAYERS = 30
@@ -197,7 +198,7 @@ def _entry_rows(round_player_ids):
 def _completed_rounds(round_players):
     completed = []
     for round_player in round_players:
-        holes = {hole.hole_number: hole for hole in round_player.round.course.holes}
+        holes = {hole.hole_number: hole for hole in round_holes(round_player.round)}
         entries = [
             entry for entry in round_player.score_entries
             if entry.strokes is not None and entry.hole_number in holes

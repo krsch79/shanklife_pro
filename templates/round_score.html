@@ -63,12 +63,12 @@
                 </tr>
             </thead>
             <tbody>
-                {% for hole in course.holes %}
+                {% for hole in played_holes %}
                 <tr class="{% if hole.hole_number == 10 %}back-nine-start{% endif %}">
                     <td class="sticky-col meta-col">{{ hole.hole_number }}</td>
                     <td class="meta-col">{{ hole.par }}</td>
                     <td class="meta-col">
-                        <span class="hole-index">{{ hole.stroke_index }}</span>
+                        <span class="hole-index">{{ hole_index_map[hole.hole_number] }}</span>
                     </td>
 
                     {% for tee_col in tee_length_columns %}
@@ -189,7 +189,7 @@
                     {% endfor %}
                 </tr>
 
-                {% if hole.hole_number == 9 and course.hole_count > 9 %}
+                {% if hole.hole_number == 9 and played_hole_count > 9 %}
                 <tr class="summary-row nine-summary-row">
                     <td colspan="{{ 3 + (tee_length_columns|length) }}"><strong>Ut</strong></td>
                     {% for rp in round_players %}
@@ -199,7 +199,7 @@
                 {% endif %}
                 {% endfor %}
 
-                {% if course.hole_count <= 9 %}
+                {% if played_hole_count <= 9 %}
                 <tr class="summary-row">
                     <td colspan="{{ 3 + (tee_length_columns|length) }}"><strong>Ut</strong></td>
                     {% for rp in round_players %}

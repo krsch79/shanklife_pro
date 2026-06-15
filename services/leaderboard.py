@@ -1,7 +1,12 @@
 from collections import defaultdict
 
 from models import CourseTeeLength, Round, RoundPlayer, ScoreEntry
-from services.handicap import calculate_playing_handicap_for_course, strokes_received_for_hole
+from services.handicap import (
+    calculate_playing_handicap_for_course,
+    received_strokes_for_round,
+    strokes_received_for_hole,
+)
+from services.round_length import round_handicap_stroke_index, round_hole_count, round_holes
 from services.tee_filters import round_player_matches_tee
 
 
@@ -93,14 +98,14 @@ def build_live_leaderboards(view_mode="gross", tee_key="gul", course_id=None):
             continue
 
         course = rounds[0].course
-        hole_count = course.hole_count
         par_map = {hole.hole_number: hole.par for hole in course.holes}
         total_par_for_course = sum(par_map.values())
-        index_map = {hole.hole_number: hole.stroke_index for hole in course.holes}
 
         entries = []
 
         for round_obj in rounds:
+            hole_count = round_hole_count(round_obj)
+            played_hole_map = {hole.hole_number: hole for hole in round_holes(round_obj)}
             for round_player in round_obj.round_players:
                 if tee_key and not round_player_matches_tee(round_player, tee_key):
                     continue
@@ -148,7 +153,11 @@ def build_live_leaderboards(view_mode="gross", tee_key="gul", course_id=None):
                     total_par_completed += hole_par
 
                     if net_available:
-                        hole_index = index_map.get(score_entry.hole_number, hole_count)
+                        hole = played_hole_map.get(score_entry.hole_number)
+                        hole_index = (
+                            round_handicap_stroke_index(round_obj, hole)
+                            if hole else hole_count
+                        )
                         shots_received = strokes_received_for_hole(playing_handicap, hole_index, hole_count)
                         net_total_strokes += score_entry.strokes - shots_received
 
@@ -177,7 +186,7 @@ def build_live_leaderboards(view_mode="gross", tee_key="gul", course_id=None):
                         "net_total_strokes": net_total_strokes if net_available else None,
                         "net_to_par": net_to_par,
                         "net_to_par_display": _to_par_display(net_to_par),
-                        "playing_handicap": playing_handicap,
+                        "playing_handicap": received_strokes_for_round(playing_handicap, hole_count),
                     }
                 )
 
@@ -188,7 +197,7 @@ def build_live_leaderboards(view_mode="gross", tee_key="gul", course_id=None):
             {
                 "course_id": course.id,
                 "course_name": course.name,
-                "hole_count": hole_count,
+                "hole_count": course.hole_count,
                 "round_count": len(rounds),
                 "entries": entries,
             }
@@ -203,7 +212,7 @@ def build_round_player_modal_data(round_player_id):
     round_obj = round_player.round
     course = round_obj.course
 
-    holes = sorted(course.holes, key=lambda h: h.hole_number)
+    holes = round_holes(round_obj)
 
     entries = (
         ScoreEntry.query.filter_by(
@@ -261,7 +270,7 @@ def build_round_player_modal_data(round_player_id):
             {
                 "hole_number": hole.hole_number,
                 "par": par,
-                "index": hole.stroke_index,
+                "index": round_handicap_stroke_index(round_obj, hole),
                 "length": length,
                 "score": score,
                 "shape_class": _score_shape_class(score, par),
@@ -281,14 +290,14 @@ def build_round_player_modal_data(round_player_id):
         "player_name": round_player.player_name_snapshot,
         "hcp_for_round": round_player.hcp_for_round,
         "tee_name": round_player.selected_tee.name if round_player.selected_tee else "—",
-        "hole_count": course.hole_count,
+        "hole_count": round_hole_count(round_obj),
         "completed_holes": completed_holes,
         "hole_rows": hole_rows,
         "out_score": out_score,
-        "in_score": in_score if course.hole_count > 9 else None,
+        "in_score": in_score if round_hole_count(round_obj) > 9 else None,
         "total_score": total_score,
         "out_par": out_par,
-        "in_par": in_par if course.hole_count > 9 else None,
+        "in_par": in_par if round_hole_count(round_obj) > 9 else None,
         "total_par": total_par,
         "to_par_display": _to_par_display(to_par),
     }

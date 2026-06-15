@@ -6,6 +6,7 @@
 
 <div class="form-card">
     <p><strong>Bane:</strong> {{ round.course.name }}</p>
+    <p><strong>Rundelengde:</strong> {{ round.played_hole_count or round.course.hole_count }} hull</p>
     <p><strong>Status:</strong> {{ round.status }}</p>
     <p><strong>Startet:</strong> {{ round.started_at|datetime_local }}</p>
     <p><strong>Fullført:</strong> {{ round.finished_at|datetime_local }}</p>

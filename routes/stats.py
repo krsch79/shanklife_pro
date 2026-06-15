@@ -7,6 +7,7 @@ from extensions import db
 from models import Club, CourseHole, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
 from routes.auth import login_required
 from services.balletour import get_balletour_course_id
+from services.round_length import round_holes
 from services.shanklife_ai_stats import ask_shanklife_stats_ai
 
 stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
@@ -209,7 +210,7 @@ def _tracked_round_players(player):
 def _completed_rounds(round_players):
     completed = []
     for round_player in round_players:
-        holes = list(round_player.round.course.holes)
+        holes = round_holes(round_player.round)
         entries = [entry for entry in round_player.score_entries if entry.strokes is not None]
         if len(entries) != len(holes):
             continue
@@ -262,7 +263,7 @@ def _round_stat_summary(round_player):
         [entry for entry in round_player.score_entries if entry.strokes is not None],
         key=lambda entry: entry.hole_number,
     )
-    holes = {hole.hole_number: hole for hole in round_player.round.course.holes}
+    holes = {hole.hole_number: hole for hole in round_holes(round_player.round)}
     par_by_entry_id = {
         entry.id: holes[entry.hole_number].par
         for entry in entries

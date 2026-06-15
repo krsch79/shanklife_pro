@@ -78,6 +78,7 @@ def ensure_schema_updates(app):
             add_column_if_missing("courses", "legacy_id", "legacy_id INTEGER")
 
         if "rounds" in table_names:
+            add_column_if_missing("rounds", "played_hole_count", "played_hole_count INTEGER")
             add_column_if_missing("rounds", "stats_user_id", "stats_user_id INTEGER")
             add_column_if_missing("rounds", "weather_json", "weather_json TEXT")
             add_column_if_missing("rounds", "notes", "notes TEXT")
