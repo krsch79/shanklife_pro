@@ -788,10 +788,15 @@ def _booking_player_memberships(user, interpretation, club_name=None):
         memberships.append(current_membership or _self_booking_membership(user, club_name))
 
     for member_number in requested_member_numbers:
+        favorite = _favorite_for_member_number(user, member_number, club_name)
         memberships.append({
-            "player_name": member_number_names.get(member_number) or f"Medlemsnummer {member_number}",
+            "player_name": (
+                member_number_names.get(member_number)
+                or (favorite.name if favorite else "")
+                or f"Medlemsnummer {member_number}"
+            ),
             "member_number": member_number,
-            "club_name": club_name or "",
+            "club_name": (favorite.club_name if favorite else "") or club_name or "",
         })
 
     for requested_name in requested_names:
@@ -933,6 +938,32 @@ def _membership_for_favorite_name(user, player_name, club_name=None):
         "club_name": favorite.club_name,
         "source": "favorite",
     }
+
+
+def _favorite_for_member_number(user, member_number, club_name=None):
+    if not user or not member_number:
+        return None
+    from models import GolfBoxFavorite
+
+    favorites = (
+        GolfBoxFavorite.query
+        .filter_by(user_id=user.id, member_number=str(member_number).strip())
+        .all()
+    )
+    if not favorites:
+        return None
+
+    requested_club_key = _normalize_name(club_name)
+    if requested_club_key:
+        club_matches = [
+            favorite
+            for favorite in favorites
+            if _club_names_match(requested_club_key, favorite.club_name)
+        ]
+        if club_matches:
+            favorites = club_matches
+
+    return sorted(favorites, key=lambda item: (item.club_name or "", item.name or ""))[0]
 
 
 def _name_matches(candidate, requested):
@@ -2590,7 +2621,7 @@ def _scheduled_booking_view(booking):
         "play_date": booking.play_date.isoformat(),
         "play_time": booking.play_time,
         "execute_at": booking.execute_at.strftime("%Y-%m-%d %H:%M"),
-        "players": _booking_player_labels(players),
+        "players": _booking_player_labels(players, booking.created_by_user, booking.course),
         "can_cancel": booking.status == "scheduled" and server_now() < booking.execute_at - timedelta(minutes=1),
     }
 
@@ -2610,7 +2641,7 @@ def _recurring_booking_view(booking):
         "schedule_label": f"Hver {WEEKDAY_NAMES[booking.play_weekday]}",
         "play_time": f"{booking.time_from}-{booking.time_to}",
         "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
-        "players": _booking_player_labels(players),
+        "players": _booking_player_labels(players, booking.created_by_user, booking.course),
         "can_cancel": booking.status == "active",
     }
 
@@ -2628,16 +2659,20 @@ def _watch_booking_view(booking):
         "play_date": booking.play_date.isoformat(),
         "play_time": f"{booking.time_from}-{booking.time_to}",
         "execute_at": booking.next_run_at.strftime("%Y-%m-%d %H:%M"),
-        "players": _booking_player_labels(players),
+        "players": _booking_player_labels(players, booking.created_by_user, booking.course),
         "can_cancel": booking.status == "active",
     }
 
 
-def _booking_player_labels(players):
+def _booking_player_labels(players, user=None, club_name=None):
     labels = []
     for player in players:
         name = (player.get("player_name") or "").strip()
         member_number = (player.get("member_number") or "").strip()
+        if member_number and (not name or _normalize_name(name) == _normalize_name(f"Medlemsnummer {member_number}")):
+            favorite = _favorite_for_member_number(user, member_number, club_name)
+            if favorite:
+                name = favorite.name
         if name and member_number:
             labels.append(f"{name} ({member_number})")
         elif name:

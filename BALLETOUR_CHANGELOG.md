@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.75] - 2026-06-16
+- Viser både navn og medlemsnummer for spillere i planlagte GolfBox AI-bookinger.
+- Slår opp medlemsnummer fra GolfBox-favoritter når en booking er opprettet med medlemsnummer i prompten.
+
 ## [1.8.74] - 2026-06-16
 - Lagrer GolfBox-favoritter per BalleTour-bruker med navn, medlemsnummer og klubb.
 - Lar GolfBox AI bruke favorittlisten når brukeren ber om booking med navn i stedet for medlemsnummer.
