@@ -23,6 +23,7 @@ GOLFBOX_BASE_URL = "https://www.golfbox.no"
 BALLERUD_CLUB_GUID = "{FD174477-19BD-4120-BD4F-DF422371C961}"
 BALLERUD_RESSOURCE_GUID = "{82966715-948D-41EB-BCAB-3F7458EDB82E}"
 GOLFBOX_MY_TIMES_PATH = "/site/my_golfBox/myTimes/myTimes.asp"
+GOLFBOX_FAVORITES_PATH = "/site/playergroups/listGroups.asp?selected={F91B77FE-0055-4656-97C4-61D8923962B6}"
 OSLO_AREA_COURSES = [
     "Ballerud",
     "Oslo",
@@ -91,6 +92,25 @@ def golfbox_connection_summary(user):
     }
 
 
+def golfbox_favorites_summary(user):
+    if not user:
+        return []
+    from models import GolfBoxFavorite
+
+    return [
+        {
+            "name": favorite.name,
+            "member_number": favorite.member_number,
+            "club_name": favorite.club_name,
+            "hcp": favorite.hcp,
+        }
+        for favorite in GolfBoxFavorite.query
+        .filter_by(user_id=user.id)
+        .order_by(GolfBoxFavorite.name.asc(), GolfBoxFavorite.club_name.asc())
+        .all()
+    ]
+
+
 def _credentials_for_user(user):
     if not user_has_golfbox_credentials(user):
         return None
@@ -124,6 +144,10 @@ def save_user_golfbox_credentials(user, username, password):
     ) as client:
         frontpage_html = _login(client, credentials)
         memberships = _fetch_memberships(client, frontpage_html)
+        try:
+            favorites = _fetch_favorites(client)
+        except httpx.HTTPError:
+            favorites = []
     identity = _parse_identity(frontpage_html)
     user.golfbox_username = credentials["username"]
     user.golfbox_password_token = _encode_password(credentials["password"])
@@ -132,6 +156,7 @@ def save_user_golfbox_credentials(user, username, password):
     user.golfbox_member_number = identity.get("member_number")
     user.golfbox_memberships_json = json.dumps(memberships, ensure_ascii=False)
     user.golfbox_credentials_updated_at = server_now()
+    _replace_golfbox_favorites(user, favorites)
     return identity
 
 
@@ -143,6 +168,28 @@ def clear_user_golfbox_credentials(user):
     user.golfbox_member_number = None
     user.golfbox_memberships_json = None
     user.golfbox_credentials_updated_at = None
+    if getattr(user, "golfbox_favorites", None):
+        for favorite in list(user.golfbox_favorites):
+            db.session.delete(favorite)
+
+
+def sync_golfbox_favorites(user):
+    credentials = _credentials_for_user(user)
+    if not credentials:
+        raise ValueError("GolfBox-innlogging mangler.")
+    try:
+        with httpx.Client(
+            follow_redirects=True,
+            timeout=30,
+            headers={"User-Agent": "Mozilla/5.0"},
+        ) as client:
+            _login(client, credentials)
+            favorites = _fetch_favorites(client)
+    except httpx.HTTPError as exc:
+        raise ValueError(f"Kunne ikke hente GolfBox-favoritter: {exc}") from exc
+    _replace_golfbox_favorites(user, favorites)
+    db.session.commit()
+    return favorites
 
 
 def migrate_golfbox_password_tokens():
@@ -545,6 +592,60 @@ def _fetch_memberships(client, frontpage_html):
     return _dedupe_memberships(memberships)
 
 
+def _fetch_favorites(client):
+    response = client.get(f"{GOLFBOX_BASE_URL}{GOLFBOX_FAVORITES_PATH}")
+    response.raise_for_status()
+    return _parse_favorites(response.text)
+
+
+def _parse_favorites(page_html):
+    favorites = []
+    for row_match in re.finditer(r"<tr\b[^>]*>(?P<row>.*?)</tr>", page_html or "", re.IGNORECASE | re.DOTALL):
+        cells = _plain_cells(row_match.group("row"))
+        if len(cells) < 4:
+            continue
+        name, member_number, hcp, club_name = (cell.strip() for cell in cells[:4])
+        if not name or not re.fullmatch(r"\d{1,5}-\d{1,8}", member_number or "") or not club_name:
+            continue
+        favorites.append(
+            {
+                "name": name,
+                "member_number": member_number,
+                "hcp": hcp,
+                "club_name": club_name,
+            }
+        )
+    return _dedupe_favorites(favorites)
+
+
+def _dedupe_favorites(favorites):
+    seen = set()
+    result = []
+    for favorite in favorites:
+        key = (favorite.get("member_number"), _normalize_name(favorite.get("club_name")))
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(favorite)
+    return result
+
+
+def _replace_golfbox_favorites(user, favorites):
+    from models import GolfBoxFavorite
+
+    GolfBoxFavorite.query.filter_by(user_id=user.id).delete()
+    for favorite in favorites:
+        db.session.add(
+            GolfBoxFavorite(
+                user_id=user.id,
+                name=favorite["name"],
+                member_number=favorite["member_number"],
+                club_name=favorite["club_name"],
+                hcp=favorite.get("hcp"),
+            )
+        )
+
+
 def _switch_club(client, club_guid):
     if not club_guid:
         return {}
@@ -696,7 +797,7 @@ def _booking_player_memberships(user, interpretation, club_name=None):
     for requested_name in requested_names:
         if _name_matches(current_name, requested_name):
             continue
-        membership = _membership_for_player_name(requested_name, club_name)
+        membership = _membership_for_player_name(requested_name, club_name, requester=user)
         if membership:
             memberships.append(membership)
 
@@ -782,7 +883,11 @@ def _club_names_match(requested_club_key, membership_club):
     return bool(requested_words and membership_words and requested_words.intersection(membership_words))
 
 
-def _membership_for_player_name(player_name, club_name=None):
+def _membership_for_player_name(player_name, club_name=None, requester=None):
+    membership = _membership_for_favorite_name(requester, player_name, club_name)
+    if membership:
+        return membership
+
     from models import User
 
     users = User.query.all()
@@ -795,6 +900,39 @@ def _membership_for_player_name(player_name, club_name=None):
             if membership:
                 return membership
     return None
+
+
+def _membership_for_favorite_name(user, player_name, club_name=None):
+    if not user:
+        return None
+    from models import GolfBoxFavorite
+
+    favorites = GolfBoxFavorite.query.filter_by(user_id=user.id).all()
+    name_matches = [
+        favorite
+        for favorite in favorites
+        if _name_matches(favorite.name, player_name)
+    ]
+    if not name_matches:
+        return None
+
+    requested_club_key = _normalize_name(club_name)
+    if requested_club_key:
+        club_matches = [
+            favorite
+            for favorite in name_matches
+            if _club_names_match(requested_club_key, favorite.club_name)
+        ]
+        if club_matches:
+            name_matches = club_matches
+
+    favorite = sorted(name_matches, key=lambda item: (item.club_name or "", item.member_number or ""))[0]
+    return {
+        "player_name": favorite.name,
+        "member_number": favorite.member_number,
+        "club_name": favorite.club_name,
+        "source": "favorite",
+    }
 
 
 def _name_matches(candidate, requested):
@@ -1062,7 +1200,7 @@ def _interpret_prompt_with_openai(prompt, user):
     if not os.environ.get("OPENAI_API_KEY"):
         _load_env_file()
     if not os.environ.get("OPENAI_API_KEY"):
-        return _fallback_prompt_interpretation(prompt, detail="OpenAI-nøkkel mangler på serveren.")
+        return _fallback_prompt_interpretation(prompt, user=user, detail="OpenAI-nøkkel mangler på serveren.")
 
     today = server_now().date().isoformat()
     user_context = _prompt_user_context(user)
@@ -1105,11 +1243,11 @@ def _interpret_prompt_with_openai(prompt, user):
     try:
         data = _extract_json(response.output_text)
     except (ValueError, json.JSONDecodeError):
-        return _fallback_prompt_interpretation(prompt, detail="OpenAI svarte ikke med gyldig JSON, så lokale regler tok over.")
+        return _fallback_prompt_interpretation(prompt, user=user, detail="OpenAI svarte ikke med gyldig JSON, så lokale regler tok over.")
     try:
         return _normalize_interpretation(data, prompt, user)
     except ValueError:
-        return _fallback_prompt_interpretation(prompt, detail="OpenAI-tolkingen ga ugyldige datoer eller tider, så lokale regler tok over.")
+        return _fallback_prompt_interpretation(prompt, user=user, detail="OpenAI-tolkingen ga ugyldige datoer eller tider, så lokale regler tok over.")
 
 
 def _extract_json(text):
@@ -1121,7 +1259,7 @@ def _extract_json(text):
 
 
 def _normalize_interpretation(data, prompt, user=None):
-    fallback = _fallback_prompt_interpretation(prompt)
+    fallback = _fallback_prompt_interpretation(prompt, user=user)
     prompt_lower = prompt.lower()
     prompt_member_numbers = _member_numbers_from_prompt(prompt_lower)
     prompt_member_number_names = _member_number_names_from_prompt(prompt)
@@ -1144,6 +1282,7 @@ def _normalize_interpretation(data, prompt, user=None):
     if not isinstance(player_names, list):
         player_names = []
     player_names = _clean_player_names(player_names, user)
+    player_names = _merge_unique(player_names, _favorite_names_from_prompt(user, prompt))
     member_numbers = data.get("member_numbers")
     if not isinstance(member_numbers, list):
         member_numbers = []
@@ -1210,7 +1349,7 @@ def _normalize_interpretation(data, prompt, user=None):
     }
 
 
-def _fallback_prompt_interpretation(prompt, detail=None):
+def _fallback_prompt_interpretation(prompt, user=None, detail=None):
     prompt_lower = prompt.lower()
     if any(word in prompt_lower for word in ("avbestill", "avbook", "kanseller")):
         intent = "cancel_booking"
@@ -1228,7 +1367,7 @@ def _fallback_prompt_interpretation(prompt, detail=None):
         "courses": courses,
         "area": "oslo" if "oslo-området" in prompt_lower or "osloområdet" in prompt_lower else "",
         "players": players,
-        "player_names": [],
+        "player_names": _favorite_names_from_prompt(user, prompt),
         "member_numbers": _member_numbers_from_prompt(prompt_lower),
         "member_number_names": _member_number_names_from_prompt(prompt),
         "include_current_user": _prompt_references_current_user(prompt_lower),
@@ -1241,6 +1380,39 @@ def _fallback_prompt_interpretation(prompt, detail=None):
         "_interpretation_source": "local_rules",
         "_interpretation_detail": detail or "OpenAI ble ikke brukt for denne tolkingen.",
     }
+
+
+def _favorite_names_from_prompt(user, prompt):
+    if not user:
+        return []
+    favorites = golfbox_favorites_summary(user)
+    prompt_key = _normalize_name(prompt)
+    if not prompt_key:
+        return []
+
+    names_by_key = {}
+    first_names = {}
+    for favorite in favorites:
+        name = favorite.get("name") or ""
+        name_key = _normalize_name(name)
+        if not name_key:
+            continue
+        names_by_key[name_key] = name
+        first_name = name_key.split()[0]
+        first_names.setdefault(first_name, set()).add(name)
+
+    found = []
+    for name_key, name in names_by_key.items():
+        if re.search(rf"\b{re.escape(name_key)}\b", prompt_key):
+            found.append(name)
+
+    for first_name, names in first_names.items():
+        if len(names) != 1:
+            continue
+        if re.search(rf"\b{re.escape(first_name)}\b", prompt_key):
+            found.extend(names)
+
+    return _merge_unique(found)
 
 
 def _profile_info_result(prompt_lower, user):
@@ -1705,7 +1877,24 @@ def _prompt_user_context(user):
         membership_text = f"{user.golfbox_home_club_name}: {user.golfbox_member_number}"
     else:
         membership_text = "ingen lagrede medlemskap"
-    return f"Navn: {', '.join(name for name in names if name)}. Medlemskap: {membership_text}"
+    favorites = golfbox_favorites_summary(user)
+    if favorites:
+        favorite_groups = {}
+        for favorite in favorites[:40]:
+            favorite_groups.setdefault(favorite["name"], []).append(
+                f"{favorite['club_name']}: {favorite['member_number']}"
+            )
+        favorite_text = "; ".join(
+            f"{name} ({', '.join(memberships)})"
+            for name, memberships in favorite_groups.items()
+        )
+    else:
+        favorite_text = "ingen lagrede favoritter"
+    return (
+        f"Navn: {', '.join(name for name in names if name)}. "
+        f"Medlemskap: {membership_text}. "
+        f"GolfBox-favoritter: {favorite_text}"
+    )
 
 
 def _merge_unique(*groups):

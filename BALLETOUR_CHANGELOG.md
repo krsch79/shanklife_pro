@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.74] - 2026-06-16
+- Lagrer GolfBox-favoritter per BalleTour-bruker med navn, medlemsnummer og klubb.
+- Lar GolfBox AI bruke favorittlisten når brukeren ber om booking med navn i stedet for medlemsnummer.
+- Velger riktig favorittmedlemskap når samme person har flere klubber og en av klubbene matcher banen som bookes.
+
 ## [1.8.72] - 2026-06-12
 - Bytter OpenAI-modellen i løsningen til GPT-5.2.
 - Oppdaterer score mot par umiddelbart når en hullscore velges under runden.

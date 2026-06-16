@@ -176,6 +176,23 @@ def ensure_schema_updates(app):
             add_column_if_missing("golfbox_watch_bookings", "booked_time", "booked_time VARCHAR(5)")
             add_column_if_missing("golfbox_watch_bookings", "cancelled_at", "cancelled_at DATETIME")
 
+        if "golfbox_favorites" not in table_names and "users" in table_names:
+            with db.engine.begin() as conn:
+                conn.execute(text("""
+                    CREATE TABLE golfbox_favorites (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        name VARCHAR(255) NOT NULL,
+                        member_number VARCHAR(50) NOT NULL,
+                        club_name VARCHAR(255) NOT NULL,
+                        hcp VARCHAR(30),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        CONSTRAINT uq_golfbox_favorite_user_member UNIQUE (user_id, member_number),
+                        FOREIGN KEY(user_id) REFERENCES users (id)
+                    )
+                """))
+
 
 def ensure_shanklife_club_options(app):
     required_clubs = [

@@ -28,7 +28,9 @@ from services.golfbox import (
     cancel_golfbox_booking,
     cancel_golfbox_scheduled_booking,
     golfbox_connection_summary,
+    golfbox_favorites_summary,
     process_golfbox_prompt,
+    sync_golfbox_favorites,
     upcoming_golfbox_bookings,
     upcoming_golfbox_scheduled_bookings,
 )
@@ -1097,6 +1099,16 @@ def ai_tools():
                 pending_cancel = None
                 session.pop("golfbox_pending_booking", None)
                 session.pop("golfbox_pending_cancel", None)
+            elif request.form.get("action") == "sync_favorites":
+                try:
+                    favorites = sync_golfbox_favorites(g.current_user)
+                    chat_messages.append({"role": "assistant", "result": {
+                        "status": "favorites_synced",
+                        "message": f"Favorittlisten er oppdatert med {len(favorites)} medlemskap fra GolfBox.",
+                        "available_slots": [],
+                    }})
+                except ValueError as exc:
+                    chat_messages.append({"role": "assistant", "error": str(exc)})
             elif request.form.get("action") == "cancel_scheduled_booking":
                 booking_id = request.form.get("scheduled_booking_id", "").strip()
                 booking_type = request.form.get("scheduled_booking_type", "scheduled").strip()
@@ -1179,13 +1191,22 @@ def ai_tools():
             else:
                 flash("Skriv hva du vil sjekke i GolfBox.", "error")
             session["golfbox_ai_chat"] = chat_messages[-12:]
+        golfbox_connection = golfbox_connection_summary(g.current_user)
+        golfbox_favorites = golfbox_favorites_summary(g.current_user)
+        if golfbox_connection["connected"] and not golfbox_favorites:
+            try:
+                sync_golfbox_favorites(g.current_user)
+                golfbox_favorites = golfbox_favorites_summary(g.current_user)
+            except ValueError:
+                golfbox_favorites = []
         return render_template(
             "balletour_ai.html",
             series=series,
             chat_messages=chat_messages,
             pending_booking=pending_booking,
             pending_cancel=pending_cancel,
-            golfbox_connection=golfbox_connection_summary(g.current_user),
+            golfbox_connection=golfbox_connection,
+            golfbox_favorites=golfbox_favorites,
             golfbox_bookings=upcoming_golfbox_bookings(g.current_user),
             scheduled_bookings=upcoming_golfbox_scheduled_bookings(g.current_user),
             **_balletour_database_context(),

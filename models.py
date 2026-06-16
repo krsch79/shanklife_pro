@@ -54,6 +54,37 @@ class User(db.Model):
     golfbox_scheduled_bookings = db.relationship("GolfBoxScheduledBooking", back_populates="created_by_user")
     golfbox_recurring_bookings = db.relationship("GolfBoxRecurringBooking", back_populates="created_by_user")
     golfbox_watch_bookings = db.relationship("GolfBoxWatchBooking", back_populates="created_by_user")
+    golfbox_favorites = db.relationship(
+        "GolfBoxFavorite",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="GolfBoxFavorite.name",
+    )
+
+
+class GolfBoxFavorite(db.Model):
+    __tablename__ = "golfbox_favorites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    member_number = db.Column(db.String(50), nullable=False)
+    club_name = db.Column(db.String(255), nullable=False)
+    hcp = db.Column(db.String(30), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=server_now,
+        server_default=db.func.now(),
+        onupdate=server_now,
+    )
+
+    user = db.relationship("User", back_populates="golfbox_favorites")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "member_number", name="uq_golfbox_favorite_user_member"),
+    )
 
 
 class GolfBoxScheduledBooking(db.Model):

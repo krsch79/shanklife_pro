@@ -73,6 +73,39 @@
 
     <div class="golfbox-scheduled-card">
         <div class="section-heading-row">
+            <h3>GolfBox-favoritter</h3>
+            <form method="post" class="inline-form">
+                <button type="submit" name="action" value="sync_favorites" class="button secondary compact-button">Oppdater favoritter</button>
+            </form>
+        </div>
+        {% if golfbox_favorites %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Navn</th>
+                        <th>Medlemsnummer</th>
+                        <th>Klubb</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for favorite in golfbox_favorites %}
+                    <tr>
+                        <td>{{ favorite.name }}</td>
+                        <td>{{ favorite.member_number }}</td>
+                        <td>{{ favorite.club_name }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="muted">Ingen GolfBox-favoritter er lagret ennå. Trykk «Oppdater favoritter» for å hente listen fra GolfBox.</p>
+        {% endif %}
+    </div>
+
+    <div class="golfbox-scheduled-card">
+        <div class="section-heading-row">
             <h3>Planlagte AI-bookinger</h3>
         </div>
         {% if scheduled_bookings %}
@@ -238,7 +271,7 @@
                                         </tbody>
                                     </table>
                                 </div>
-                            {% elif result.status in ["booking_created", "scheduled_booking_created", "recurring_booking_created", "watch_booking_created", "scheduled_booking_cancelled", "booking_cancelled"] %}
+                            {% elif result.status in ["booking_created", "scheduled_booking_created", "recurring_booking_created", "watch_booking_created", "scheduled_booking_cancelled", "booking_cancelled", "favorites_synced"] %}
                                 <p>{{ result.message }}</p>
                             {% elif result.available_slots %}
                                 <p>Jeg fant {{ result.available_slots|length }} ledige tider for {{ result.players }} personer på {{ result.course }} {{ result.date }} mellom {{ result.time_from }} og {{ result.time_to }}.</p>
