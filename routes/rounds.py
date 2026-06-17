@@ -565,7 +565,11 @@ def _save_score_stat(
     last_putt_meters_raw=None,
     last_putt_decimeters_raw=None,
 ):
-    drive_distance = None
+    try:
+        drive_distance = _parse_optional_int(drive_distance_raw, 1, 500)
+    except ValueError as exc:
+        raise ValueError("Utslagslengde må være et heltall mellom 1 og 500 meter.") from exc
+
     fairway_result = None
     if hole.par == 3:
         fairway_result = (fairway_result_raw or "hit").strip()
@@ -573,7 +577,6 @@ def _save_score_stat(
         status, directions = _green_stat_parts(fairway_result)
         fairway_result = _encode_green_stat(status, directions)
     elif hole.par in (4, 5):
-        drive_distance = _parse_optional_int(drive_distance_raw, 1, 500)
         fairway_result = (fairway_result_raw or "").strip()
         if fairway_result not in ("", "hit", "left", "right"):
             raise ValueError
@@ -1027,6 +1030,104 @@ def _hole_club_defaults(round_obj, round_players, hole_number):
     for rp in round_players:
         defaults[rp.id] = default_by_player.get(rp.player_id)
     return defaults
+
+
+def _green_direction_labels(directions):
+    labels = {
+        "pin": "på flagget",
+        "left": "venstre",
+        "right": "høyre",
+        "short": "kort",
+        "long": "lang",
+    }
+    return [labels[direction] for direction in directions if direction in labels]
+
+
+def _hole_result_label(hole, raw_result):
+    if not raw_result:
+        return "—"
+    if hole.par == 3:
+        status, directions = _green_stat_parts(raw_result)
+        if status == "hit":
+            return "Greentreff"
+        if status == "bunker":
+            label = "Bunker"
+        else:
+            label = "Miss"
+        direction_labels = _green_direction_labels(directions)
+        if direction_labels:
+            return f"{label} ({', '.join(direction_labels)})"
+        return label
+    return {
+        "hit": "Fairway",
+        "left": "Venstre",
+        "right": "Høyre",
+    }.get(raw_result, raw_result)
+
+
+def _previous_hole_history(round_obj, round_players, hole):
+    if _is_balletour_round(round_obj):
+        return []
+
+    history = []
+    for rp in round_players:
+        if not rp.player_id:
+            continue
+        rows = (
+            db.session.query(ScoreEntry, Round, ScoreStat, Club)
+            .join(Round, Round.id == ScoreEntry.round_id)
+            .join(RoundPlayer, RoundPlayer.id == ScoreEntry.round_player_id)
+            .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
+            .outerjoin(Club, Club.id == ScoreEntry.tee_club_id)
+            .filter(Round.course_id == round_obj.course_id)
+            .filter(Round.id != round_obj.id)
+            .filter(Round.status == "finished")
+            .filter(RoundPlayer.player_id == rp.player_id)
+            .filter(ScoreEntry.hole_number == hole.hole_number)
+            .filter(ScoreEntry.strokes.isnot(None))
+            .order_by(Round.started_at.desc())
+            .limit(8)
+            .all()
+        )
+        if not rows:
+            continue
+
+        score_values = [entry.strokes for entry, _round_row, _stat, _club in rows if entry.strokes is not None]
+        drive_values = [
+            stat.drive_distance_m
+            for _entry, _round_row, stat, _club in rows
+            if stat and stat.drive_distance_m is not None
+        ]
+        putt_values = [
+            stat.putts
+            for _entry, _round_row, stat, _club in rows
+            if stat and stat.putts is not None
+        ]
+        history.append({
+            "player": rp,
+            "summary": {
+                "rounds": len(rows),
+                "avg_score": round(sum(score_values) / len(score_values), 1) if score_values else None,
+                "best_score": min(score_values) if score_values else None,
+                "avg_drive": round(sum(drive_values) / len(drive_values), 1) if drive_values else None,
+                "avg_putts": round(sum(putt_values) / len(putt_values), 1) if putt_values else None,
+            },
+            "rows": [
+                {
+                    "date": round_row.started_at.strftime("%Y-%m-%d") if round_row.started_at else "",
+                    "score": entry.strokes,
+                    "to_par": entry.strokes - hole.par if entry.strokes is not None else None,
+                    "club": club.name if club else None,
+                    "drive_distance": stat.drive_distance_m if stat else None,
+                    "result": _hole_result_label(hole, stat.fairway_result if stat else None),
+                    "putts": stat.putts if stat else None,
+                    "last_putt_distance": stat.last_putt_distance_m if stat else None,
+                }
+                for entry, round_row, stat, club in rows
+            ],
+        })
+
+    return history
 
 
 def _round_image_extension(filename):
@@ -1563,6 +1664,7 @@ def round_hole(round_id, hole_number):
         clubs=clubs,
         club_defaults=_hole_club_defaults(round_obj, round_players, hole_number) if club_tracking_enabled else {},
         player_details=_hole_player_details(round_players, hole_number),
+        previous_hole_history=_previous_hole_history(round_obj, round_players, hole),
         hole_images=hole_images,
         image_tag_choices=_round_image_tag_choices(round_obj),
         is_balletour_scoring_page=_is_balletour_round(round_obj),

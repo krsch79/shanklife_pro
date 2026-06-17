@@ -87,6 +87,22 @@
 
                 {% if stat_values %}
                 <div class="hole-stat-grid">
+                    {% if not is_balletour_scoring_page %}
+                    <label>
+                        <span>Utslag</span>
+                        <input
+                            type="number"
+                            min="1"
+                            max="500"
+                            name="stat_drive{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}"
+                            data-after-score
+                            value="{{ stat_values.drive_distance_m if stat_values.drive_distance_m is not none else '' }}"
+                            placeholder="m"
+                            {% if round.status == 'finished' %}disabled{% endif %}
+                        >
+                    </label>
+                    {% endif %}
+
                     {% if hole.par == 3 %}
                     <label>
                         <span>Green</span>
@@ -195,6 +211,62 @@
             {% endif %}
         </div>
     </form>
+
+    {% if previous_hole_history %}
+    <div class="form-card hole-history-panel">
+        <h3>Tidligere på hull {{ hole.hole_number }}</h3>
+        <p class="muted">Samme spiller, bane og hull fra tidligere fullførte Shanklife-runder.</p>
+        {% for player_history in previous_hole_history %}
+        <div class="hole-history-player">
+            <div class="section-heading-row">
+                <h4>{{ player_history.player.player_name_snapshot }}</h4>
+                <p class="muted">
+                    {{ player_history.summary.rounds }} runder
+                    {% if player_history.summary.avg_score is not none %} · snitt {{ player_history.summary.avg_score }}{% endif %}
+                    {% if player_history.summary.best_score is not none %} · best {{ player_history.summary.best_score }}{% endif %}
+                    {% if player_history.summary.avg_drive is not none %} · utslag {{ player_history.summary.avg_drive }} m{% endif %}
+                    {% if player_history.summary.avg_putts is not none %} · putter {{ player_history.summary.avg_putts }}{% endif %}
+                </p>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Dato</th>
+                            <th>Score</th>
+                            <th>Kølle</th>
+                            <th>Utslag</th>
+                            <th>{% if hole.par == 3 %}Green{% else %}FW{% endif %}</th>
+                            <th>Putter</th>
+                            <th>Siste putt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in player_history.rows %}
+                        <tr>
+                            <td>{{ row.date }}</td>
+                            <td>
+                                {{ row.score }}
+                                {% if row.to_par is not none %}
+                                <span class="muted">
+                                    ({% if row.to_par == 0 %}E{% elif row.to_par > 0 %}+{{ row.to_par }}{% else %}{{ row.to_par }}{% endif %})
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.club or "—" }}</td>
+                            <td>{% if row.drive_distance is not none %}{{ row.drive_distance }} m{% else %}—{% endif %}</td>
+                            <td>{{ row.result }}</td>
+                            <td>{% if row.putts is not none %}{{ row.putts }}{% else %}—{% endif %}</td>
+                            <td>{% if row.last_putt_distance is not none %}{{ "%.1f"|format(row.last_putt_distance) }} m{% else %}—{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <div class="hole-image-panel">
         <form

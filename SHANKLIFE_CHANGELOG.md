@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.76] - 2026-06-17
+- Lar spillere føre valgfri utslagslengde på alle hull når de spiller Shanklife-runder med statistikk.
+- Viser tidligere score, køllevalg og statistikk for samme spiller, bane og hull under scoreføringen.
+
 ## [1.8.73] - 2026-06-15
 - Lar brukeren velge 9 eller 18 hull ved rundestart når en 18-hullsbane består av to identiske 9-hullssløyfer.
 - Beregner og fordeler mottatte slag som en 9-hullsrunde når bare første sløyfe spilles, også når banen har 18-hulls slope og course rating.
