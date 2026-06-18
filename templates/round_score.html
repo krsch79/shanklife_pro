@@ -107,6 +107,25 @@
                         {% if stats_round_player_id == rp.id %}
                         {% set stat = stats_map.get(hole.hole_number, {}) %}
                         <div class="score-stat-fields">
+                            {% set current_drive_distance = stat.drive_distance_m %}
+                            <select
+                                name="stat_drive_{{ hole.hole_number }}"
+                                class="autosave-stat stat-select"
+                                data-hole-number="{{ hole.hole_number }}"
+                                data-stat-field="drive_distance"
+                                data-drive-distance
+                                data-default-distance="{{ 125 if hole.par == 3 else 200 }}"
+                                aria-label="Utslagslengde hull {{ hole.hole_number }}"
+                                {% if round.status == 'finished' %}disabled{% endif %}
+                            >
+                                <option value="" {% if current_drive_distance is none %}selected{% endif %}>Utslag</option>
+                                {% if current_drive_distance is not none and current_drive_distance not in drive_distance_options %}
+                                <option value="{{ current_drive_distance }}" selected>{{ current_drive_distance }} m</option>
+                                {% endif %}
+                                {% for distance in drive_distance_options %}
+                                <option value="{{ distance }}" {% if current_drive_distance == distance %}selected{% endif %}>{{ distance }} m</option>
+                                {% endfor %}
+                            </select>
                             {% if hole.par == 3 %}
                             <select
                                 name="stat_green_status_{{ hole.hole_number }}"
@@ -130,20 +149,6 @@
                             {% endif %}
 
                             {% if hole.par in [4, 5] %}
-                            {% if is_balletour_scoring_page|default(false) %}
-                            <input
-                                type="number"
-                                min="1"
-                                max="500"
-                                name="stat_drive_{{ hole.hole_number }}"
-                                value="{{ stat.drive_distance_m if stat.drive_distance_m is not none else '' }}"
-                                placeholder="m"
-                                class="autosave-stat stat-input"
-                                data-hole-number="{{ hole.hole_number }}"
-                                data-stat-field="drive_distance"
-                                {% if round.status == 'finished' %}disabled{% endif %}
-                            >
-                            {% endif %}
                             <select
                                 name="stat_fairway_{{ hole.hole_number }}"
                                 class="autosave-stat stat-select"
@@ -244,6 +249,16 @@
     const finishButton = document.getElementById("finish-round-button");
     const scoreForm = document.getElementById("score-form");
     const timers = new Map();
+
+    document.querySelectorAll('select[data-drive-distance]').forEach((select) => {
+        const applyDefault = () => {
+            if (select.value || select.disabled) return;
+            select.value = select.dataset.defaultDistance;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        select.addEventListener("pointerdown", applyDefault);
+        select.addEventListener("focus", applyDefault);
+    });
 
     function setStatus(text, isError = false) {
         statusEl.textContent = text;

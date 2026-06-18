@@ -72,9 +72,9 @@
                     </select>
                 </label>
 
-                {% if club_tracking_enabled and (is_balletour_scoring_page or (stat_values and hole.par in [4, 5])) %}
+                {% if club_tracking_enabled and (is_balletour_scoring_page or stat_values) %}
                 <label class="club-mini-field">
-                    <span>{% if hole.par in [4, 5] %}Utslagskølle{% else %}Kølle{% endif %}</span>
+                    <span>Utslagskølle</span>
                     {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
                     <select name="tee_club_{{ rp.id }}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
                         <option value="" {% if not selected_club_id %}selected{% endif %}>—</option>
@@ -87,21 +87,25 @@
 
                 {% if stat_values %}
                 <div class="hole-stat-grid">
-                    {% if not is_balletour_scoring_page %}
                     <label>
-                        <span>Utslag</span>
-                        <input
-                            type="number"
-                            min="1"
-                            max="500"
+                        <span>Utslagslengde</span>
+                        {% set current_drive_distance = stat_values.drive_distance_m %}
+                        <select
                             name="stat_drive{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}"
                             data-after-score
-                            value="{{ stat_values.drive_distance_m if stat_values.drive_distance_m is not none else '' }}"
-                            placeholder="m"
+                            data-drive-distance
+                            data-default-distance="{{ 125 if hole.par == 3 else 200 }}"
                             {% if round.status == 'finished' %}disabled{% endif %}
                         >
+                            <option value="" {% if current_drive_distance is none %}selected{% endif %}>—</option>
+                            {% if current_drive_distance is not none and current_drive_distance not in drive_distance_options %}
+                            <option value="{{ current_drive_distance }}" selected>{{ current_drive_distance }} m</option>
+                            {% endif %}
+                            {% for distance in drive_distance_options %}
+                            <option value="{{ distance }}" {% if current_drive_distance == distance %}selected{% endif %}>{{ distance }} m</option>
+                            {% endfor %}
+                        </select>
                     </label>
-                    {% endif %}
 
                     {% if hole.par == 3 %}
                     <label>
@@ -129,21 +133,6 @@
                     {% endif %}
 
                     {% if hole.par in [4, 5] %}
-                    {% if is_balletour_scoring_page %}
-                    <label>
-                        <span>Utslag</span>
-                        <input
-                            type="number"
-                            min="1"
-                            max="500"
-                            name="stat_drive{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}"
-                            data-after-score
-                            value="{{ stat_values.drive_distance_m if stat_values.drive_distance_m is not none else '' }}"
-                            placeholder="m"
-                            {% if round.status == 'finished' %}disabled{% endif %}
-                        >
-                    </label>
-                    {% endif %}
                     <label>
                         <span>FW</span>
                         <select name="stat_fairway{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
@@ -404,6 +393,16 @@
             syncPinOption(select);
             syncPuttsOptionsForRow(select.closest(".hole-player-row"));
         });
+    });
+
+    document.querySelectorAll('select[data-drive-distance]').forEach((select) => {
+        const applyDefault = () => {
+            if (select.value || select.disabled) return;
+            select.value = select.dataset.defaultDistance;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        select.addEventListener("pointerdown", applyDefault);
+        select.addEventListener("focus", applyDefault);
     });
     document.querySelectorAll('input[data-green-pin], input[data-green-direction]').forEach((input) => {
         input.addEventListener("change", () => {

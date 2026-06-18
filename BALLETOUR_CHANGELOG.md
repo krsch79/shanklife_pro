@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.80] - 2026-06-18
+- Endrer utslagslengde til en valgfri nedtrekksliste på alle hull, med forslag på 125 meter på par 3 og 200 meter på par 4 og 5 når feltet åpnes.
+
 ## [1.8.79] - 2026-06-18
 - Lar spillere hoppe over hull uten å føre score, med sirkulær hullnavigasjon som støtter shotgun-start.
 - Kontrollerer hele scorekortet og alle obligatoriske statistikkfelt før en BalleTour-runde kan fullføres.

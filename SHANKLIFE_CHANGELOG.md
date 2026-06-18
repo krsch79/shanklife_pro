@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.80] - 2026-06-18
+- Legger til obligatorisk utslagskølle på par 3-hull for spillere som fører statistikk.
+- Endrer utslagslengde til en valgfri nedtrekksliste som foreslår 125 meter på par 3 og 200 meter på par 4 og 5 når feltet åpnes.
+
 ## [1.8.79] - 2026-06-18
 - Lar spillere hoppe over hull uten å føre score, med sirkulær hullnavigasjon som støtter shotgun-start.
 - Kontrollerer hele scorekortet og alle obligatoriske statistikkfelt før en runde kan fullføres.

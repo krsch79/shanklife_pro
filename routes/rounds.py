@@ -47,6 +47,7 @@ LAST_PUTT_DISTANCE_OPTIONS = tuple(round(value / 10, 1) for value in range(1, 15
 DEFAULT_LAST_PUTT_DISTANCE = 0.5
 LAST_PUTT_METER_OPTIONS = tuple(range(0, 16))
 LAST_PUTT_DECIMETER_OPTIONS = tuple(range(0, 10))
+DRIVE_DISTANCE_OPTIONS = tuple(range(25, 401, 5))
 
 
 def _normalize_image_tags(raw_tags):
@@ -938,7 +939,7 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
 
         tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
 
-        if club_tracking_enabled and (balletour_round or (tracks_stats and hole.par in (4, 5))):
+        if club_tracking_enabled and (balletour_round or tracks_stats):
             _save_tee_club(
                 entry,
                 request.form.get(f"tee_club_{rp.id}", ""),
@@ -975,7 +976,7 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None, require_scores=True):
                 missing_by_player.append(f"{rp.player_name_snapshot}: score")
             continue
         tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
-        if club_tracking_enabled and (balletour_round or (tracks_stats and hole.par in (4, 5))) and not request.form.get(f"tee_club_{rp.id}", "").strip():
+        if club_tracking_enabled and (balletour_round or tracks_stats) and not request.form.get(f"tee_club_{rp.id}", "").strip():
             missing.append("kølle")
 
         if tracks_stats:
@@ -1026,9 +1027,7 @@ def _missing_round_choices(round_obj, stats_rp=None):
     for hole in round_holes(round_obj):
         for rp in round_players:
             tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
-            club_required = club_tracking_enabled and (
-                balletour_round or (tracks_stats and hole.par in (4, 5))
-            )
+            club_required = club_tracking_enabled and (balletour_round or tracks_stats)
             missing = missing_saved_entry_choices(
                 entries.get((rp.id, hole.hole_number)),
                 hole,
@@ -1719,6 +1718,7 @@ def round_hole(round_id, hole_number):
         stats_values_by_player=stats_values_by_player,
         scoped_stats_fields=scoped_stats_fields,
         last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
+        drive_distance_options=DRIVE_DISTANCE_OPTIONS,
         club_tracking_enabled=club_tracking_enabled,
         clubs=clubs,
         club_defaults=_hole_club_defaults(round_obj, round_players, hole_number) if club_tracking_enabled else {},
@@ -2162,6 +2162,7 @@ def round_score(round_id):
         },
         putt_options=list(range(0, 6)),
         last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
+        drive_distance_options=DRIVE_DISTANCE_OPTIONS,
         is_balletour_scoring_page=_is_balletour_round(round_obj),
         current_user_round_player=_current_user_round_player(round_obj),
     )
