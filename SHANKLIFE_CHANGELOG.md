@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.85] - 2026-06-18
+- Tydeliggjør tidligere utslagsresultater som Fairwaytreff, Miss fairway høyre eller Miss fairway venstre.
+
 ## [1.8.84] - 2026-06-18
 - Viser tidligere resultater på samme hull som kompakte og lettleste rundekort på mobil, uten behov for sideveis scrolling.
 

@@ -1100,9 +1100,9 @@ def _hole_result_label(hole, raw_result):
         direction_label = _green_direction_label(directions)
         return f"{result_label} · {direction_label}" if direction_label else result_label
     return {
-        "hit": "Fairway",
-        "left": "Venstre",
-        "right": "Høyre",
+        "hit": "Fairwaytreff",
+        "left": "Miss fairway venstre",
+        "right": "Miss fairway høyre",
     }.get(raw_result, raw_result)
 
 
