@@ -2427,6 +2427,7 @@ def run_due_golfbox_scheduled_bookings(limit=10):
     )
     results = []
     for booking in due_bookings:
+        player_memberships = []
         booking.status = "running"
         booking.updated_at = server_now()
         db.session.commit()
@@ -2451,11 +2452,30 @@ def run_due_golfbox_scheduled_bookings(limit=10):
             booking.error_message = None if result.get("status") == "booking_created" else result.get("message")
             booking.status = "completed" if result.get("status") == "booking_created" else "failed"
             results.append({"id": booking.id, "status": booking.status, "message": result.get("message")})
+            if booking.status == "failed":
+                _send_booking_outcome_email(
+                    booking.created_by_user,
+                    "scheduled_failed",
+                    booking.course,
+                    booking.play_date.isoformat(),
+                    booking.play_time,
+                    player_memberships,
+                    result.get("message"),
+                )
         except Exception as exc:
             booking.executed_at = server_now()
             booking.status = "failed"
             booking.error_message = str(exc)
             results.append({"id": booking.id, "status": "failed", "message": str(exc)})
+            _send_booking_outcome_email(
+                booking.created_by_user,
+                "scheduled_failed",
+                booking.course,
+                booking.play_date.isoformat(),
+                booking.play_time,
+                player_memberships,
+                str(exc),
+            )
         db.session.commit()
     remaining = max(0, limit - len(results))
     if remaining:
@@ -2487,11 +2507,22 @@ def run_due_golfbox_scheduled_bookings(limit=10):
 def _run_watch_golfbox_booking(booking):
     now = server_now()
     if now >= booking.expires_at:
+        player_memberships = json.loads(booking.players_json or "[]")
         booking.status = "expired"
         booking.last_run_at = now
         booking.last_result_message = "Ledighetssøket utløp uten booking."
         booking.updated_at = now
         db.session.commit()
+        _send_booking_outcome_email(
+            booking.created_by_user,
+            "watch_expired",
+            booking.course,
+            booking.play_date.isoformat(),
+            booking.time_from,
+            player_memberships,
+            booking.last_result_message,
+            time_to=booking.time_to,
+        )
         return {"id": booking.id, "type": "watch", "status": "expired", "message": booking.last_result_message}
     try:
         player_memberships = json.loads(booking.players_json or "[]")
@@ -2536,6 +2567,17 @@ def _run_watch_golfbox_booking(booking):
         booking.last_result_message = message
         booking.updated_at = now
         db.session.commit()
+        if booking.status == "failed":
+            _send_booking_outcome_email(
+                booking.created_by_user,
+                "scheduled_failed",
+                booking.course,
+                booking.play_date.isoformat(),
+                booking.time_from,
+                player_memberships,
+                message,
+                time_to=booking.time_to,
+            )
         return {"id": booking.id, "type": "watch", "status": status, "message": message}
     except Exception as exc:
         booking.last_run_at = now
@@ -2549,9 +2591,10 @@ def _run_watch_golfbox_booking(booking):
 
 
 def _run_recurring_golfbox_booking(booking):
+    player_memberships = []
+    play_date = _next_play_date_for_recurring(booking)
     try:
         player_memberships = json.loads(booking.players_json or "[]")
-        play_date = _next_play_date_for_recurring(booking)
         availability = find_golfbox_availability(
             course=booking.course,
             players=len(player_memberships) or 1,
@@ -2587,6 +2630,17 @@ def _run_recurring_golfbox_booking(booking):
         booking.next_run_at = _next_weekday_run(booking.execute_weekday, booking.execute_time, from_dt=server_now() + timedelta(minutes=1))
         booking.updated_at = server_now()
         db.session.commit()
+        if status != "booking_created":
+            _send_booking_outcome_email(
+                booking.created_by_user,
+                "no_availability" if status == "no_slot" else "scheduled_failed",
+                booking.course,
+                play_date.isoformat(),
+                booking.time_from,
+                player_memberships,
+                message,
+                time_to=booking.time_to,
+            )
         return {"id": booking.id, "type": "recurring", "status": status, "message": message}
     except Exception as exc:
         booking.last_run_at = server_now()
@@ -2594,7 +2648,28 @@ def _run_recurring_golfbox_booking(booking):
         booking.next_run_at = _next_weekday_run(booking.execute_weekday, booking.execute_time, from_dt=server_now() + timedelta(minutes=1))
         booking.updated_at = server_now()
         db.session.commit()
+        _send_booking_outcome_email(
+            booking.created_by_user,
+            "scheduled_failed",
+            booking.course,
+            play_date.isoformat(),
+            booking.time_from,
+            player_memberships,
+            str(exc),
+            time_to=booking.time_to,
+        )
         return {"id": booking.id, "type": "recurring", "status": "failed", "message": str(exc)}
+
+
+def _send_booking_outcome_email(user, event, course, play_date, time_from, players, message, time_to=None):
+    send_golfbox_booking_email(user, event, {
+        "course": course,
+        "date": play_date,
+        "time": time_from,
+        "time_to": time_to,
+        "player_memberships": players,
+        "message": message,
+    })
 
 
 def _next_play_date_for_recurring(booking):

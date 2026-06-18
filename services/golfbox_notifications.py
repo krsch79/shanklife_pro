@@ -13,6 +13,9 @@ def send_golfbox_booking_email(user, event, booking):
         "confirmed": "GolfBox-booking bekreftet",
         "scheduled": "GolfBox-booking planlagt",
         "scheduled_executed": "Planlagt GolfBox-booking gjennomført",
+        "scheduled_failed": "Planlagt GolfBox-booking mislyktes",
+        "no_availability": "Ingen ledig GolfBox-tid funnet",
+        "watch_expired": "GolfBox-søk utløpt uten booking",
     }.get(event, "GolfBox-booking")
     return send_mail(subject, _booking_body(event, booking), recipient=recipient)
 
@@ -34,6 +37,9 @@ def _booking_body(event, booking):
         "confirmed": "Bookingen er gjennomført og bekreftet i GolfBox.",
         "scheduled": "En fremtidig GolfBox-booking er lagt inn.",
         "scheduled_executed": "Den planlagte GolfBox-bookingen er gjennomført og bekreftet i GolfBox.",
+        "scheduled_failed": "Den planlagte GolfBox-bookingen kunne ikke gjennomføres.",
+        "no_availability": "Den planlagte kjøringen fant ingen ledig starttid.",
+        "watch_expired": "Overvåkingen utløp uten at det ble funnet og booket en ledig starttid.",
     }.get(event, "GolfBox-booking oppdatert.")
 
     play_datetime = _booking_datetime(booking)
@@ -43,9 +49,11 @@ def _booking_body(event, booking):
         "",
         f"Bane: {booking.get('course') or 'Ballerud'}",
         f"Dato: {booking.get('date') or '-'}",
-        f"Tid: {booking.get('time') or '-'}",
+        f"Tid: {_time_text(booking)}",
         f"Spillere: {_players_text(booking.get('player_memberships') or booking.get('players'))}",
     ]
+    if booking.get("message"):
+        lines.append(f"Resultat: {booking['message']}")
     if booking.get("execute_at"):
         lines.append(f"Gjennomføres: {booking['execute_at']}")
     lines.extend([
@@ -65,6 +73,14 @@ def _booking_datetime(booking):
         return datetime.fromisoformat(f"{date_value} {time_value}")
     except ValueError:
         return None
+
+
+def _time_text(booking):
+    time_from = booking.get("time") or booking.get("time_from")
+    time_to = booking.get("time_to")
+    if time_from and time_to and time_to != time_from:
+        return f"{time_from}-{time_to}"
+    return time_from or "-"
 
 
 def _weather_text(play_datetime):

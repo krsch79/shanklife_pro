@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.78] - 2026-06-18
+- Sender e-post med resultatet av planlagte GolfBox AI-bookinger også når bookingen mislykkes eller ingen ledig tid blir funnet.
+- Varsler på e-post når et overvåket søk etter ledig starttid utløper uten booking.
+
 ## [1.8.75] - 2026-06-16
 - Viser både navn og medlemsnummer for spillere i planlagte GolfBox AI-bookinger.
 - Slår opp medlemsnummer fra GolfBox-favoritter når en booking er opprettet med medlemsnummer i prompten.
