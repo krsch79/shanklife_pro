@@ -31,8 +31,9 @@
 </div>
 
 <div class="stat-grid">
-    <div class="stat-card"><strong>{{ stats.avg_round if stats.avg_round is not none else "-" }}</strong><span>Snittrunde</span></div>
-    <div class="stat-card"><strong>{{ stats.best_round if stats.best_round is not none else "-" }}</strong><span>Beste runde</span></div>
+    <div class="stat-card"><strong>{% if stats.avg_round_vs_par is not none %}{% if stats.avg_round_vs_par == 0 %}E{% elif stats.avg_round_vs_par > 0 %}+{{ stats.avg_round_vs_par }}{% else %}{{ stats.avg_round_vs_par }}{% endif %}{% else %}-{% endif %}</strong><span>Snittrunde mot par</span></div>
+    <div class="stat-card"><strong>{{ stats.best_round_18 if stats.best_round_18 is not none else "-" }}</strong><span>Beste runde 18 hull</span></div>
+    <div class="stat-card"><strong>{{ stats.best_round_9 if stats.best_round_9 is not none else "-" }}</strong><span>Beste runde 9 hull</span></div>
     <div class="stat-card"><strong>{% if stats.best_round_vs_par is not none %}{% if stats.best_round_vs_par > 0 %}+{% endif %}{{ stats.best_round_vs_par }}{% else %}-{% endif %}</strong><span>Beste mot par</span></div>
     <div class="stat-card"><strong>{{ stats.gir_percent if stats.gir_percent is not none else "-" }}{% if stats.gir_percent is not none %}%{% endif %}</strong><span>GIR</span></div>
     <div class="stat-card"><strong>{{ stats.green_hit_percent if stats.green_hit_percent is not none else "-" }}{% if stats.green_hit_percent is not none %}%{% endif %}</strong><span>Greentreff</span></div>

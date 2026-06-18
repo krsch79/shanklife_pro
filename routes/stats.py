@@ -9,6 +9,7 @@ from routes.auth import login_required
 from services.balletour import get_balletour_course_id
 from services.round_length import round_holes
 from services.shanklife_ai_stats import ask_shanklife_stats_ai
+from services.stats_summary import round_score_summary
 
 stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
 
@@ -216,6 +217,7 @@ def _completed_rounds(round_players):
             continue
         completed.append({
             "round_player": round_player,
+            "holes": len(holes),
             "total": sum(entry.strokes for entry in entries),
             "par": sum(hole.par for hole in holes),
         })
@@ -399,15 +401,13 @@ def _player_stats(player):
         if entry.round_id in putt_distance_by_round and stat.last_putt_distance_m is not None:
             putt_distance_by_round[entry.round_id] += stat.last_putt_distance_m
 
-    best_vs_par = min((row["total"] - row["par"] for row in completed), default=None)
+    round_summary = round_score_summary(completed)
     gir_attempts = len([entry for entry in entries if entry.id in {stat.score_entry_id for stat, _entry in stats_rows}])
     gir_count = _gir_count(stats_rows, par_by_entry_id)
     return {
         "round_count": len(round_players),
         "completed_round_count": len(completed),
-        "avg_round": round(sum(row["total"] for row in completed) / len(completed), 1) if completed else None,
-        "best_round": min((row["total"] for row in completed), default=None),
-        "best_round_vs_par": best_vs_par,
+        **round_summary,
         "scored_holes": len(entries),
         "gir_percent": _percent(gir_count, gir_attempts),
         **score_counts,
