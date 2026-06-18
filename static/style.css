@@ -692,6 +692,7 @@ input.submit-is-loading {
 
 .hole-entry-top {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
@@ -701,6 +702,12 @@ input.submit-is-loading {
 .hole-entry-top h2,
 .hole-entry-top p {
     margin: 0;
+}
+
+.hole-entry-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .compact-button {
@@ -968,10 +975,6 @@ input.submit-is-loading {
 .hole-nav .button {
     width: 100%;
     text-align: center;
-}
-
-.hole-nav .hole-finish-button {
-    grid-column: 1 / -1;
 }
 
 .hole-image-panel {

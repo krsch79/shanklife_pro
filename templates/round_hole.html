@@ -8,12 +8,26 @@
             <p class="muted">Hull {{ hole.hole_number }} av {{ played_hole_count }}</p>
             <h2>{{ round.course.name }}</h2>
         </div>
-        <a
-            class="button secondary compact-button"
-            href="{% if is_balletour_scoring_page %}{{ url_for('rounds.balletour_round_scorecard', round_id=round.id, hole=hole.hole_number) }}{% else %}{{ url_for('rounds.round_score', round_id=round.id) }}{% endif %}"
-        >
-            Scorekort
-        </a>
+        <div class="hole-entry-actions">
+            <a
+                class="button secondary compact-button"
+                href="{% if is_balletour_scoring_page %}{{ url_for('rounds.balletour_round_scorecard', round_id=round.id, hole=hole.hole_number) }}{% else %}{{ url_for('rounds.round_score', round_id=round.id) }}{% endif %}"
+            >
+                Scorekort
+            </a>
+            {% if round.status == 'ongoing' %}
+            <button
+                type="submit"
+                name="action"
+                value="finish"
+                class="button danger compact-button"
+                id="finish-round-hole-button"
+                form="hole-entry-form"
+            >
+                Fullfør
+            </button>
+            {% endif %}
+        </div>
     </div>
 
     <div class="hole-info-strip">
@@ -173,15 +187,6 @@
             {% if round.status == 'ongoing' %}
             <button type="submit" name="action" value="previous" class="button secondary">Forrige hull</button>
             <button type="submit" name="action" value="next" class="button">Neste hull</button>
-            <button
-                type="submit"
-                name="action"
-                value="finish"
-                class="button danger hole-finish-button"
-                id="finish-round-hole-button"
-            >
-                Fullfør runde
-            </button>
             {% else %}
             <a
                 class="button"
