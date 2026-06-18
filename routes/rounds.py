@@ -1072,15 +1072,18 @@ def _hole_club_defaults(round_obj, round_players, hole_number):
     return defaults
 
 
-def _green_direction_labels(directions):
-    labels = {
-        "pin": "på flagget",
-        "left": "venstre",
-        "right": "høyre",
-        "short": "kort",
-        "long": "lang",
-    }
-    return [labels[direction] for direction in directions if direction in labels]
+def _green_direction_label(directions):
+    directions = set(directions)
+    vertical = "kort" if "short" in directions else "lang" if "long" in directions else ""
+    if "left" in directions or "right" in directions:
+        if not vertical:
+            vertical = "pin high"
+        horizontal = "venstre" if "left" in directions else "høyre"
+    elif "pin" in directions:
+        horizontal = "på flagget"
+    else:
+        horizontal = ""
+    return " ".join(part for part in (vertical, horizontal) if part)
 
 
 def _hole_result_label(hole, raw_result):
@@ -1089,15 +1092,13 @@ def _hole_result_label(hole, raw_result):
     if hole.par == 3:
         status, directions = _green_stat_parts(raw_result)
         if status == "hit":
-            return "Greentreff"
-        if status == "bunker":
-            label = "Bunker"
+            result_label = "Greentreff"
+        elif status == "bunker":
+            result_label = "Bunker"
         else:
-            label = "Miss"
-        direction_labels = _green_direction_labels(directions)
-        if direction_labels:
-            return f"{label} ({', '.join(direction_labels)})"
-        return label
+            result_label = "Miss"
+        direction_label = _green_direction_label(directions)
+        return f"{result_label} · {direction_label}" if direction_label else result_label
     return {
         "hit": "Fairway",
         "left": "Venstre",

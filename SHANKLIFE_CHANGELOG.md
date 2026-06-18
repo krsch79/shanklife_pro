@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.82] - 2026-06-18
+- Viser registrert lengde- og sideretning for par 3-treff i historikken for samme bane og hull, for eksempel kort høyre, lang venstre og pin high venstre.
+
 ## [1.8.81] - 2026-06-18
 - Flytter fullføring av en pågående runde til en kompakt knapp ved siden av Scorekort, slik at den ikke lenger ligger som en stor knapp i hullnavigasjonen.
 
