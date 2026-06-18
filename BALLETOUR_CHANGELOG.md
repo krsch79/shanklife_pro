@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.79] - 2026-06-18
+- Lar spillere hoppe over hull uten å føre score, med sirkulær hullnavigasjon som støtter shotgun-start.
+- Kontrollerer hele scorekortet og alle obligatoriske statistikkfelt før en BalleTour-runde kan fullføres.
+
 ## [1.8.78] - 2026-06-18
 - Sender e-post med resultatet av planlagte GolfBox AI-bookinger også når bookingen mislykkes eller ingen ledig tid blir funnet.
 - Varsler på e-post når et overvåket søk etter ledig starttid utløper uten booking.

@@ -181,26 +181,18 @@
         <div class="form-error-panel" id="hole-form-errors" hidden></div>
 
         <div class="hole-nav">
-            {% if previous_hole %}
-            <button type="submit" name="action" value="previous" class="button secondary">Forrige hull</button>
-            {% else %}
-            <button type="button" class="button secondary" disabled>Forrige hull</button>
-            {% endif %}
-
             {% if round.status == 'ongoing' %}
-                {% if next_hole %}
-                <button type="submit" name="action" value="next" class="button">Neste hull</button>
-                {% else %}
-                <button
-                    type="submit"
-                    name="action"
-                    value="finish"
-                    class="button danger"
-                    id="finish-round-hole-button"
-                >
-                    Fullfør runde
-                </button>
-                {% endif %}
+            <button type="submit" name="action" value="previous" class="button secondary">Forrige hull</button>
+            <button type="submit" name="action" value="next" class="button">Neste hull</button>
+            <button
+                type="submit"
+                name="action"
+                value="finish"
+                class="button danger hole-finish-button"
+                id="finish-round-hole-button"
+            >
+                Fullfør runde
+            </button>
             {% else %}
             <a
                 class="button"
@@ -326,7 +318,7 @@
     </div>
 </div>
 
-{% if round.status == 'ongoing' and not next_hole %}
+{% if round.status == 'ongoing' %}
 <script>
 (function () {
     const finishButton = document.getElementById("finish-round-hole-button");
@@ -443,7 +435,7 @@
         }
     }
 
-    function validationErrorsForRow(row) {
+    function validationErrorsForRow(row, requireScore) {
         const playerName = playerNameForRow(row);
         const errors = [];
         const scoreSelect = scoreSelectForRow(row);
@@ -451,7 +443,7 @@
         const statGrid = row.querySelector(".hole-stat-grid");
 
         if (scoreSelect && !scoreSelect.value) {
-            return [`${playerName}: score må fylles ut først.`];
+            return requireScore ? [`${playerName}: score må fylles ut først.`] : [];
         }
 
         if (clubSelect && !clubSelect.value) {
@@ -535,9 +527,10 @@
         }
 
         const missingLines = [];
+        const requireScore = submitter.value === "finish";
         document.querySelectorAll(".hole-player-row").forEach((row) => {
             row.classList.remove("has-validation-error");
-            const rowErrors = validationErrorsForRow(row);
+            const rowErrors = validationErrorsForRow(row, requireScore);
             if (rowErrors.length) {
                 row.classList.add("has-validation-error");
                 missingLines.push(...rowErrors);

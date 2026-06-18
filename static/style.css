@@ -970,6 +970,10 @@ input.submit-is-loading {
     text-align: center;
 }
 
+.hole-nav .hole-finish-button {
+    grid-column: 1 / -1;
+}
+
 .hole-image-panel {
     margin-top: 12px;
 }

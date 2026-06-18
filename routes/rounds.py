@@ -22,6 +22,7 @@ from models import (
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
+from services.round_completion import missing_saved_entry_choices
 from services.round_length import (
     allowed_round_hole_counts,
     course_supports_nine_hole_round,
@@ -931,6 +932,10 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
 
         entry.strokes = _parse_score_for_hole(raw_value, hole, rp.player_name_snapshot)
 
+        # An empty row is a deliberate skip, for example during a shotgun start.
+        if entry.strokes is None:
+            continue
+
         tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
 
         if club_tracking_enabled and (balletour_round or (tracks_stats and hole.par in (4, 5))):
@@ -956,7 +961,7 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                 raise ValueError(f"{message} ({rp.player_name_snapshot})") from exc
 
 
-def _missing_hole_choices(round_obj, hole, stats_rp=None):
+def _missing_hole_choices(round_obj, hole, stats_rp=None, require_scores=True):
     missing_by_player = []
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
@@ -966,8 +971,8 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None):
     for rp in round_players:
         missing = []
         if not request.form.get(f"score_{rp.id}", "").strip():
-            missing.append("score")
-            missing_by_player.append(f"{rp.player_name_snapshot}: {', '.join(missing)}")
+            if require_scores:
+                missing_by_player.append(f"{rp.player_name_snapshot}: score")
             continue
         tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
         if club_tracking_enabled and (balletour_round or (tracks_stats and hole.par in (4, 5))) and not request.form.get(f"tee_club_{rp.id}", "").strip():
@@ -1006,6 +1011,36 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None):
             missing_by_player.append(f"{rp.player_name_snapshot}: {', '.join(missing)}")
 
     return missing_by_player
+
+
+def _missing_round_choices(round_obj, stats_rp=None):
+    missing_rows = []
+    round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
+    entries = {
+        (entry.round_player_id, entry.hole_number): entry
+        for entry in ScoreEntry.query.filter_by(round_id=round_obj.id).all()
+    }
+    club_tracking_enabled = _round_uses_club_tracking(round_obj)
+    balletour_round = _is_balletour_round(round_obj)
+
+    for hole in round_holes(round_obj):
+        for rp in round_players:
+            tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
+            club_required = club_tracking_enabled and (
+                balletour_round or (tracks_stats and hole.par in (4, 5))
+            )
+            missing = missing_saved_entry_choices(
+                entries.get((rp.id, hole.hole_number)),
+                hole,
+                tracks_stats,
+                club_required,
+            )
+            if missing:
+                missing_rows.append({
+                    "hole_number": hole.hole_number,
+                    "message": f"Hull {hole.hole_number}, {rp.player_name_snapshot}: {', '.join(missing)}",
+                })
+    return missing_rows
 
 
 def _hole_player_details(round_players, hole_number):
@@ -1594,7 +1629,12 @@ def round_hole(round_id, hole_number):
 
         action = request.form.get("action", "next")
         if action in ("next", "finish"):
-            missing_choices = _missing_hole_choices(round_obj, hole, stats_rp)
+            missing_choices = _missing_hole_choices(
+                round_obj,
+                hole,
+                stats_rp,
+                require_scores=action == "finish",
+            )
             if missing_choices:
                 flash("Mangler valg: " + " | ".join(missing_choices), "error")
                 return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
@@ -1606,6 +1646,19 @@ def round_hole(round_id, hole_number):
             return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
 
         if action == "finish":
+            missing_round_choices = _missing_round_choices(round_obj, stats_rp)
+            if missing_round_choices:
+                db.session.commit()
+                shown_messages = [row["message"] for row in missing_round_choices[:8]]
+                remaining = len(missing_round_choices) - len(shown_messages)
+                if remaining:
+                    shown_messages.append(f"og {remaining} mangler til")
+                flash("Runden kan ikke fullføres. " + " | ".join(shown_messages), "error")
+                return redirect(url_for(
+                    "rounds.round_hole",
+                    round_id=round_obj.id,
+                    hole_number=missing_round_choices[0]["hole_number"],
+                ))
             round_obj.status = "finished"
             round_obj.finished_at = server_now()
             db.session.commit()
@@ -1619,9 +1672,9 @@ def round_hole(round_id, hole_number):
         db.session.commit()
 
         if action == "previous":
-            target_hole = max(1, hole_number - 1)
+            target_hole = played_hole_count if hole_number == 1 else hole_number - 1
         else:
-            target_hole = min(played_hole_count, hole_number + 1)
+            target_hole = 1 if hole_number == played_hole_count else hole_number + 1
 
         return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=target_hole))
 
@@ -1675,8 +1728,8 @@ def round_hole(round_id, hole_number):
         image_tag_choices=_round_image_tag_choices(round_obj),
         is_balletour_scoring_page=_is_balletour_round(round_obj),
         played_hole_count=played_hole_count,
-        previous_hole=hole_number - 1 if hole_number > 1 else None,
-        next_hole=hole_number + 1 if hole_number < played_hole_count else None,
+        previous_hole=played_hole_count if hole_number == 1 else hole_number - 1,
+        next_hole=1 if hole_number == played_hole_count else hole_number + 1,
     )
 
 
@@ -1915,6 +1968,7 @@ def round_score(round_id):
     played_hole_count = round_hole_count(round_obj)
 
     if request.method == "POST":
+        action = request.form.get("action", "save")
         for rp in round_players:
             for hole in range(1, played_hole_count + 1):
                 field_name = f"score_{rp.id}_{hole}"
@@ -1955,10 +2009,20 @@ def round_score(round_id):
                         flash(f"{message} ({rp.player_name_snapshot}, hull {hole})", "error")
                         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
-        action = request.form.get("action", "save")
-
         was_ongoing = round_obj.status == "ongoing"
         if action == "finish":
+            missing_round_choices = _missing_round_choices(round_obj, stats_rp)
+            if missing_round_choices:
+                db.session.commit()
+                flash(
+                    "Runden kan ikke fullføres før alle hull og obligatoriske felt er fylt ut.",
+                    "error",
+                )
+                return redirect(url_for(
+                    "rounds.round_hole",
+                    round_id=round_obj.id,
+                    hole_number=missing_round_choices[0]["hole_number"],
+                ))
             round_obj.status = "finished"
             round_obj.finished_at = server_now()
             flash("Runden er fullført.", "success")

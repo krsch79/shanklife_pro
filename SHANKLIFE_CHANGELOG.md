@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.79] - 2026-06-18
+- Lar spillere hoppe over hull uten å føre score, med sirkulær hullnavigasjon som støtter shotgun-start.
+- Kontrollerer hele scorekortet og alle obligatoriske statistikkfelt før en runde kan fullføres.
+- Legger til et eget Shanklife-ikon i nettleserfanen.
+
 ## [1.8.77] - 2026-06-18
 - Velger automatisk den innloggede spilleren som spiller 1 når en ny Shanklife-runde startes.
 - Slår på statistikkføring som standard og velger automatisk den lengste teen som har slopeverdier for spilleren.
