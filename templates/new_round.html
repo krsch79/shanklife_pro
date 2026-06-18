@@ -198,7 +198,24 @@
     }
 
     function populateTeeSelect(selectEl, options, selectedValue) {
-        const previousValue = selectedValue || selectEl.value || "";
+        let previousValue = selectedValue || selectEl.value || "";
+        let usedAutomaticDefault = false;
+        if (!previousValue) {
+            const slotEl = selectEl.closest(".player-slot");
+            const selectedPlayer = slotEl ? slotEl.querySelector(".player-select").value : "";
+            const gender = selectedPlayer && selectedPlayer !== "new"
+                ? (playerGenders[selectedPlayer] || "male")
+                : "male";
+            const ratedTees = options.filter((tee) => tee.ratings && tee.ratings[gender]);
+            const longestRatedTee = ratedTees.reduce((longest, tee) => {
+                if (!longest) return tee;
+                return Number(tee.total_length_meters || 0) > Number(longest.total_length_meters || 0)
+                    ? tee
+                    : longest;
+            }, null);
+            previousValue = longestRatedTee ? String(longestRatedTee.id) : "";
+            usedAutomaticDefault = Boolean(longestRatedTee);
+        }
         selectEl.innerHTML = "";
 
         const emptyOption = document.createElement("option");
@@ -215,6 +232,7 @@
             }
             selectEl.appendChild(option);
         });
+        selectEl.dataset.autoSelected = usedAutomaticDefault ? "1" : "0";
     }
 
     function refreshAllTeeSelects() {
@@ -254,6 +272,18 @@
             if (statsCheckbox) statsCheckbox.checked = false;
         }
 
+        const activeTeeSelect = value === "new"
+            ? slotEl.querySelector(".new-player-tee")
+            : slotEl.querySelector(".existing-player-tee");
+        if (activeTeeSelect && activeTeeSelect.dataset.autoSelected === "1") {
+            activeTeeSelect.value = "";
+            populateTeeSelect(
+                activeTeeSelect,
+                courseTeeOptions[String(courseSelect.value || "")] || [],
+                ""
+            );
+        }
+
         updateReceivedStrokes(slotEl);
     }
 
@@ -269,6 +299,8 @@
         });
         teeSelects.forEach((selectEl) => {
             selectEl.dataset.selected = "";
+            selectEl.dataset.autoSelected = "";
+            selectEl.value = "";
         });
         refreshRoundHoleCount();
         refreshAllTeeSelects();
@@ -289,6 +321,9 @@
             updateReceivedStrokes(this.closest(".player-slot"));
         });
         field.addEventListener("change", function () {
+            if (this.classList.contains("tee-select")) {
+                this.dataset.autoSelected = "0";
+            }
             updateReceivedStrokes(this.closest(".player-slot"));
         });
     });

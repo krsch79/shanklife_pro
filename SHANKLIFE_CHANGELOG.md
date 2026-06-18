@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.77] - 2026-06-18
+- Velger automatisk den innloggede spilleren som spiller 1 når en ny Shanklife-runde startes.
+- Slår på statistikkføring som standard og velger automatisk den lengste teen som har slopeverdier for spilleren.
+
 ## [1.8.76] - 2026-06-17
 - Lar spillere føre valgfri utslagslengde på alle hull når de spiller Shanklife-runder med statistikk.
 - Viser tidligere score, køllevalg og statistikk for samme spiller, bane og hull under scoreføringen.

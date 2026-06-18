@@ -100,6 +100,7 @@ def build_course_tee_options(courses):
             {
                 "id": str(tee.id),
                 "name": tee.name,
+                "total_length_meters": sum(length.length_meters for length in tee.lengths),
                 "total_par": total_par,
                 "hole_count": course.hole_count,
                 "supports_nine_hole_round": course_supports_nine_hole_round(course),
@@ -124,7 +125,8 @@ def new_round_form_state(courses, players):
 
     player_slots = []
     for i in range(1, 5):
-        slot_value = request.form.get(f"player_slot_{i}", "").strip()
+        default_player_id = str(g.current_user.player_id) if request.method == "GET" and i == 1 else ""
+        slot_value = request.form.get(f"player_slot_{i}", default_player_id).strip()
         player_slots.append({
             "slot": i,
             "selected_player": slot_value,
@@ -133,7 +135,11 @@ def new_round_form_state(courses, players):
             "new_tee": request.form.get(f"new_player_tee_{i}", "").strip(),
             "existing_hcp": request.form.get(f"hcp_existing_{i}", "").strip(),
             "existing_tee": request.form.get(f"tee_existing_{i}", "").strip(),
-            "tracks_stats": request.form.get(f"track_stats_{i}") == "1",
+            "tracks_stats": (
+                request.form.get(f"track_stats_{i}") == "1"
+                if request.method == "POST"
+                else i == 1
+            ),
         })
 
     return render_template(
