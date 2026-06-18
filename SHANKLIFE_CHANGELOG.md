@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.84] - 2026-06-18
+- Viser tidligere resultater på samme hull som kompakte og lettleste rundekort på mobil, uten behov for sideveis scrolling.
+
 ## [1.8.83] - 2026-06-18
 - Beregner snittrunde som gjennomsnittlig score mot par, slik at runder på baner med ulikt par kan sammenlignes riktig.
 - Deler beste slagsum i egne nøkkeltall for 18-hulls- og 9-hullsrunder.

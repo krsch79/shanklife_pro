@@ -2457,6 +2457,57 @@ th {
         margin-top: 8px;
     }
 
+    .hole-history-table-wrap {
+        overflow-x: visible;
+    }
+
+    .hole-history-table thead {
+        display: none;
+    }
+
+    .hole-history-table,
+    .hole-history-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .hole-history-table tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 14px;
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+
+    .hole-history-table td {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 2px;
+        padding: 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .hole-history-table td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .hole-history-table .hole-history-result {
+        grid-column: 1 / -1;
+        padding: 8px 0;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+    }
+
     .compact-score-table .meta-col {
         min-width: 38px;
         width: 38px;

@@ -214,8 +214,8 @@
                     {% if player_history.summary.avg_putts is not none %} · putter {{ player_history.summary.avg_putts }}{% endif %}
                 </p>
             </div>
-            <div class="table-wrap">
-                <table>
+            <div class="table-wrap hole-history-table-wrap">
+                <table class="hole-history-table">
                     <thead>
                         <tr>
                             <th>Dato</th>
@@ -230,8 +230,8 @@
                     <tbody>
                         {% for row in player_history.rows %}
                         <tr>
-                            <td>{{ row.date }}</td>
-                            <td>
+                            <td data-label="Dato">{{ row.date }}</td>
+                            <td data-label="Score">
                                 {{ row.score }}
                                 {% if row.to_par is not none %}
                                 <span class="muted">
@@ -239,11 +239,11 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td>{{ row.club or "—" }}</td>
-                            <td>{% if row.drive_distance is not none %}{{ row.drive_distance }} m{% else %}—{% endif %}</td>
-                            <td>{{ row.result }}</td>
-                            <td>{% if row.putts is not none %}{{ row.putts }}{% else %}—{% endif %}</td>
-                            <td>{% if row.last_putt_distance is not none %}{{ "%.1f"|format(row.last_putt_distance) }} m{% else %}—{% endif %}</td>
+                            <td data-label="Kølle">{{ row.club or "—" }}</td>
+                            <td data-label="Utslag">{% if row.drive_distance is not none %}{{ row.drive_distance }} m{% else %}—{% endif %}</td>
+                            <td data-label="{% if hole.par == 3 %}Green{% else %}Fairway{% endif %}" class="hole-history-result">{{ row.result }}</td>
+                            <td data-label="Putter">{% if row.putts is not none %}{{ row.putts }}{% else %}—{% endif %}</td>
+                            <td data-label="Siste putt">{% if row.last_putt_distance is not none %}{{ "%.1f"|format(row.last_putt_distance) }} m{% else %}—{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
