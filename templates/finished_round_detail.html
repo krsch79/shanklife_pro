@@ -128,6 +128,7 @@
             <div class="stat-card"><strong>{{ stats.green_hit }}/{{ stats.green_attempts }}</strong><span>Greentreff par 3{% if stats.green_hit_percent is not none %} · {{ stats.green_hit_percent }}%{% endif %}</span></div>
             {% if stats.average_drive_distance is not none %}<div class="stat-card"><strong>{{ stats.average_drive_distance }} m</strong><span>Snitt utslagslengde</span></div>{% endif %}
             {% if stats.average_last_putt is not none %}<div class="stat-card"><strong>{{ stats.average_last_putt }} m</strong><span>Snitt siste putt</span></div>{% endif %}
+            <div class="stat-card"><strong>{{ stats.total_putt_distance }} m</strong><span>Totalt meter puttet</span></div>
         </div>
 
         <div class="round-stat-details">

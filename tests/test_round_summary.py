@@ -84,6 +84,8 @@ class RoundSummaryTests(unittest.TestCase):
         self.assertEqual(stats["fairway_right"], 1)
         self.assertEqual(stats["putts_total"], 3)
         self.assertEqual(stats["putts_average"], 1.0)
+        self.assertEqual(stats["average_drive_distance"], 210.0)
+        self.assertEqual(stats["total_putt_distance"], 1.0)
         self.assertEqual(stats["green_attempts"], 1)
         self.assertEqual(stats["green_hit"], 1)
         self.assertEqual(stats["club_rows"][0], {"name": "Driver", "count": 2})

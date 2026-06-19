@@ -79,7 +79,7 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
             gir_attempts += 1
             if entry.strokes - stat.putts <= hole.par - 2:
                 gir_count += 1
-        if stat.drive_distance_m is not None:
+        if hole.par in (4, 5) and stat.drive_distance_m is not None:
             drive_distances.append(stat.drive_distance_m)
         if stat.last_putt_distance_m is not None:
             last_putt_distances.append(stat.last_putt_distance_m)
@@ -126,6 +126,7 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
         "putts_average": _average(putts, 2),
         "average_drive_distance": _average(drive_distances),
         "average_last_putt": _average(last_putt_distances, 2),
+        "total_putt_distance": round(sum(last_putt_distances), 2),
         "eagles_or_better": sum(1 for difference in differences if difference <= -2),
         "birdies": sum(1 for difference in differences if difference == -1),
         "pars": sum(1 for difference in differences if difference == 0),
