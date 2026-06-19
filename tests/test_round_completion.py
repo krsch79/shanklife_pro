@@ -36,8 +36,16 @@ class RoundCompletionTests(unittest.TestCase):
     def test_putts_and_green_miss_can_be_entered_before_score(self):
         validate_score_putts(2, None)
 
-    def test_empty_putts_are_allowed_while_entering_a_hole(self):
-        validate_score_putts(None, 4)
+    def test_zero_putts_are_allowed_for_chip_in(self):
+        validate_score_putts(0, 3)
+
+    def test_zero_putts_pass_round_completion_without_last_putt(self):
+        stat = SimpleNamespace(fairway_result="hit", putts=0, last_putt_distance_m=None)
+        entry = SimpleNamespace(strokes=3, tee_club_id=1, detailed_stat=stat)
+
+        missing = missing_saved_entry_choices(entry, SimpleNamespace(par=3), True, True)
+
+        self.assertEqual(missing, [])
 
     def test_putts_are_validated_when_score_is_added(self):
         with self.assertRaisesRegex(ValueError, "minst én mer"):

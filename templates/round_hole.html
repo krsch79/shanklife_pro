@@ -459,9 +459,7 @@
             if (horizontalChoices.length && !checkedHorizontal) errors.push(`${playerName}: retning mangler.`);
             if (verticalChoices.length && !checkedVertical) errors.push(`${playerName}: lengde mangler.`);
             if (fairwaySelect && !fairwaySelect.value) errors.push(`${playerName}: fairway mangler.`);
-            if (puttsSelect && puttsSelect.value === "" && requireScore) {
-                errors.push(`${playerName}: putter mangler.`);
-            } else if (putts !== null) {
+            if (putts !== null) {
                 const maxPutts = score - 1;
                 if (putts > 0 && putts > maxPutts) {
                     errors.push(`${playerName}: score må være minst én mer enn antall putter.`);

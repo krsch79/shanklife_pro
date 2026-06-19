@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.88] - 2026-06-19
+- Lagrer et tomt puttervalg som 0 putter, slik at chip-in kan registreres uten å åpne putterlisten.
+- Godtar 0 putter uten lengde på siste putt ved navigering og fullføring av runden.
+
 ## [1.8.87] - 2026-06-19
 - Tydeliggjør fairwayvalgene som Traff fairway, Misset høyre og Misset venstre.
 - Tillater tomt putterfelt når man går videre, men krever at score er minst én mer enn antall putter når begge er fylt ut.

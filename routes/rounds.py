@@ -269,7 +269,7 @@ def _parse_optional_int(raw_value, min_value, max_value):
 def _parse_putts_for_score(raw_value, entry):
     raw_value = (raw_value or "").strip()
     if raw_value == "":
-        return None
+        return 0
 
     try:
         putts = int(raw_value)
@@ -932,7 +932,7 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                 raise ValueError(f"{message} ({rp.player_name_snapshot})") from exc
 
 
-def _missing_hole_choices(round_obj, hole, stats_rp=None, require_scores=True, require_putts=True):
+def _missing_hole_choices(round_obj, hole, stats_rp=None, require_scores=True):
     missing_by_player = []
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
@@ -968,10 +968,7 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None, require_scores=True, r
             putts_name = _stat_field_name("stat_putts", rp, scoped_stats)
             last_putt_name = _stat_field_name("stat_last_putt_distance", rp, scoped_stats)
             putts_raw = request.form.get(putts_name, "").strip()
-            if putts_raw == "":
-                if require_putts:
-                    missing.append("putter")
-            else:
+            if putts_raw != "":
                 try:
                     putts = int(putts_raw)
                 except ValueError:
@@ -1605,7 +1602,6 @@ def round_hole(round_id, hole_number):
                 hole,
                 stats_rp,
                 require_scores=action == "finish",
-                require_putts=action == "finish",
             )
             if missing_choices:
                 flash("Mangler valg: " + " | ".join(missing_choices), "error")
