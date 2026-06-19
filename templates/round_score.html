@@ -157,9 +157,9 @@
                                 {% if round.status == 'finished' %}disabled{% endif %}
                             >
                                 <option value="" {% if not stat.fairway_result %}selected{% endif %}>FW</option>
-                                <option value="hit" {% if stat.fairway_result == 'hit' %}selected{% endif %}>Treff</option>
-                                <option value="left" {% if stat.fairway_result == 'left' %}selected{% endif %}>Venstre</option>
-                                <option value="right" {% if stat.fairway_result == 'right' %}selected{% endif %}>Høyre</option>
+                                <option value="hit" {% if stat.fairway_result == 'hit' %}selected{% endif %}>Traff fairway</option>
+                                <option value="right" {% if stat.fairway_result == 'right' %}selected{% endif %}>Misset høyre</option>
+                                <option value="left" {% if stat.fairway_result == 'left' %}selected{% endif %}>Misset venstre</option>
                             </select>
                             {% endif %}
                             <select
@@ -509,18 +509,20 @@
     function syncPuttsOptions(holeNumber) {
         const scoreSelect = document.querySelector(`.stat-score-select[data-hole-number="${holeNumber}"]`);
         const puttsSelect = document.querySelector(`select[data-putts-select="true"][data-hole-number="${holeNumber}"]`);
-        const greenStatusSelect = document.querySelector(`select[data-stat-field="green_status"][data-hole-number="${holeNumber}"]`);
         if (!scoreSelect || !puttsSelect) return;
         const score = parseInt(scoreSelect.value, 10);
-        const hasGreenMiss = greenStatusSelect && greenStatusSelect.value !== "hit";
         Array.from(puttsSelect.options).forEach((option) => {
             if (option.value === "") {
                 option.disabled = false;
                 return;
             }
+            if (!Number.isInteger(score)) {
+                option.disabled = false;
+                return;
+            }
             const putts = parseInt(option.value, 10);
-            const maxPutts = hasGreenMiss ? score - 2 : score - 1;
-            option.disabled = putts > 0 && (!Number.isInteger(score) || putts > maxPutts);
+            const maxPutts = score - 1;
+            option.disabled = putts > 0 && putts > maxPutts;
         });
         if (puttsSelect.selectedOptions[0] && puttsSelect.selectedOptions[0].disabled) {
             puttsSelect.value = "";

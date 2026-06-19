@@ -137,9 +137,9 @@
                         <span>FW</span>
                         <select name="stat_fairway{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if not stat_values.fairway_result %}selected{% endif %}>—</option>
-                            <option value="hit" {% if stat_values.fairway_result == 'hit' %}selected{% endif %}>Treff</option>
-                            <option value="left" {% if stat_values.fairway_result == 'left' %}selected{% endif %}>Venstre</option>
-                            <option value="right" {% if stat_values.fairway_result == 'right' %}selected{% endif %}>Høyre</option>
+                            <option value="hit" {% if stat_values.fairway_result == 'hit' %}selected{% endif %}>Traff fairway</option>
+                            <option value="right" {% if stat_values.fairway_result == 'right' %}selected{% endif %}>Misset høyre</option>
+                            <option value="left" {% if stat_values.fairway_result == 'left' %}selected{% endif %}>Misset venstre</option>
                         </select>
                     </label>
                     {% endif %}
@@ -408,10 +408,8 @@
         if (!row) return;
         const scoreSelect = row.querySelector(".stat-score-select");
         const puttsSelect = row.querySelector(".stat-putts-select");
-        const greenStatusSelect = row.querySelector('select[data-green-status]');
         if (!scoreSelect || !puttsSelect) return;
         const score = parseInt(scoreSelect.value, 10);
-        const hasGreenMiss = greenStatusSelect && greenStatusSelect.value !== "hit";
         Array.from(puttsSelect.options).forEach((option) => {
             if (option.value === "") {
                 option.disabled = false;
@@ -422,7 +420,7 @@
                 return;
             }
             const putts = parseInt(option.value, 10);
-            const maxPutts = hasGreenMiss ? score - 2 : score - 1;
+            const maxPutts = score - 1;
             option.disabled = putts > 0 && putts > maxPutts;
         });
         if (puttsSelect.selectedOptions[0] && puttsSelect.selectedOptions[0].disabled) {
@@ -461,13 +459,12 @@
             if (horizontalChoices.length && !checkedHorizontal) errors.push(`${playerName}: retning mangler.`);
             if (verticalChoices.length && !checkedVertical) errors.push(`${playerName}: lengde mangler.`);
             if (fairwaySelect && !fairwaySelect.value) errors.push(`${playerName}: fairway mangler.`);
-            if (puttsSelect && puttsSelect.value === "") {
+            if (puttsSelect && puttsSelect.value === "" && requireScore) {
                 errors.push(`${playerName}: putter mangler.`);
             } else if (putts !== null) {
-                const greenMiss = greenStatus && greenStatus.value !== "hit";
-                const maxPutts = greenMiss ? score - 2 : score - 1;
+                const maxPutts = score - 1;
                 if (putts > 0 && putts > maxPutts) {
-                    errors.push(`${playerName}: ${putts} putter er for mye for score ${score}${greenMiss ? " ved miss/bunker" : ""}.`);
+                    errors.push(`${playerName}: score må være minst én mer enn antall putter.`);
                 }
                 if (putts > 0 && lastPuttSelect && !lastPuttSelect.value) {
                     errors.push(`${playerName}: siste putt mangler.`);

@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.87] - 2026-06-19
+- Tydeliggjør fairwayvalgene som Traff fairway, Misset høyre og Misset venstre.
+- Tillater tomt putterfelt når man går videre, men krever at score er minst én mer enn antall putter når begge er fylt ut.
+- Beholder krav om registrerte putter før runden kan fullføres.
+
 ## [1.8.86] - 2026-06-19
 - Endrer hullføringen til naturlig slagrekkefølge: utslagskølle, lengde, green/fairway, putter, siste putt og score til slutt.
 - Lar statistikk fylles ut før score, samtidig som score og komplette obligatoriske data fortsatt kreves ved fullføring.

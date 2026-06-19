@@ -1,23 +1,9 @@
-def validate_score_stat_combination(par, fairway_result, putts, score):
-    if score is None:
+def validate_score_putts(putts, score):
+    if score is None or putts is None:
         return
 
-    putts = putts or 0
     if putts > 0 and putts > score - 1:
-        raise ValueError("Antall putter må være 0, eller mellom 1 og score minus 1.")
-
-    if par != 3:
-        return
-
-    raw_result = (fairway_result or "hit").strip()
-    status = raw_result.partition(":")[0]
-    if status in ("left", "right", "short", "long"):
-        status = "miss"
-    if status == "hit":
-        return
-
-    if score < putts + 2:
-        raise ValueError("Ved miss eller bunker må total score være minst 2 slag pluss antall putter.")
+        raise ValueError("Score må være minst én mer enn antall putter.")
 
 
 def missing_saved_entry_choices(entry, hole, tracks_stats, club_required):
