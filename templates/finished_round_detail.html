@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}{{ round.course.name }} - runde {{ round.id }}{% endblock %}
+
+{% macro scorecard_segment(title, holes, segment_key, include_total=false) %}
+<section class="round-scorecard-section">
+    <h3>{{ title }}</h3>
+    <div class="table-wrap round-scorecard-wrap">
+        <table class="round-summary-scorecard">
+            <thead>
+                <tr>
+                    <th>Hull</th>
+                    {% for hole in holes %}<th>{{ hole.hole_number }}</th>{% endfor %}
+                    <th>{{ 'Ut' if segment_key == 'front_total' else 'Inn' }}</th>
+                    {% if include_total %}<th>Tot</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="course-data-row">
+                    <th>Index</th>
+                    {% for hole in holes %}<td>{{ round_summary.index_by_hole[hole.hole_number] }}</td>{% endfor %}
+                    <td>-</td>
+                    {% if include_total %}<td>-</td>{% endif %}
+                </tr>
+                <tr class="course-data-row">
+                    <th>Par</th>
+                    {% for hole in holes %}<td>{{ hole.par }}</td>{% endfor %}
+                    <td><strong>{{ round_summary.front_par if segment_key == 'front_total' else round_summary.back_par }}</strong></td>
+                    {% if include_total %}<td><strong>{{ round_summary.total_par }}</strong></td>{% endif %}
+                </tr>
+                {% for tee in round_summary.tee_rows %}
+                <tr class="course-data-row tee-row">
+                    <th>{{ tee.label }}</th>
+                    {% for hole in holes %}<td>{{ tee.lengths.get(hole.hole_number, '-') }}</td>{% endfor %}
+                    <td><strong>{{ tee[segment_key] if tee[segment_key] is not none else '-' }}</strong></td>
+                    {% if include_total %}<td><strong>{{ tee.total if tee.total is not none else '-' }}</strong></td>{% endif %}
+                </tr>
+                {% endfor %}
+                {% for player in round_summary.player_rows %}
+                <tr class="player-score-row">
+                    <th>
+                        <span>{{ player.player_name }}</span>
+                        <small>hcp {{ "%.1f"|format(player.hcp) }} · {{ player.tee_name }}</small>
+                    </th>
+                    {% for hole in holes %}
+                    <td>
+                        {% set cell = player.cells[hole.hole_number] %}
+                        <span class="score-shape {{ cell.shape_class }}">
+                            {{ cell.score if cell.score is not none else '-' }}
+                        </span>
+                    </td>
+                    {% endfor %}
+                    <td><strong>{{ player[segment_key] if player[segment_key] is not none else '-' }}</strong></td>
+                    {% if include_total %}
+                    <td>
+                        <strong>{{ player.total if player.total is not none else '-' }}</strong>
+                        <small class="score-total-to-par">{{ player.to_par_display }}</small>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endmacro %}
+
+{% block content %}
+<div class="page-title-row round-summary-heading">
+    <div>
+        <p class="muted">Fullført Shanklife-runde · {{ round.played_hole_count or round.course.hole_count }} hull</p>
+        <h2>{{ round.course.name }}</h2>
+        <p class="muted">{{ round.started_at|datetime_local }}{% if weather_summary %} · {{ weather_summary }}{% endif %}</p>
+    </div>
+    <div class="button-row compact">
+        {% if current_user_round_player %}
+        <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Alle runder</a>
+    </div>
+</div>
+
+<section class="round-summary-card scorecard-panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Scorekort</p>
+            <h3>Runde {{ round.id }}</h3>
+        </div>
+        <div class="round-timing">
+            <span><strong>Start:</strong> {{ round.started_at|datetime_local }}</span>
+            <span><strong>Fullført:</strong> {{ round.finished_at|datetime_local }}</span>
+        </div>
+    </div>
+
+    {{ scorecard_segment('Front 9', round_summary.front_holes, 'front_total', false) }}
+    {% if round_summary.back_holes %}
+    {{ scorecard_segment('Back 9', round_summary.back_holes, 'back_total', true) }}
+    {% endif %}
+</section>
+
+{% if round_summary.statistics %}
+<section class="round-statistics-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Rundestatistikk</p>
+            <h3>Dette skjedde ute på banen</h3>
+        </div>
+    </div>
+
+    {% for stats in round_summary.statistics %}
+    <article class="round-player-statistics">
+        <div class="round-player-statistics-header">
+            <div>
+                <h4>{{ stats.player_name }}</h4>
+                <p class="muted">{{ stats.tee_name }} tee · {{ stats.scored_holes }} hull</p>
+            </div>
+            <div class="round-score-summary">
+                <strong>{{ stats.total_score }}</strong>
+                <span>{{ stats.to_par_display }} mot par</span>
+            </div>
+        </div>
+
+        <div class="stat-grid round-stat-grid">
+            <div class="stat-card"><strong>{{ stats.gir_count }}/{{ stats.gir_attempts }}</strong><span>GIR{% if stats.gir_percent is not none %} · {{ stats.gir_percent }}%{% endif %}</span></div>
+            <div class="stat-card"><strong>{{ stats.fairway_hit }}/{{ stats.fairway_attempts }}</strong><span>Fairwaytreff{% if stats.fairway_hit_percent is not none %} · {{ stats.fairway_hit_percent }}%{% endif %}</span></div>
+            <div class="stat-card"><strong>{{ stats.fairway_left }}</strong><span>Miss fairway venstre{% if stats.fairway_left_percent is not none %} · {{ stats.fairway_left_percent }}%{% endif %}</span></div>
+            <div class="stat-card"><strong>{{ stats.fairway_right }}</strong><span>Miss fairway høyre{% if stats.fairway_right_percent is not none %} · {{ stats.fairway_right_percent }}%{% endif %}</span></div>
+            <div class="stat-card"><strong>{{ stats.putts_total }}</strong><span>Putter totalt{% if stats.putts_average is not none %} · {{ stats.putts_average }} per hull{% endif %}</span></div>
+            <div class="stat-card"><strong>{{ stats.green_hit }}/{{ stats.green_attempts }}</strong><span>Greentreff par 3{% if stats.green_hit_percent is not none %} · {{ stats.green_hit_percent }}%{% endif %}</span></div>
+            {% if stats.average_drive_distance is not none %}<div class="stat-card"><strong>{{ stats.average_drive_distance }} m</strong><span>Snitt utslagslengde</span></div>{% endif %}
+            {% if stats.average_last_putt is not none %}<div class="stat-card"><strong>{{ stats.average_last_putt }} m</strong><span>Snitt siste putt</span></div>{% endif %}
+        </div>
+
+        <div class="round-stat-details">
+            <div>
+                <h5>Scorefordeling</h5>
+                <dl class="compact-stat-list">
+                    <div><dt>Eagle eller bedre</dt><dd>{{ stats.eagles_or_better }}</dd></div>
+                    <div><dt>Birdie</dt><dd>{{ stats.birdies }}</dd></div>
+                    <div><dt>Par</dt><dd>{{ stats.pars }}</dd></div>
+                    <div><dt>Bogey</dt><dd>{{ stats.bogeys }}</dd></div>
+                    <div><dt>Dobbelbogey eller verre</dt><dd>{{ stats.double_or_worse }}</dd></div>
+                </dl>
+            </div>
+            <div>
+                <h5>Utslagskøller</h5>
+                {% if stats.club_rows %}
+                <dl class="compact-stat-list">
+                    {% for club in stats.club_rows %}<div><dt>{{ club.name }}</dt><dd>{{ club.count }} utslag</dd></div>{% endfor %}
+                </dl>
+                {% else %}<p class="muted">Ingen køllevalg registrert.</p>{% endif %}
+            </div>
+        </div>
+    </article>
+    {% endfor %}
+</section>
+{% endif %}
+
+<div class="button-row round-summary-actions">
+    <a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Tilbake til fullførte runder</a>
+    {% if current_user and current_user.is_admin %}
+    <form method="post" action="{{ url_for('rounds.delete_round', round_id=round.id) }}" onsubmit="return confirm('Er du sikker på at du vil slette runde {{ round.id }}?');" class="inline-form">
+        <input type="hidden" name="next" value="{{ url_for('rounds.finished_rounds') }}">
+        <button type="submit" class="button danger">Slett runde</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

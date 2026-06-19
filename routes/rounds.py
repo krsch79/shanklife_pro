@@ -30,6 +30,7 @@ from services.round_length import (
     round_hole_count,
     round_holes,
 )
+from services.round_summary import build_round_summary
 from services.balletour import get_balletour_course_id, get_balletour_memberships, get_balletour_series
 from services.time import format_server_datetime, server_now
 from services.user_notifications import (
@@ -1562,6 +1563,8 @@ def delete_round(round_id):
 @rounds_bp.route("/rounds/<int:round_id>")
 def round_detail(round_id):
     round_obj = Round.query.get_or_404(round_id)
+    if round_obj.status == "finished" and not _is_balletour_round(round_obj):
+        return redirect(url_for("rounds.round_score", round_id=round_obj.id))
     return render_template("round_detail.html", round=round_obj)
 
 
@@ -2106,8 +2109,14 @@ def round_score(round_id):
                 )
             received_strokes_map[rp.id][hole_obj.hole_number] = max(received_strokes, 0)
 
+    template_name = "round_score.html"
+    round_summary = None
+    if round_obj.status == "finished" and not _is_balletour_round(round_obj):
+        template_name = "finished_round_detail.html"
+        round_summary = build_round_summary(round_obj)
+
     return render_template(
-        "round_score.html",
+        template_name,
         round=round_obj,
         course=course,
         played_holes=played_holes,
@@ -2134,4 +2143,6 @@ def round_score(round_id):
         drive_distance_options=DRIVE_DISTANCE_OPTIONS,
         is_balletour_scoring_page=_is_balletour_round(round_obj),
         current_user_round_player=_current_user_round_player(round_obj),
+        round_summary=round_summary,
+        weather_summary=_round_weather_summary(round_obj),
     )

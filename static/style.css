@@ -277,6 +277,192 @@ input.submit-is-loading {
     font-size: 0.88rem;
 }
 
+.round-summary-heading {
+    align-items: flex-end;
+    margin-bottom: 18px;
+}
+
+.round-summary-heading h2,
+.round-summary-heading p,
+.section-heading h3,
+.section-heading p,
+.round-scorecard-section h3,
+.round-player-statistics h4,
+.round-player-statistics h5 {
+    margin-top: 0;
+}
+
+.round-summary-heading h2,
+.round-scorecard-section h3,
+.round-player-statistics h4,
+.round-player-statistics h5 {
+    margin-bottom: 6px;
+}
+
+.round-summary-heading p {
+    margin-bottom: 4px;
+}
+
+.round-summary-card,
+.round-statistics-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+.section-heading,
+.round-player-statistics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.eyebrow {
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.round-timing {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px 16px;
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.round-scorecard-section + .round-scorecard-section {
+    margin-top: 20px;
+}
+
+.round-scorecard-wrap {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.round-summary-scorecard {
+    width: 100%;
+    min-width: 720px;
+    table-layout: fixed;
+}
+
+.round-summary-scorecard th,
+.round-summary-scorecard td {
+    padding: 8px 4px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.round-summary-scorecard th:first-child {
+    width: 142px;
+    text-align: left;
+    padding-left: 10px;
+}
+
+.round-summary-scorecard thead th {
+    background: #e8eef5;
+}
+
+.round-summary-scorecard .course-data-row {
+    background: #f8fafc;
+    color: var(--muted);
+}
+
+.round-summary-scorecard .tee-row {
+    font-size: 0.82rem;
+}
+
+.round-summary-scorecard .player-score-row th {
+    color: var(--text);
+}
+
+.round-summary-scorecard .player-score-row th span,
+.round-summary-scorecard .player-score-row th small,
+.round-summary-scorecard .score-total-to-par {
+    display: block;
+}
+
+.round-summary-scorecard .player-score-row th small,
+.round-summary-scorecard .score-total-to-par {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+.round-player-statistics {
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+    margin-top: 14px;
+}
+
+.round-score-summary {
+    min-width: 88px;
+    text-align: right;
+}
+
+.round-score-summary strong,
+.round-score-summary span {
+    display: block;
+}
+
+.round-score-summary strong {
+    font-size: 1.7rem;
+}
+
+.round-score-summary span {
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.round-stat-grid {
+    margin-top: 14px;
+}
+
+.round-stat-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.round-stat-details > div {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.compact-stat-list {
+    margin: 0;
+}
+
+.compact-stat-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.compact-stat-list div:last-child {
+    border-bottom: none;
+}
+
+.compact-stat-list dd {
+    margin: 0;
+    font-weight: 700;
+    text-align: right;
+}
+
+.round-summary-actions {
+    justify-content: space-between;
+}
+
 .muted {
     color: var(--muted);
 }
@@ -2577,6 +2763,74 @@ th {
     .score-shape {
         --score-shape-size: 28px;
         font-size: 0.9rem;
+    }
+
+    .round-summary-heading,
+    .section-heading,
+    .round-player-statistics-header {
+        align-items: flex-start;
+    }
+
+    .round-summary-heading,
+    .section-heading {
+        display: block;
+    }
+
+    .round-summary-heading .button-row {
+        margin-top: 12px;
+    }
+
+    .round-summary-card,
+    .round-statistics-section {
+        padding: 12px;
+    }
+
+    .round-timing {
+        justify-content: flex-start;
+        margin-top: 8px;
+    }
+
+    .round-summary-scorecard {
+        min-width: 0;
+        font-size: 0.72rem;
+    }
+
+    .round-summary-scorecard th,
+    .round-summary-scorecard td {
+        padding: 6px 1px;
+    }
+
+    .round-summary-scorecard th:first-child {
+        width: 78px;
+        padding-left: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .round-summary-scorecard .score-shape {
+        --score-shape-size: 24px;
+        font-size: 0.78rem;
+    }
+
+    .round-summary-scorecard .tee-row {
+        font-size: 0.66rem;
+    }
+
+    .round-summary-scorecard .player-score-row th small {
+        font-size: 0.62rem;
+    }
+
+    .round-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .round-stat-details {
+        grid-template-columns: 1fr;
+    }
+
+    .round-summary-actions {
+        display: grid;
+        grid-template-columns: 1fr;
     }
 
     .mobile-stack-table thead {

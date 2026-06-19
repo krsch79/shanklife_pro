@@ -2,6 +2,12 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.89] - 2026-06-19
+- Gir fullførte Shanklife-runder en ny, komplett oppsummering med klassisk scorekort for front 9 og back 9.
+- Viser index, par, tee-lengder og spillerscore hull for hull, med summer for Ut, Inn og Totalt og vanlige scoremarkeringer for birdie, bogey og bedre/verre.
+- Viser rundestatistikk for spillere som førte statistikk, inkludert GIR, fairwaytreff og missretning, putter, par 3-greentreff, scorefordeling og utslagskøller.
+- Tilpasser scorekortet til mobil uten sideveis scrolling og lar gamle detaljlenker åpne den nye oppsummeringen.
+
 ## [1.8.88] - 2026-06-19
 - Lagrer et tomt puttervalg som 0 putter, slik at chip-in kan registreres uten å åpne putterlisten.
 - Godtar 0 putter uten lengde på siste putt ved navigering og fullføring av runden.
