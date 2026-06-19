@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.90] - 2026-06-19
+- Beregner live score mot par fra alle hull som faktisk er registrert, også ved shotgun-start eller annen spillerekkefølge.
+
 ## [1.8.88] - 2026-06-19
 - Lagrer et tomt puttervalg som 0 putter, slik at chip-in kan registreres uten å åpne putterlisten.
 - Godtar 0 putter uten lengde på siste putt ved navigering og fullføring av runden.

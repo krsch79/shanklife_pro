@@ -22,6 +22,7 @@ from models import (
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
+from services.live_score import score_to_par_for_entries
 from services.round_completion import missing_saved_entry_choices, validate_score_putts
 from services.round_length import (
     allowed_round_hole_counts,
@@ -482,39 +483,27 @@ def _vs_par_display(value):
     return f"+{value}" if value > 0 else str(value)
 
 
-def _previous_vs_par_rows(round_obj, round_players, hole_number):
-    previous_holes = [
-        hole for hole in round_obj.course.holes
-        if hole.hole_number < hole_number
-    ]
-    par_by_hole = {hole.hole_number: hole.par for hole in previous_holes}
-    previous_par = sum(par_by_hole.values())
-    entries = (
-        ScoreEntry.query.filter_by(round_id=round_obj.id)
-        .filter(ScoreEntry.hole_number < hole_number)
-        .all()
-        if previous_holes else []
-    )
+def _live_vs_par_rows(round_obj, round_players, hole_number):
+    par_by_hole = {
+        hole.hole_number: hole.par
+        for hole in round_holes(round_obj)
+    }
+    entries = ScoreEntry.query.filter_by(round_id=round_obj.id).all()
     entries_by_player = {}
     for entry in entries:
         entries_by_player.setdefault(entry.round_player_id, []).append(entry)
 
     rows = []
     for round_player in round_players:
-        player_entries = [
-            entry for entry in entries_by_player.get(round_player.id, [])
-            if entry.strokes is not None
-        ]
-        if not previous_holes:
-            value = 0
-        elif len(player_entries) != len(previous_holes):
-            value = None
-        else:
-            value = sum(entry.strokes for entry in player_entries) - previous_par
+        value = score_to_par_for_entries(
+            entries_by_player.get(round_player.id, []),
+            par_by_hole,
+            excluded_hole_number=hole_number,
+        )
         rows.append({
             "player": round_player,
             "value": value,
-            "display": "-" if value is None else _vs_par_display(value),
+            "display": _vs_par_display(value),
         })
     return rows
 
@@ -1682,7 +1671,7 @@ def round_hole(round_id, hole_number):
         hole=hole,
         display_stroke_index=round_handicap_stroke_index(round_obj, hole),
         round_players=round_players,
-        previous_vs_par_rows=_previous_vs_par_rows(round_obj, round_players, hole_number),
+        live_vs_par_rows=_live_vs_par_rows(round_obj, round_players, hole_number),
         score_entries=score_entries,
         stats_round_player_id=stats_rp.id if stats_rp else None,
         stats_values=stats_values,

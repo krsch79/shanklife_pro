@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.90] - 2026-06-19
+- Beregner live score mot par fra alle hull som faktisk er registrert, uavhengig av hullnummer og spillerekkefølge.
+- Viser dermed riktig løpende score ved shotgun-start og når spilleren hopper mellom hull.
+
 ## [1.8.89] - 2026-06-19
 - Gir fullførte Shanklife-runder en ny, komplett oppsummering med klassisk scorekort for front 9 og back 9.
 - Viser index, par, tee-lengder og spillerscore hull for hull, med summer for Ut, Inn og Totalt og vanlige scoremarkeringer for birdie, bogey og bedre/verre.

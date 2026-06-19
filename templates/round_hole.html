@@ -34,19 +34,19 @@
         <div><strong>{{ hole.hole_number }}</strong><span>Hull</span></div>
         <div><strong>{{ hole.par }}</strong><span>Par</span></div>
         <div class="hole-vs-par-cell">
-            {% if previous_vs_par_rows|length == 1 %}
+            {% if live_vs_par_rows|length == 1 %}
             <strong
                 data-live-vs-par
-                data-round-player-id="{{ previous_vs_par_rows[0].player.id }}"
-                data-base-vs-par="{{ previous_vs_par_rows[0].value if previous_vs_par_rows[0].value is not none else '' }}"
-            >{{ previous_vs_par_rows[0].display }}</strong>
+                data-round-player-id="{{ live_vs_par_rows[0].player.id }}"
+                data-base-vs-par="{{ live_vs_par_rows[0].value }}"
+            >{{ live_vs_par_rows[0].display }}</strong>
             {% else %}
             <strong>
-                {% for row in previous_vs_par_rows %}
+                {% for row in live_vs_par_rows %}
                 <small
                     data-live-vs-par
                     data-round-player-id="{{ row.player.id }}"
-                    data-base-vs-par="{{ row.value if row.value is not none else '' }}"
+                    data-base-vs-par="{{ row.value }}"
                 >{{ row.player.player_name_snapshot }} <span data-live-vs-par-value>{{ row.display }}</span></small>{% if not loop.last %}<br>{% endif %}
                 {% endfor %}
             </strong>
