@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.92] - 2026-06-19
+- Viser en komplett hull-for-hull-oversikt i statistikken for fullførte runder.
+- Samler score mot par, utslagskølle, utslagslengde, fairway-/greenresultat, putter og lengde på siste putt for hver spiller og hvert hull.
+- Tilpasser detaljoversikten til kompakte hullkort på mobil.
+
 ## [1.8.91] - 2026-06-19
 - Beregner snitt utslagslengde i rundeoppsummeringen kun fra par 4- og par 5-hull.
 - Viser totalt meter puttet som summen av registrert lengde på siste putt gjennom runden.

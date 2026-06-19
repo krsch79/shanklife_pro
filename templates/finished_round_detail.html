@@ -131,6 +131,38 @@
             <div class="stat-card"><strong>{{ stats.total_putt_distance }} m</strong><span>Totalt meter puttet</span></div>
         </div>
 
+        <section class="round-hole-statistics">
+            <h5>Hull for hull</h5>
+            <div class="table-wrap">
+                <table class="round-hole-stat-table">
+                    <thead>
+                        <tr>
+                            <th>Hull</th>
+                            <th>Score</th>
+                            <th>Kølle</th>
+                            <th>Utslagslengde</th>
+                            <th>Treff</th>
+                            <th>Putter</th>
+                            <th>Siste putt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in stats.hole_rows %}
+                        <tr>
+                            <td data-label="Hull"><strong>{{ row.hole_number }}</strong> <span class="muted">· par {{ row.par }}</span></td>
+                            <td data-label="Score"><strong>{{ row.score }}</strong> <span class="muted">({{ row.to_par_display }})</span></td>
+                            <td data-label="Kølle">{{ row.club }}</td>
+                            <td data-label="Utslagslengde">{% if row.drive_distance is not none %}{{ row.drive_distance }} m{% else %}-{% endif %}</td>
+                            <td data-label="Treff">{{ row.result }}</td>
+                            <td data-label="Putter">{% if row.putts is not none %}{{ row.putts }}{% else %}-{% endif %}</td>
+                            <td data-label="Siste putt">{% if row.last_putt_distance is not none %}{{ "%.1f"|format(row.last_putt_distance) }} m{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <div class="round-stat-details">
             <div>
                 <h5>Scorefordeling</h5>

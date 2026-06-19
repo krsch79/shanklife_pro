@@ -52,6 +52,36 @@ def _player_tracks_stats(round_obj, round_player):
     return bool(stats_user and stats_user.player_id == round_player.player_id)
 
 
+def _green_result_label(raw_value):
+    status, separator, direction_text = (raw_value or "").partition(":")
+    status_labels = {
+        "hit": "Greentreff",
+        "miss": "Miss green",
+        "bunker": "Bunker",
+    }
+    label = status_labels.get(status, "-")
+    if not separator:
+        return label
+
+    directions = set(direction_text.split(","))
+    vertical = "kort" if "short" in directions else "lang" if "long" in directions else "pin high"
+    horizontal = "venstre" if "left" in directions else "høyre" if "right" in directions else ""
+    direction_label = " ".join(part for part in (vertical, horizontal) if part)
+    return f"{label} · {direction_label}" if direction_label else label
+
+
+def _shot_result_label(stat, hole):
+    if not stat:
+        return "-"
+    if hole.par == 3:
+        return _green_result_label(stat.fairway_result)
+    return {
+        "hit": "Traff fairway",
+        "left": "Misset fairway venstre",
+        "right": "Misset fairway høyre",
+    }.get(stat.fairway_result, "-")
+
+
 def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
     entries = {
         entry.hole_number: entry
@@ -99,6 +129,26 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
     ]
     fairway_attempts = sum(fairway_counts.values())
     green_attempts = sum(green_counts.values())
+    hole_rows = []
+    for hole_number, entry in sorted(entries.items()):
+        hole = holes_by_number[hole_number]
+        stat = entry.detailed_stat
+        difference = entry.strokes - hole.par
+        hole_rows.append({
+            "hole_number": hole_number,
+            "par": hole.par,
+            "score": entry.strokes,
+            "to_par_display": _to_par_display(difference),
+            "club": entry.tee_club.name if entry.tee_club else "-",
+            "drive_distance": stat.drive_distance_m if stat and stat.drive_distance_m is not None else None,
+            "result": _shot_result_label(stat, hole),
+            "putts": stat.putts if stat and stat.putts is not None else None,
+            "last_putt_distance": (
+                stat.last_putt_distance_m
+                if stat and stat.last_putt_distance_m is not None
+                else None
+            ),
+        })
 
     return {
         "player_name": round_player.player_name_snapshot,
@@ -136,6 +186,7 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
             {"name": name, "count": count}
             for name, count in sorted(club_counts.items(), key=lambda row: (-row[1], row[0]))
         ],
+        "hole_rows": hole_rows,
     }
 
 

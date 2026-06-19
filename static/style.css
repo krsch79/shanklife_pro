@@ -425,6 +425,24 @@ input.submit-is-loading {
     margin-top: 14px;
 }
 
+.round-hole-statistics {
+    margin: 18px 0 14px;
+}
+
+.round-hole-stat-table {
+    font-size: 0.88rem;
+}
+
+.round-hole-stat-table th,
+.round-hole-stat-table td {
+    padding: 9px 8px;
+    vertical-align: middle;
+}
+
+.round-hole-stat-table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+
 .round-stat-details {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2826,6 +2844,52 @@ th {
 
     .round-stat-details {
         grid-template-columns: 1fr;
+    }
+
+    .round-hole-stat-table thead {
+        display: none;
+    }
+
+    .round-hole-stat-table,
+    .round-hole-stat-table tbody,
+    .round-hole-stat-table tr,
+    .round-hole-stat-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .round-hole-stat-table tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #f8fafc;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+
+    .round-hole-stat-table td {
+        border: none;
+        padding: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .round-hole-stat-table td::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--muted);
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+    }
+
+    .round-hole-stat-table td[data-label="Treff"] {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 8px 0;
     }
 
     .round-summary-actions {

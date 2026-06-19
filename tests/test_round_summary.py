@@ -89,6 +89,10 @@ class RoundSummaryTests(unittest.TestCase):
         self.assertEqual(stats["green_attempts"], 1)
         self.assertEqual(stats["green_hit"], 1)
         self.assertEqual(stats["club_rows"][0], {"name": "Driver", "count": 2})
+        self.assertEqual(stats["hole_rows"][0]["result"], "Greentreff")
+        self.assertEqual(stats["hole_rows"][1]["result"], "Traff fairway")
+        self.assertEqual(stats["hole_rows"][2]["result"], "Misset fairway høyre")
+        self.assertEqual(stats["hole_rows"][2]["putts"], 0)
 
 
 if __name__ == "__main__":
