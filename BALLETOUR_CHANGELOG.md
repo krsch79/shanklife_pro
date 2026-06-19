@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.86] - 2026-06-19
+- Endrer hullføringen til naturlig slagrekkefølge: utslagskølle, lengde, green/fairway, putter, siste putt og score til slutt.
+- Lar statistikk fylles ut før score, samtidig som score og komplette obligatoriske data fortsatt kreves ved fullføring.
+- Uthever score som det tydelige siste feltet for hver spiller.
+
 ## [1.8.81] - 2026-06-18
 - Flytter fullføring av en pågående runde til en kompakt knapp ved siden av Scorekort, slik at den ikke lenger ligger som en stor knapp i hullnavigasjonen.
 

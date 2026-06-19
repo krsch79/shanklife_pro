@@ -62,7 +62,8 @@
             {% set entry = score_entries.get(rp.id) %}
             {% set detail = player_details.get(rp.id) %}
             {% set stat_values = stats_values_by_player.get(rp.id) %}
-            <div class="hole-player-row {% if stat_values %}with-stats{% endif %} {% if club_tracking_enabled %}with-club{% endif %}">
+            {% set show_club = club_tracking_enabled and (is_balletour_scoring_page or stat_values) %}
+            <div class="hole-player-row {% if stat_values %}with-stats{% endif %} {% if show_club %}with-club{% endif %}">
                 <div class="hole-player-meta">
                     <strong>{{ rp.player_name_snapshot }}</strong>
                     <span>
@@ -70,43 +71,28 @@
                         {% if detail and detail.length %} · {{ detail.length }} m{% endif %}
                     </span>
                 </div>
-                <label class="score-mini-field">
-                    <span>Score</span>
-                    <select
-                        name="score_{{ rp.id }}"
-                        class="hole-score-select{% if stat_values %} stat-score-select{% endif %}"
-                        data-round-player-id="{{ rp.id }}"
-                        data-hole-par="{{ hole.par }}"
-                        {% if round.status == 'finished' %}disabled{% endif %}
-                    >
-                        <option value="" {% if not entry or entry.strokes is none %}selected{% endif %}>—</option>
-                        {% for score_option in score_options %}
-                        <option value="{{ score_option }}" {% if entry and entry.strokes == score_option %}selected{% endif %}>{{ score_option }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
 
-                {% if club_tracking_enabled and (is_balletour_scoring_page or stat_values) %}
-                <label class="club-mini-field">
-                    <span>Utslagskølle</span>
-                    {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
-                    <select name="tee_club_{{ rp.id }}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
-                        <option value="" {% if not selected_club_id %}selected{% endif %}>—</option>
-                        {% for club in clubs %}
-                        <option value="{{ club.id }}" {% if selected_club_id == club.id %}selected{% endif %}>{{ club.name }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                {% endif %}
-
-                {% if stat_values %}
+                {% if show_club or stat_values %}
                 <div class="hole-stat-grid">
+                    {% if show_club %}
+                    <label class="club-mini-field">
+                        <span>Utslagskølle</span>
+                        {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
+                        <select name="tee_club_{{ rp.id }}" {% if round.status == 'finished' %}disabled{% endif %}>
+                            <option value="" {% if not selected_club_id %}selected{% endif %}>—</option>
+                            {% for club in clubs %}
+                            <option value="{{ club.id }}" {% if selected_club_id == club.id %}selected{% endif %}>{{ club.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    {% endif %}
+
+                    {% if stat_values %}
                     <label>
                         <span>Utslagslengde</span>
                         {% set current_drive_distance = stat_values.drive_distance_m %}
                         <select
                             name="stat_drive{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}"
-                            data-after-score
                             data-drive-distance
                             data-default-distance="{{ 125 if hole.par == 3 else 200 }}"
                             {% if round.status == 'finished' %}disabled{% endif %}
@@ -124,7 +110,7 @@
                     {% if hole.par == 3 %}
                     <label>
                         <span>Green</span>
-                        <select name="stat_green_status{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" data-green-status data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_green_status{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" data-green-status {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="hit" {% if stat_values.green_status == 'hit' %}selected{% endif %}>Greentreff</option>
                             <option value="miss" {% if stat_values.green_status == 'miss' %}selected{% endif %}>Miss</option>
                             <option value="bunker" {% if stat_values.green_status == 'bunker' %}selected{% endif %}>Bunker</option>
@@ -133,15 +119,15 @@
                     <div class="green-direction-grid">
                         <div class="green-radio-group">
                             <span>Retning</span>
-                            <label class="green-pin-option"><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="pin" data-green-pin data-after-score {% if 'pin' in stat_values.green_directions or (stat_values.green_status == 'hit' and not stat_values.green_directions) %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> På flagget</label>
-                            <label><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="left" data-green-direction data-after-score {% if stat_values.green_horizontal == 'left' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Venstre</label>
-                            <label><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="right" data-green-direction data-after-score {% if stat_values.green_horizontal == 'right' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Høyre</label>
+                            <label class="green-pin-option"><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="pin" data-green-pin {% if 'pin' in stat_values.green_directions or (stat_values.green_status == 'hit' and not stat_values.green_directions) %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> På flagget</label>
+                            <label><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="left" data-green-direction {% if stat_values.green_horizontal == 'left' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Venstre</label>
+                            <label><input type="radio" name="stat_green_horizontal{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="right" data-green-direction {% if stat_values.green_horizontal == 'right' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Høyre</label>
                         </div>
                         <div class="green-radio-group">
                             <span>Lengde</span>
-                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="" data-green-direction data-after-score {% if not stat_values.green_vertical %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Pin high</label>
-                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="short" data-green-direction data-after-score {% if stat_values.green_vertical == 'short' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Kort</label>
-                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="long" data-green-direction data-after-score {% if stat_values.green_vertical == 'long' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Lang</label>
+                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="" data-green-direction {% if not stat_values.green_vertical %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Pin high</label>
+                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="short" data-green-direction {% if stat_values.green_vertical == 'short' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Kort</label>
+                            <label><input type="radio" name="stat_green_vertical{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" value="long" data-green-direction {% if stat_values.green_vertical == 'long' %}checked{% endif %} {% if round.status == 'finished' %}disabled{% endif %}> Lang</label>
                         </div>
                     </div>
                     {% endif %}
@@ -149,7 +135,7 @@
                     {% if hole.par in [4, 5] %}
                     <label>
                         <span>FW</span>
-                        <select name="stat_fairway{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_fairway{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if not stat_values.fairway_result %}selected{% endif %}>—</option>
                             <option value="hit" {% if stat_values.fairway_result == 'hit' %}selected{% endif %}>Treff</option>
                             <option value="left" {% if stat_values.fairway_result == 'left' %}selected{% endif %}>Venstre</option>
@@ -159,7 +145,7 @@
                     {% endif %}
                     <label>
                         <span>Putter</span>
-                        <select name="stat_putts{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" class="stat-putts-select" data-after-score {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_putts{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" class="stat-putts-select" {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if stat_values.putts is none %}selected{% endif %}>—</option>
                             {% for putt_option in range(0, 6) %}
                             <option value="{{ putt_option }}" {% if stat_values.putts == putt_option %}selected{% endif %}>{{ putt_option }}</option>
@@ -168,15 +154,32 @@
                     </label>
                     <label>
                         <span>Siste putt</span>
-                        <select name="stat_last_putt_distance{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" class="last-putt-distance-select" data-after-score aria-label="Siste putt" {% if round.status == 'finished' %}disabled{% endif %}>
+                        <select name="stat_last_putt_distance{% if scoped_stats_fields %}_{{ rp.id }}{% endif %}" class="last-putt-distance-select" aria-label="Siste putt" {% if round.status == 'finished' %}disabled{% endif %}>
                             <option value="" {% if stat_values.last_putt_distance is none %}selected{% endif %}>—</option>
                             {% for distance in last_putt_distance_options %}
                             <option value="{{ distance }}" {% if stat_values.last_putt_distance == distance %}selected{% endif %}>{{ "%.1f"|format(distance) }} m</option>
                             {% endfor %}
                         </select>
                     </label>
+                    {% endif %}
                 </div>
                 {% endif %}
+
+                <label class="score-final-field">
+                    <span>Score på hullet</span>
+                    <select
+                        name="score_{{ rp.id }}"
+                        class="hole-score-select{% if stat_values %} stat-score-select{% endif %}"
+                        data-round-player-id="{{ rp.id }}"
+                        data-hole-par="{{ hole.par }}"
+                        {% if round.status == 'finished' %}disabled{% endif %}
+                    >
+                        <option value="" {% if not entry or entry.strokes is none %}selected{% endif %}>—</option>
+                        {% for score_option in score_options %}
+                        <option value="{{ score_option }}" {% if entry and entry.strokes == score_option %}selected{% endif %}>{{ score_option }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
             </div>
             {% endfor %}
         </div>
@@ -329,7 +332,6 @@
 {% endif %}
 <script>
 (function () {
-    const isFinishedRound = "{{ round.status }}" === "finished";
     const errorPanel = document.getElementById("hole-form-errors");
 
     function formatVsPar(value) {
@@ -362,21 +364,6 @@
 
     function scoreSelectForRow(row) {
         return row.querySelector('select[name^="score_"]');
-    }
-
-    function hasScore(row) {
-        const scoreSelect = scoreSelectForRow(row);
-        return Boolean(scoreSelect && scoreSelect.value);
-    }
-
-    function syncAfterScoreControls(row) {
-        if (!row) return;
-        const enabled = hasScore(row) && !isFinishedRound;
-        row.querySelectorAll("[data-after-score]").forEach((control) => {
-            control.disabled = !enabled;
-        });
-        syncPinOption(row.querySelector('select[data-green-status]'));
-        syncPuttsOptionsForRow(row);
     }
 
     function syncPinOption(statusSelect) {
@@ -430,9 +417,13 @@
                 option.disabled = false;
                 return;
             }
+            if (!Number.isInteger(score)) {
+                option.disabled = false;
+                return;
+            }
             const putts = parseInt(option.value, 10);
             const maxPutts = hasGreenMiss ? score - 2 : score - 1;
-            option.disabled = putts > 0 && (!Number.isInteger(score) || putts > maxPutts);
+            option.disabled = putts > 0 && putts > maxPutts;
         });
         if (puttsSelect.selectedOptions[0] && puttsSelect.selectedOptions[0].disabled) {
             puttsSelect.value = "";
@@ -447,7 +438,7 @@
         const statGrid = row.querySelector(".hole-stat-grid");
 
         if (scoreSelect && !scoreSelect.value) {
-            return requireScore ? [`${playerName}: score må fylles ut først.`] : [];
+            return requireScore ? [`${playerName}: score mangler.`] : [];
         }
 
         if (clubSelect && !clubSelect.value) {
@@ -508,19 +499,17 @@
     document.querySelectorAll(".hole-player-row.with-stats").forEach((row) => {
         row.querySelector(".stat-score-select")?.addEventListener("change", () => {
             updateLiveVsPar(row);
-            syncAfterScoreControls(row);
+            syncPuttsOptionsForRow(row);
         });
         row.querySelector(".stat-putts-select")?.addEventListener("focus", () => syncPuttsOptionsForRow(row));
         updateLiveVsPar(row);
-        syncAfterScoreControls(row);
+        syncPuttsOptionsForRow(row);
     });
     document.querySelectorAll(".hole-player-row:not(.with-stats)").forEach((row) => {
         scoreSelectForRow(row)?.addEventListener("change", () => {
             updateLiveVsPar(row);
-            syncAfterScoreControls(row);
         });
         updateLiveVsPar(row);
-        syncAfterScoreControls(row);
     });
 
     const form = document.getElementById("hole-entry-form");

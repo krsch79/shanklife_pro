@@ -22,7 +22,7 @@ from models import (
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
-from services.round_completion import missing_saved_entry_choices
+from services.round_completion import missing_saved_entry_choices, validate_score_stat_combination
 from services.round_length import (
     allowed_round_hole_counts,
     course_supports_nine_hole_round,
@@ -279,13 +279,7 @@ def _parse_putts_for_score(raw_value, entry):
     if putts < 0:
         raise ValueError("Antall putter kan ikke være negativt.")
 
-    if putts == 0:
-        return putts
-
-    if entry.strokes is None or entry.strokes < 1:
-        raise ValueError("Legg inn score før du legger inn putter.")
-
-    if putts > entry.strokes - 1:
+    if putts > 0 and entry.strokes is not None and putts > entry.strokes - 1:
         raise ValueError("Antall putter må være 0, eller mellom 1 og score minus 1.")
 
     return putts
@@ -339,27 +333,7 @@ def _last_putt_distance_select_value(distance):
 
 def _validate_score_stat_rules(entry, hole, fairway_result, putts, score=None):
     score = entry.strokes if score is None else score
-    putts = putts or 0
-
-    if putts > 0:
-        if score is None or score < 1:
-            raise ValueError("Legg inn score før du legger inn putter.")
-        if putts > score - 1:
-            raise ValueError("Antall putter må være 0, eller mellom 1 og score minus 1.")
-
-    if hole.par != 3:
-        return
-
-    status, _directions = _green_stat_parts(fairway_result)
-    if status == "hit":
-        return
-
-    if score is None or score < 1:
-        raise ValueError("Legg inn score før du registrerer miss eller bunker.")
-
-    min_score = putts + 2
-    if score < min_score:
-        raise ValueError("Ved miss eller bunker må total score være minst 2 slag pluss antall putter.")
+    validate_score_stat_combination(hole.par, fairway_result, putts, score)
 
 
 def _validate_existing_stat_for_score(entry, hole, score):
@@ -932,10 +906,6 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
             raise ValueError(f"Fant ikke scorelinje for {rp.player_name_snapshot}.")
 
         entry.strokes = _parse_score_for_hole(raw_value, hole, rp.player_name_snapshot)
-
-        # An empty row is a deliberate skip, for example during a shotgun start.
-        if entry.strokes is None:
-            continue
 
         tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
 

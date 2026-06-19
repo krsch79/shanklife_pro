@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 
-from services.round_completion import missing_saved_entry_choices
+from services.round_completion import missing_saved_entry_choices, validate_score_stat_combination
 
 
 class RoundCompletionTests(unittest.TestCase):
@@ -32,6 +32,17 @@ class RoundCompletionTests(unittest.TestCase):
         missing = missing_saved_entry_choices(entry, SimpleNamespace(par=4), True, True)
 
         self.assertEqual(missing, [])
+
+    def test_putts_and_green_miss_can_be_entered_before_score(self):
+        validate_score_stat_combination(3, "miss:short,right", 2, None)
+
+    def test_putts_are_validated_when_score_is_added(self):
+        with self.assertRaisesRegex(ValueError, "score minus 1"):
+            validate_score_stat_combination(4, "hit", 4, 4)
+
+    def test_green_miss_is_validated_when_score_is_added(self):
+        with self.assertRaisesRegex(ValueError, "minst 2 slag"):
+            validate_score_stat_combination(3, "miss:short,right", 2, 3)
 
 
 if __name__ == "__main__":

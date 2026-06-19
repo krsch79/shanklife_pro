@@ -760,9 +760,8 @@ input.submit-is-loading {
 
 .hole-player-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 72px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
-    align-items: center;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--card);
@@ -770,11 +769,11 @@ input.submit-is-loading {
 }
 
 .hole-player-row.with-stats {
-    grid-template-columns: minmax(0, 1fr) 72px;
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .hole-player-row.with-club {
-    grid-template-columns: minmax(0, 1fr) 70px 96px;
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .hole-player-row.has-validation-error {
@@ -799,14 +798,14 @@ input.submit-is-loading {
     font-size: 0.78rem;
 }
 
-.score-mini-field,
+.score-final-field,
 .club-mini-field,
 .hole-stat-grid label {
     margin: 0;
     font-weight: 600;
 }
 
-.score-mini-field span,
+.score-final-field span,
 .club-mini-field span,
 .hole-stat-grid span {
     display: block;
@@ -814,13 +813,6 @@ input.submit-is-loading {
     color: var(--muted);
     font-size: 0.7rem;
     font-weight: 600;
-}
-
-.score-mini-field input,
-.score-mini-field select {
-    width: 100%;
-    padding: 7px 4px;
-    text-align: center;
 }
 
 .club-mini-field select {
@@ -934,9 +926,33 @@ input.submit-is-loading {
     font-size: 0.9rem;
 }
 
-.hole-player-row [data-after-score]:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
+.score-final-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 84px;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+    padding: 10px 12px;
+    border: 2px solid var(--primary);
+    border-radius: 8px;
+    background: #ecfdf5;
+}
+
+.score-final-field span {
+    margin: 0;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.score-final-field select {
+    width: 100%;
+    padding: 8px 5px;
+    border-color: var(--primary);
+    background: #fff;
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-align: center;
 }
 
 .form-error-panel {
@@ -2431,21 +2447,20 @@ th {
     }
 
     .hole-player-row {
-        grid-template-columns: minmax(0, 1fr) 62px;
+        grid-template-columns: minmax(0, 1fr);
         gap: 6px;
         padding: 6px;
     }
 
     .hole-player-row.with-stats {
-        grid-template-columns: minmax(0, 1fr) 62px;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .hole-player-row.with-club {
-        grid-template-columns: minmax(0, 1fr) 56px 78px;
+        grid-template-columns: minmax(0, 1fr);
     }
 
-    .score-mini-field input,
-    .score-mini-field select,
+    .score-final-field select,
     .club-mini-field select,
     .hole-stat-grid input,
     .hole-stat-grid select {

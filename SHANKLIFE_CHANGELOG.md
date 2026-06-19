@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.86] - 2026-06-19
+- Endrer hullføringen til naturlig slagrekkefølge: utslagskølle, lengde, green/fairway, putter, siste putt og score til slutt.
+- Lar statistikk fylles ut og lagres før score, samtidig som score og komplette obligatoriske data fortsatt kreves ved fullføring.
+- Uthever score som det tydelige siste feltet for hver spiller.
+
 ## [1.8.85] - 2026-06-18
 - Tydeliggjør tidligere utslagsresultater som Fairwaytreff, Miss fairway høyre eller Miss fairway venstre.
 
