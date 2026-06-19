@@ -1574,36 +1574,53 @@ def round_hole(round_id, hole_number):
     round_obj = Round.query.get_or_404(round_id)
     course = round_obj.course
     played_hole_count = round_hole_count(round_obj)
+    admin_edit_mode = bool(
+        request.args.get("edit") == "1"
+        and round_obj.status == "finished"
+        and g.get("current_user")
+        and g.current_user.is_admin
+        and not _is_balletour_round(round_obj)
+    )
+
+    def edit_url(target_hole):
+        values = {"round_id": round_obj.id, "hole_number": target_hole}
+        if admin_edit_mode:
+            values["edit"] = "1"
+        return url_for("rounds.round_hole", **values)
 
     if hole_number < 1 or hole_number > played_hole_count:
         flash("Ugyldig hullnummer.", "error")
-        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
+        return redirect(edit_url(1))
 
     stats_rp = _stats_round_player(round_obj)
     hole = next((item for item in course.holes if item.hole_number == hole_number), None)
 
     if request.method == "POST":
-        if round_obj.status != "ongoing":
+        if round_obj.status != "ongoing" and not admin_edit_mode:
             flash("Runden er allerede fullført.", "error")
             return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
         action = request.form.get("action", "next")
-        if action in ("next", "finish"):
+        if admin_edit_mode and action not in ("previous", "next"):
+            flash("Ugyldig redigeringshandling.", "error")
+            return redirect(edit_url(hole_number))
+
+        if action in ("next", "finish") or admin_edit_mode:
             missing_choices = _missing_hole_choices(
                 round_obj,
                 hole,
                 stats_rp,
-                require_scores=action == "finish",
+                require_scores=action == "finish" or admin_edit_mode,
             )
             if missing_choices:
                 flash("Mangler valg: " + " | ".join(missing_choices), "error")
-                return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
+                return redirect(edit_url(hole_number))
 
         try:
             _save_hole_from_form(round_obj, hole_number, stats_rp)
         except ValueError as exc:
             flash(str(exc), "error")
-            return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=hole_number))
+            return redirect(edit_url(hole_number))
 
         if action == "finish":
             missing_round_choices = _missing_round_choices(round_obj, stats_rp)
@@ -1636,7 +1653,7 @@ def round_hole(round_id, hole_number):
         else:
             target_hole = 1 if hole_number == played_hole_count else hole_number + 1
 
-        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=target_hole))
+        return redirect(edit_url(target_hole))
 
     round_players = sorted(round_obj.round_players, key=lambda rp: rp.id)
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
@@ -1688,6 +1705,8 @@ def round_hole(round_id, hole_number):
         hole_images=hole_images,
         image_tag_choices=_round_image_tag_choices(round_obj),
         is_balletour_scoring_page=_is_balletour_round(round_obj),
+        admin_edit_mode=admin_edit_mode,
+        score_entry_editable=round_obj.status == "ongoing" or admin_edit_mode,
         played_hole_count=played_hole_count,
         previous_hole=played_hole_count if hole_number == 1 else hole_number - 1,
         next_hole=1 if hole_number == played_hole_count else hole_number + 1,

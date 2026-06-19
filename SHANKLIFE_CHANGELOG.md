@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.93] - 2026-06-19
+- Lar administratorer redigere score, utslagskølle, utslagslengde, fairway-/greenresultat, putter og siste putt på alle hull i en fullført Shanklife-runde.
+- Beholder rundens status og fullføringstid under redigering, og validerer endringene før de lagres.
+
 ## [1.8.92] - 2026-06-19
 - Viser en komplett hull-for-hull-oversikt i statistikken for fullførte runder.
 - Samler score mot par, utslagskølle, utslagslengde, fairway-/greenresultat, putter og lengde på siste putt for hver spiller og hvert hull.

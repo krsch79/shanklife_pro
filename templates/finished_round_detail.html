@@ -72,6 +72,9 @@
         <p class="muted">{{ round.started_at|datetime_local }}{% if weather_summary %} · {{ weather_summary }}{% endif %}</p>
     </div>
     <div class="button-row compact">
+        {% if current_user and current_user.is_admin %}
+        <a class="button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=1, edit=1) }}">Rediger runde</a>
+        {% endif %}
         {% if current_user_round_player %}
         <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
         {% endif %}
