@@ -155,6 +155,44 @@
         {% endif %}
     </div>
 
+    <div class="golfbox-scheduled-card">
+        <div class="section-heading-row">
+            <h3>Historiske bookinger</h3>
+        </div>
+        {% if booking_history %}
+        <div class="table-wrap booking-history-table-wrap">
+            <table class="booking-history-table">
+                <thead>
+                    <tr>
+                        <th>Kjøring</th>
+                        <th>Type</th>
+                        <th>Hvem</th>
+                        <th>Bane</th>
+                        <th>Spilletid</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in booking_history %}
+                    <tr>
+                        <td data-label="Kjøring">{{ booking.history_at }}</td>
+                        <td data-label="Type">{{ booking.type_label }}</td>
+                        <td data-label="Hvem">{{ booking.players|join(", ") }}</td>
+                        <td data-label="Bane">{{ booking.course }}</td>
+                        <td data-label="Spilletid">{{ booking.play_date }} · {{ booking.play_time }}</td>
+                        <td data-label="Status"><span class="booking-status booking-status-{{ booking.status_class }}">{{ booking.status_label }}</span></td>
+                        <td data-label="Logg"><a href="{{ url_for('balletour.ai_booking_history_detail', record_type=booking.record_type, record_id=booking.id) }}">Se logg</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="muted">Ingen historiske AI-bookinger er registrert ennå.</p>
+        {% endif %}
+    </div>
+
     <div class="golfbox-chat-log" aria-live="polite">
         {% if chat_messages %}
             {% for message in chat_messages %}

@@ -1757,6 +1757,118 @@ h2, h3 {
     border-color: #f59e0b;
 }
 
+.booking-status {
+    display: inline-block;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #f8fafc;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.booking-status-success {
+    color: #166534;
+    background: var(--flash-success-bg);
+    border-color: var(--flash-success-border);
+}
+
+.booking-status-error {
+    color: #991b1b;
+    background: var(--flash-error-bg);
+    border-color: var(--flash-error-border);
+}
+
+.booking-history-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0 0;
+}
+
+.booking-history-facts div {
+    min-width: 0;
+}
+
+.booking-history-facts dt {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.booking-history-facts dd {
+    margin: 0.2rem 0 0;
+}
+
+.booking-history-log ol {
+    margin: 1rem 0 0;
+    padding-left: 1.4rem;
+}
+
+.booking-history-log li {
+    padding: 0 0 1rem 0.5rem;
+}
+
+.booking-history-log li > div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.booking-history-log time {
+    color: var(--muted);
+}
+
+.booking-history-log p {
+    margin: 0.35rem 0 0;
+}
+
+@media (max-width: 700px) {
+    .booking-history-table-wrap {
+        overflow: visible;
+    }
+
+    .booking-history-table,
+    .booking-history-table tbody,
+    .booking-history-table tr,
+    .booking-history-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .booking-history-table thead {
+        display: none;
+    }
+
+    .booking-history-table tr {
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        margin-bottom: 0.75rem;
+        background: #fff;
+    }
+
+    .booking-history-table td {
+        display: grid;
+        grid-template-columns: minmax(6.5rem, 0.4fr) minmax(0, 1fr);
+        gap: 0.75rem;
+        padding: 0.35rem 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .booking-history-table td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-weight: 700;
+    }
+
+    .booking-history-facts {
+        grid-template-columns: 1fr;
+    }
+}
+
 .checkbox-line {
     display: flex;
     align-items: center;

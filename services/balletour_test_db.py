@@ -59,6 +59,7 @@ def _test_engine():
 @contextmanager
 def use_balletour_test_database():
     engine = _test_engine()
+    db.metadata.create_all(engine)
     test_session = scoped_session(sessionmaker(bind=engine))
     original_session = db.session
     db.session = test_session

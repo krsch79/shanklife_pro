@@ -27,6 +27,8 @@ from services.user_notifications import send_balletour_round_started_notificatio
 from services.golfbox import (
     cancel_golfbox_booking,
     cancel_golfbox_scheduled_booking,
+    golfbox_booking_history,
+    golfbox_booking_history_detail,
     golfbox_connection_summary,
     golfbox_favorites_summary,
     process_golfbox_prompt,
@@ -1209,6 +1211,24 @@ def ai_tools():
             golfbox_favorites=golfbox_favorites,
             golfbox_bookings=upcoming_golfbox_bookings(g.current_user),
             scheduled_bookings=upcoming_golfbox_scheduled_bookings(g.current_user),
+            booking_history=golfbox_booking_history(g.current_user),
+            **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/ai/history/<record_type>/<int:record_id>")
+@login_required
+def ai_booking_history_detail(record_type, record_id):
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        history = golfbox_booking_history_detail(g.current_user, record_type, record_id)
+        if not history:
+            abort(404)
+        return render_template(
+            "balletour_ai_booking_history.html",
+            series=series,
+            history=history,
             **_balletour_database_context(),
         )
 

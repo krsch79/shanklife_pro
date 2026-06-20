@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Bookinglogg - BalleTour2026{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <p class="eyebrow">GolfBox AI</p>
+        <h2>Bookinglogg</h2>
+        <p class="muted">{{ history.type_label }} · {{ history.course }}</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('balletour.ai_tools') }}">Tilbake til GolfBox AI</a>
+</div>
+
+<section class="round-summary-card booking-history-summary">
+    <div class="section-heading-row">
+        <div>
+            <h3>{{ history.play_date }} · {{ history.play_time }}</h3>
+            <p class="muted">{{ history.players|join(", ") }}</p>
+        </div>
+        <span class="booking-status booking-status-{{ history.status_class }}">{{ history.status_label }}</span>
+    </div>
+
+    <dl class="booking-history-facts">
+        <div><dt>Bane</dt><dd>{{ history.course }}</dd></div>
+        <div><dt>Spilletid</dt><dd>{{ history.play_date }} · {{ history.play_time }}</dd></div>
+        <div><dt>Spillere</dt><dd>{{ history.players|join(", ") }}</dd></div>
+        <div><dt>Siste hendelse</dt><dd>{{ history.history_at }}</dd></div>
+    </dl>
+</section>
+
+{% if history.requested_prompt %}
+<section class="round-summary-card booking-history-prompt">
+    <p class="eyebrow">Opprinnelig forespørsel</p>
+    <p>{{ history.requested_prompt }}</p>
+</section>
+{% endif %}
+
+<section class="round-summary-card booking-history-log">
+    <p class="eyebrow">Hendelseslogg</p>
+    <ol>
+        {% for event in history.events %}
+        <li>
+            <div>
+                <strong>{{ event.label }}</strong>
+                {% if event.time %}<time>{{ event.time }}</time>{% endif %}
+            </div>
+            <p>{{ event.text }}</p>
+        </li>
+        {% endfor %}
+    </ol>
+</section>
+
+{% if history.error_message and history.error_message != history.message %}
+<section class="flash flash-error">
+    <strong>Teknisk feilinformasjon</strong>
+    <p>{{ history.error_message }}</p>
+</section>
+{% endif %}
+{% endblock %}

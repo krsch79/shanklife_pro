@@ -54,6 +54,7 @@ class User(db.Model):
     golfbox_scheduled_bookings = db.relationship("GolfBoxScheduledBooking", back_populates="created_by_user")
     golfbox_recurring_bookings = db.relationship("GolfBoxRecurringBooking", back_populates="created_by_user")
     golfbox_watch_bookings = db.relationship("GolfBoxWatchBooking", back_populates="created_by_user")
+    golfbox_booking_runs = db.relationship("GolfBoxBookingRun", back_populates="created_by_user")
     golfbox_favorites = db.relationship(
         "GolfBoxFavorite",
         back_populates="user",
@@ -178,6 +179,28 @@ class GolfBoxWatchBooking(db.Model):
     cancelled_at = db.Column(db.DateTime, nullable=True)
 
     created_by_user = db.relationship("User", back_populates="golfbox_watch_bookings")
+
+
+class GolfBoxBookingRun(db.Model):
+    __tablename__ = "golfbox_booking_runs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    booking_type = db.Column(db.String(30), nullable=False)
+    source_booking_id = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(30), nullable=False)
+    course = db.Column(db.String(120), nullable=False)
+    play_date = db.Column(db.Date, nullable=False)
+    time_from = db.Column(db.String(5), nullable=False)
+    time_to = db.Column(db.String(5), nullable=True)
+    players_json = db.Column(db.Text, nullable=False)
+    requested_prompt = db.Column(db.Text, nullable=True)
+    message = db.Column(db.Text, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+    started_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+    finished_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+
+    created_by_user = db.relationship("User", back_populates="golfbox_booking_runs")
 
 
 class BalleTourInvitation(db.Model):

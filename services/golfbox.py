@@ -2376,6 +2376,66 @@ def upcoming_golfbox_scheduled_bookings(user):
     )
 
 
+def golfbox_booking_history(user, limit=50):
+    from models import GolfBoxBookingRun, GolfBoxRecurringBooking, GolfBoxScheduledBooking, GolfBoxWatchBooking
+
+    runs = (
+        GolfBoxBookingRun.query
+        .filter_by(created_by_user_id=user.id)
+        .order_by(GolfBoxBookingRun.finished_at.desc(), GolfBoxBookingRun.id.desc())
+        .limit(limit)
+        .all()
+    )
+    rows = [_booking_run_history_view(run, user) for run in runs]
+    logged_sources = {(run.booking_type, run.source_booking_id) for run in runs}
+
+    scheduled = (
+        GolfBoxScheduledBooking.query
+        .filter_by(created_by_user_id=user.id)
+        .filter(GolfBoxScheduledBooking.status.notin_(("scheduled", "running")))
+        .all()
+    )
+    rows.extend(
+        _legacy_scheduled_history_view(booking, user)
+        for booking in scheduled
+        if ("scheduled", booking.id) not in logged_sources
+    )
+
+    recurring = GolfBoxRecurringBooking.query.filter_by(created_by_user_id=user.id).all()
+    rows.extend(
+        _legacy_recurring_history_view(booking, user)
+        for booking in recurring
+        if booking.last_run_at and ("recurring", booking.id) not in logged_sources
+    )
+
+    watches = GolfBoxWatchBooking.query.filter_by(created_by_user_id=user.id).all()
+    rows.extend(
+        _legacy_watch_history_view(booking, user)
+        for booking in watches
+        if booking.status != "active" and ("watch", booking.id) not in logged_sources
+    )
+    rows.sort(key=lambda row: row["sort_at"], reverse=True)
+    return rows[:limit]
+
+
+def golfbox_booking_history_detail(user, record_type, record_id):
+    from models import GolfBoxBookingRun, GolfBoxRecurringBooking, GolfBoxScheduledBooking, GolfBoxWatchBooking
+
+    if record_type == "run":
+        record = GolfBoxBookingRun.query.filter_by(id=record_id, created_by_user_id=user.id).first()
+        return _booking_run_history_view(record, user, include_detail=True) if record else None
+    if record_type == "scheduled":
+        record = GolfBoxScheduledBooking.query.filter_by(id=record_id, created_by_user_id=user.id).first()
+        return _legacy_scheduled_history_view(record, user, include_detail=True) if record else None
+    if record_type == "recurring":
+        record = GolfBoxRecurringBooking.query.filter_by(id=record_id, created_by_user_id=user.id).first()
+        return _legacy_recurring_history_view(record, user, include_detail=True) if record else None
+    if record_type == "watch":
+        record = GolfBoxWatchBooking.query.filter_by(id=record_id, created_by_user_id=user.id).first()
+        return _legacy_watch_history_view(record, user, include_detail=True) if record else None
+    return None
+
+
 def cancel_golfbox_scheduled_booking(booking_id, user, booking_type="scheduled"):
     from models import GolfBoxRecurringBooking, GolfBoxScheduledBooking, GolfBoxWatchBooking
 
@@ -2428,20 +2488,13 @@ def run_due_golfbox_scheduled_bookings(limit=10):
     results = []
     for booking in due_bookings:
         player_memberships = []
+        started_at = server_now()
         booking.status = "running"
         booking.updated_at = server_now()
         db.session.commit()
         try:
             player_memberships = json.loads(booking.players_json or "[]")
-            pending_booking = {
-                "course": booking.course,
-                "date": booking.play_date.isoformat(),
-                "time": booking.play_time,
-                "players": len(player_memberships),
-                "player_memberships": player_memberships,
-                "club_guid": BALLERUD_CLUB_GUID,
-                "resource_guid": BALLERUD_RESSOURCE_GUID,
-            }
+            pending_booking = _scheduled_pending_booking(booking, player_memberships)
             result = confirm_golfbox_booking(
                 pending_booking,
                 user=booking.created_by_user,
@@ -2451,6 +2504,18 @@ def run_due_golfbox_scheduled_bookings(limit=10):
             booking.result_message = result.get("message")
             booking.error_message = None if result.get("status") == "booking_created" else result.get("message")
             booking.status = "completed" if result.get("status") == "booking_created" else "failed"
+            _record_golfbox_booking_run(
+                booking,
+                "scheduled",
+                result.get("status") or booking.status,
+                booking.play_date,
+                booking.play_time,
+                booking.play_time,
+                player_memberships,
+                result.get("message"),
+                booking.error_message,
+                started_at,
+            )
             results.append({"id": booking.id, "status": booking.status, "message": result.get("message")})
             if booking.status == "failed":
                 _send_booking_outcome_email(
@@ -2466,6 +2531,18 @@ def run_due_golfbox_scheduled_bookings(limit=10):
             booking.executed_at = server_now()
             booking.status = "failed"
             booking.error_message = str(exc)
+            _record_golfbox_booking_run(
+                booking,
+                "scheduled",
+                "failed",
+                booking.play_date,
+                booking.play_time,
+                booking.play_time,
+                player_memberships,
+                str(exc),
+                str(exc),
+                started_at,
+            )
             results.append({"id": booking.id, "status": "failed", "message": str(exc)})
             _send_booking_outcome_email(
                 booking.created_by_user,
@@ -2504,6 +2581,16 @@ def run_due_golfbox_scheduled_bookings(limit=10):
     return results
 
 
+def _scheduled_pending_booking(booking, player_memberships):
+    return {
+        "course": booking.course,
+        "date": booking.play_date.isoformat(),
+        "time": booking.play_time,
+        "players": len(player_memberships),
+        "player_memberships": player_memberships,
+    }
+
+
 def _run_watch_golfbox_booking(booking):
     now = server_now()
     if now >= booking.expires_at:
@@ -2512,6 +2599,18 @@ def _run_watch_golfbox_booking(booking):
         booking.last_run_at = now
         booking.last_result_message = "Ledighetssøket utløp uten booking."
         booking.updated_at = now
+        _record_golfbox_booking_run(
+            booking,
+            "watch",
+            "expired",
+            booking.play_date,
+            booking.time_from,
+            booking.time_to,
+            player_memberships,
+            booking.last_result_message,
+            None,
+            now,
+        )
         db.session.commit()
         _send_booking_outcome_email(
             booking.created_by_user,
@@ -2556,6 +2655,18 @@ def _run_watch_golfbox_booking(booking):
             booking.booked_at = now if status == "booking_created" else None
             booking.status = "completed" if status == "booking_created" else "failed"
             booking.last_error_message = None if status == "booking_created" else message
+            _record_golfbox_booking_run(
+                booking,
+                "watch",
+                status,
+                booking.play_date,
+                selected_slot["time"],
+                selected_slot["time"],
+                player_memberships,
+                message,
+                booking.last_error_message,
+                now,
+            )
         else:
             message = availability.get("message") or "Ingen ledig tid funnet ennå."
             status = "no_slot"
@@ -2593,6 +2704,7 @@ def _run_watch_golfbox_booking(booking):
 def _run_recurring_golfbox_booking(booking):
     player_memberships = []
     play_date = _next_play_date_for_recurring(booking)
+    started_at = server_now()
     try:
         player_memberships = json.loads(booking.players_json or "[]")
         availability = find_golfbox_availability(
@@ -2629,6 +2741,18 @@ def _run_recurring_golfbox_booking(booking):
         booking.last_error_message = None if status == "booking_created" else message
         booking.next_run_at = _next_weekday_run(booking.execute_weekday, booking.execute_time, from_dt=server_now() + timedelta(minutes=1))
         booking.updated_at = server_now()
+        _record_golfbox_booking_run(
+            booking,
+            "recurring",
+            status,
+            play_date,
+            selected_slot["time"] if status == "booking_created" else booking.time_from,
+            selected_slot["time"] if status == "booking_created" else booking.time_to,
+            player_memberships,
+            message,
+            booking.last_error_message,
+            started_at,
+        )
         db.session.commit()
         if status != "booking_created":
             _send_booking_outcome_email(
@@ -2647,6 +2771,18 @@ def _run_recurring_golfbox_booking(booking):
         booking.last_error_message = str(exc)
         booking.next_run_at = _next_weekday_run(booking.execute_weekday, booking.execute_time, from_dt=server_now() + timedelta(minutes=1))
         booking.updated_at = server_now()
+        _record_golfbox_booking_run(
+            booking,
+            "recurring",
+            "failed",
+            play_date,
+            booking.time_from,
+            booking.time_to,
+            player_memberships,
+            str(exc),
+            str(exc),
+            started_at,
+        )
         db.session.commit()
         _send_booking_outcome_email(
             booking.created_by_user,
@@ -2659,6 +2795,38 @@ def _run_recurring_golfbox_booking(booking):
             time_to=booking.time_to,
         )
         return {"id": booking.id, "type": "recurring", "status": "failed", "message": str(exc)}
+
+
+def _record_golfbox_booking_run(
+    booking,
+    booking_type,
+    status,
+    play_date,
+    time_from,
+    time_to,
+    players,
+    message,
+    error_message,
+    started_at,
+):
+    from models import GolfBoxBookingRun
+
+    db.session.add(GolfBoxBookingRun(
+        created_by_user_id=booking.created_by_user_id,
+        booking_type=booking_type,
+        source_booking_id=booking.id,
+        status=status,
+        course=booking.course,
+        play_date=play_date,
+        time_from=time_from,
+        time_to=time_to,
+        players_json=json.dumps(players or [], ensure_ascii=False),
+        requested_prompt=booking.requested_prompt,
+        message=message,
+        error_message=error_message,
+        started_at=started_at,
+        finished_at=server_now(),
+    ))
 
 
 def _send_booking_outcome_email(user, event, course, play_date, time_from, players, message, time_to=None):
@@ -2681,6 +2849,206 @@ def _next_play_date_for_recurring(booking):
     elif play_weeks_ahead > 1:
         days_ahead += 7 * (play_weeks_ahead - 1)
     return base + timedelta(days=days_ahead)
+
+
+BOOKING_TYPE_LABELS = {
+    "scheduled": "Planlagt enkeltbooking",
+    "recurring": "Fast booking",
+    "watch": "Ledighetssøk",
+}
+
+BOOKING_STATUS_LABELS = {
+    "booking_created": "Gjennomført",
+    "completed": "Gjennomført",
+    "failed": "Feilet",
+    "payment_required": "Stoppet ved betaling",
+    "wrong_club": "Stoppet ved feil klubb",
+    "wrong_membership": "Stoppet ved medlemskontroll",
+    "no_slot": "Ingen ledig tid",
+    "expired": "Utløpt uten booking",
+    "cancelled": "Kansellert",
+}
+
+
+def _history_status_class(status):
+    if status in {"booking_created", "completed"}:
+        return "success"
+    if status in {"failed", "payment_required", "wrong_club", "wrong_membership"}:
+        return "error"
+    return "neutral"
+
+
+def _history_datetime(value):
+    return value.strftime("%Y-%m-%d %H:%M") if value else None
+
+
+def _history_players(record, user):
+    try:
+        players = json.loads(record.players_json or "[]")
+    except json.JSONDecodeError:
+        players = []
+    return _booking_player_labels(players, user, record.course)
+
+
+def _history_base(record_type, record_id, booking_type, status, course, play_date, time_from, time_to, players, history_at):
+    return {
+        "record_type": record_type,
+        "id": record_id,
+        "booking_type": booking_type,
+        "type_label": BOOKING_TYPE_LABELS.get(booking_type, "GolfBox-booking"),
+        "status": status,
+        "status_label": BOOKING_STATUS_LABELS.get(status, status.replace("_", " ").capitalize()),
+        "status_class": _history_status_class(status),
+        "course": course,
+        "play_date": play_date.isoformat() if play_date else "-",
+        "play_time": time_from if not time_to or time_to == time_from else f"{time_from}-{time_to}",
+        "players": players,
+        "history_at": _history_datetime(history_at),
+        "sort_at": history_at or datetime.min,
+    }
+
+
+def _booking_run_history_view(run, user, include_detail=False):
+    if not run:
+        return None
+    row = _history_base(
+        "run",
+        run.id,
+        run.booking_type,
+        run.status,
+        run.course,
+        run.play_date,
+        run.time_from,
+        run.time_to,
+        _history_players(run, user),
+        run.finished_at,
+    )
+    if include_detail:
+        row.update({
+            "requested_prompt": run.requested_prompt,
+            "message": run.message,
+            "error_message": run.error_message,
+            "events": [
+                {"label": "Kjøring startet", "time": _history_datetime(run.started_at), "text": "Den automatiske GolfBox-kjøringen startet."},
+                {"label": "Kjøring avsluttet", "time": _history_datetime(run.finished_at), "text": run.message or run.error_message or "Kjøringen ble avsluttet."},
+            ],
+        })
+    return row
+
+
+def _legacy_scheduled_history_view(booking, user, include_detail=False):
+    if not booking:
+        return None
+    history_at = booking.executed_at or booking.cancelled_at or booking.updated_at or booking.created_at
+    row = _history_base(
+        "scheduled",
+        booking.id,
+        "scheduled",
+        booking.status,
+        booking.course,
+        booking.play_date,
+        booking.play_time,
+        booking.play_time,
+        _history_players(booking, user),
+        history_at,
+    )
+    if include_detail:
+        events = [
+            {"label": "Bestilling opprettet", "time": _history_datetime(booking.created_at), "text": "Bookingen ble lagt i kø."},
+            {"label": "Planlagt kjøring", "time": _history_datetime(booking.execute_at), "text": "Tidspunktet bookingen skulle gjennomføres."},
+        ]
+        if history_at:
+            events.append({
+                "label": "Resultat",
+                "time": _history_datetime(history_at),
+                "text": booking.result_message or booking.error_message or BOOKING_STATUS_LABELS.get(booking.status, booking.status),
+            })
+        row.update({
+            "requested_prompt": booking.requested_prompt,
+            "message": booking.result_message,
+            "error_message": booking.error_message,
+            "events": events,
+        })
+    return row
+
+
+def _legacy_recurring_history_view(booking, user, include_detail=False):
+    if not booking:
+        return None
+    status = "failed" if booking.last_error_message else (
+        "booking_created" if "sendt til GolfBox" in (booking.last_result_message or "") else "no_slot"
+    )
+    date_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", booking.last_result_message or "")
+    play_date = date.fromisoformat(date_match.group(1)) if date_match else _play_date_for_recurring_run(
+        booking,
+        booking.last_run_at or booking.created_at,
+    )
+    row = _history_base(
+        "recurring",
+        booking.id,
+        "recurring",
+        status,
+        booking.course,
+        play_date,
+        booking.time_from,
+        booking.time_to,
+        _history_players(booking, user),
+        booking.last_run_at,
+    )
+    if include_detail:
+        row.update({
+            "requested_prompt": booking.requested_prompt,
+            "message": booking.last_result_message,
+            "error_message": booking.last_error_message,
+            "events": [{
+                "label": "Siste registrerte kjøring",
+                "time": _history_datetime(booking.last_run_at),
+                "text": booking.last_result_message or booking.last_error_message or "Ingen resultatmelding lagret.",
+            }],
+        })
+    return row
+
+
+def _play_date_for_recurring_run(booking, run_at):
+    base = run_at.date()
+    days_ahead = (booking.play_weekday - base.weekday()) % 7
+    play_weeks_ahead = max(0, int(getattr(booking, "play_weeks_ahead", 0) or 0))
+    if days_ahead == 0 and play_weeks_ahead:
+        days_ahead = 7 * play_weeks_ahead
+    elif play_weeks_ahead > 1:
+        days_ahead += 7 * (play_weeks_ahead - 1)
+    return base + timedelta(days=days_ahead)
+
+
+def _legacy_watch_history_view(booking, user, include_detail=False):
+    if not booking:
+        return None
+    history_at = booking.booked_at or booking.last_run_at or booking.cancelled_at or booking.updated_at
+    status = "booking_created" if booking.status == "completed" else booking.status
+    row = _history_base(
+        "watch",
+        booking.id,
+        "watch",
+        status,
+        booking.course,
+        booking.play_date,
+        booking.booked_time or booking.time_from,
+        booking.booked_time or booking.time_to,
+        _history_players(booking, user),
+        history_at,
+    )
+    if include_detail:
+        row.update({
+            "requested_prompt": booking.requested_prompt,
+            "message": booking.last_result_message,
+            "error_message": booking.last_error_message,
+            "events": [{
+                "label": "Siste registrerte hendelse",
+                "time": _history_datetime(history_at),
+                "text": booking.last_result_message or booking.last_error_message or BOOKING_STATUS_LABELS.get(status, status),
+            }],
+        })
+    return row
 
 
 def _scheduled_booking_view(booking):

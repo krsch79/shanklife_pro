@@ -2,6 +2,13 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.94] - 2026-06-20
+- Retter planlagte enkeltbookinger slik at GolfBox bruker klubb- og baneinformasjonen til banen som faktisk skal bookes, i stedet for alltid å bruke Ballerud.
+- Viser historiske GolfBox AI-bookinger med status, spillere, bane og spilletid.
+- Gir hver historisk booking en egen beskrivende logg med opprinnelig forespørsel, hendelser og resultat eller feilmelding.
+- Lagrer hver fremtidige automatisk bookingkjøring separat, slik at resultatet fra tidligere gjentakende bookinger ikke overskrives.
+- Sikrer at GolfBox AI også kan åpnes når administrator bruker BalleTour-testdatabasen.
+
 ## [1.8.90] - 2026-06-19
 - Beregner live score mot par fra alle hull som faktisk er registrert, også ved shotgun-start eller annen spillerekkefølge.
 
