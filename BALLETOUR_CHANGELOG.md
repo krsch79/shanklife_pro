@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.95] - 2026-06-20
+- Slår opp oppgitte medlemsnumre direkte i GolfBox før en fremtidig eller overvåket AI-booking lagres.
+- Viser og lagrer korrekt navn, medlemsnummer og klubb for hver oppgitt medspiller i planlagte bookinger.
+- Stopper planleggingen dersom et medlemsnummer ikke kan bekreftes i GolfBox, slik at en uklar spiller ikke bookes inn senere.
+
 ## [1.8.94] - 2026-06-20
 - Retter planlagte enkeltbookinger slik at GolfBox bruker klubb- og baneinformasjonen til banen som faktisk skal bookes, i stedet for alltid å bruke Ballerud.
 - Viser historiske GolfBox AI-bookinger med status, spillere, bane og spilletid.

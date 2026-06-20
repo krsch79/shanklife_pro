@@ -3,10 +3,64 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from services.golfbox import _scheduled_pending_booking, confirm_golfbox_booking
+from services.golfbox import (
+    _parse_member_number_lookup,
+    _resolve_requested_member_memberships,
+    _scheduled_pending_booking,
+    confirm_golfbox_booking,
+)
 
 
 class GolfBoxScheduledBookingTests(unittest.TestCase):
+    def test_member_number_lookup_response_is_normalized_for_storage(self):
+        member = _parse_member_number_lookup(
+            "{player-guid}|Øyvind Schiander|Ballerud Golfklubb|1|1||",
+            "65-2560",
+        )
+
+        self.assertEqual(member["player_name"], "Øyvind Schiander")
+        self.assertEqual(member["member_number"], "65-2560")
+        self.assertEqual(member["club_name"], "Ballerud Golfklubb")
+
+    @patch("services.golfbox._lookup_golfbox_members_by_number")
+    def test_requested_member_number_replaces_generic_name(self, lookup):
+        lookup.return_value = {
+            "65-2560": {
+                "player_name": "Øyvind Schiander",
+                "member_number": "65-2560",
+                "club_name": "Ballerud Golfklubb",
+            }
+        }
+        memberships = [
+            {"player_name": "Kristian Schiander", "member_number": "65-110", "club_name": "Ballerud Golfklubb"},
+            {"player_name": "Medlemsnummer 65-2560", "member_number": "65-2560", "club_name": "Ballerud"},
+        ]
+
+        resolved, error = _resolve_requested_member_memberships(
+            SimpleNamespace(),
+            {"member_numbers": ["65-2560"]},
+            memberships,
+        )
+
+        self.assertIsNone(error)
+        self.assertEqual(resolved[1]["player_name"], "Øyvind Schiander")
+        self.assertEqual(resolved[1]["club_name"], "Ballerud Golfklubb")
+
+    @patch("services.golfbox._lookup_golfbox_members_by_number", return_value={})
+    def test_unknown_member_number_stops_future_booking(self, _lookup):
+        memberships = [
+            {"player_name": "Medlemsnummer 65-9999", "member_number": "65-9999", "club_name": "Ballerud"},
+        ]
+
+        _, error = _resolve_requested_member_memberships(
+            SimpleNamespace(),
+            {"member_numbers": ["65-9999"]},
+            memberships,
+        )
+
+        self.assertIn("65-9999", error)
+        self.assertIn("Ingen planlagt booking ble lagret", error)
+
     def test_scheduled_booking_does_not_reuse_ballerud_identifiers(self):
         booking = SimpleNamespace(course="Haga", play_date=date(2026, 6, 27), play_time="10:00")
         players = [{"player_name": "Kristian", "member_number": "308-5930", "club_name": "Haga Golfklubb"}]

@@ -24,6 +24,7 @@ BALLERUD_CLUB_GUID = "{FD174477-19BD-4120-BD4F-DF422371C961}"
 BALLERUD_RESSOURCE_GUID = "{82966715-948D-41EB-BCAB-3F7458EDB82E}"
 GOLFBOX_MY_TIMES_PATH = "/site/my_golfBox/myTimes/myTimes.asp"
 GOLFBOX_FAVORITES_PATH = "/site/playergroups/listGroups.asp?selected={F91B77FE-0055-4656-97C4-61D8923962B6}"
+GOLFBOX_MEMBER_LOOKUP_PATH = "/site/my_golfbox/score/whs/_searchMember.asp"
 OSLO_AREA_COURSES = [
     "Ballerud",
     "Oslo",
@@ -815,6 +816,75 @@ def _booking_player_memberships(user, interpretation, club_name=None):
         seen_numbers.add(number)
         deduped.append(membership)
     return deduped[:4]
+
+
+def _resolve_requested_member_memberships(user, interpretation, memberships):
+    requested_numbers = [
+        str(number).strip()
+        for number in (interpretation.get("member_numbers") or [])
+        if str(number).strip()
+    ]
+    if not requested_numbers:
+        return memberships, None
+
+    try:
+        resolved_members = _lookup_golfbox_members_by_number(user, requested_numbers)
+    except (ValueError, httpx.HTTPError):
+        return memberships, (
+            "GolfBox-medlemsnumrene kunne ikke kontrolleres akkurat nå. "
+            "Ingen planlagt booking ble lagret. Prøv igjen senere."
+        )
+
+    missing_numbers = [number for number in requested_numbers if number not in resolved_members]
+    if missing_numbers:
+        return memberships, (
+            "Jeg fant ikke medlemsnummer "
+            f"{', '.join(missing_numbers)} i GolfBox. Ingen planlagt booking ble lagret."
+        )
+
+    for membership in memberships:
+        member_number = str(membership.get("member_number") or "").strip()
+        resolved = resolved_members.get(member_number)
+        if resolved:
+            membership.update(resolved)
+    return memberships, None
+
+
+def _lookup_golfbox_members_by_number(user, member_numbers):
+    credentials = _credentials_for_user(user)
+    if not credentials:
+        raise ValueError("GolfBox-innlogging mangler.")
+
+    resolved = {}
+    with httpx.Client(
+        follow_redirects=True,
+        timeout=25,
+        headers={"User-Agent": "Mozilla/5.0"},
+    ) as client:
+        _login(client, credentials)
+        for member_number in member_numbers:
+            response = client.get(
+                f"{GOLFBOX_BASE_URL}{GOLFBOX_MEMBER_LOOKUP_PATH}",
+                params={"id": member_number, "country": "NO"},
+            )
+            response.raise_for_status()
+            member = _parse_member_number_lookup(response.text, member_number)
+            if member:
+                resolved[member_number] = member
+    return resolved
+
+
+def _parse_member_number_lookup(response_text, member_number):
+    parts = [html.unescape(part).strip() for part in (response_text or "").split("|")]
+    if len(parts) < 3 or not parts[0] or not parts[1] or not parts[2]:
+        return None
+    return {
+        "player_name": parts[1],
+        "member_number": str(member_number).strip(),
+        "club_name": parts[2],
+        "golfbox_player_guid": parts[0],
+        "source": "golfbox_member_lookup",
+    }
 
 
 def _ensure_membership_for_user(user, club_name=None):
@@ -2066,6 +2136,18 @@ def _scheduled_booking_result(interpretation, prompt, user):
         }
     course_name = courses[0]
     player_memberships = _booking_player_memberships(user, interpretation, course_name)
+    player_memberships, member_lookup_error = _resolve_requested_member_memberships(
+        user,
+        interpretation,
+        player_memberships,
+    )
+    if member_lookup_error:
+        return {
+            "intent": "create_booking",
+            "status": "needs_player_details",
+            "message": member_lookup_error,
+            "available_slots": [],
+        }
     expected_players = max(int(interpretation["players"]), len(player_memberships))
     if len(player_memberships) < expected_players:
         if expected_players == 1:
@@ -2161,6 +2243,18 @@ def _watch_booking_result(interpretation, prompt, user):
         }
     course_name = courses[0]
     player_memberships = _booking_player_memberships(user, interpretation, course_name)
+    player_memberships, member_lookup_error = _resolve_requested_member_memberships(
+        user,
+        interpretation,
+        player_memberships,
+    )
+    if member_lookup_error:
+        return {
+            "intent": "create_booking",
+            "status": "needs_player_details",
+            "message": member_lookup_error,
+            "available_slots": [],
+        }
     expected_players = max(int(interpretation["players"]), len(player_memberships))
     if len(player_memberships) < expected_players:
         return {
