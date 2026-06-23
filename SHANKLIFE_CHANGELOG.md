@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.96] - 2026-06-23
+- Legger til fysisk hull-kobling på baner, slik at samme 9-hullssløyfe kan dele historikk på tvers av ulike banekombinasjoner.
+- Fyller automatisk fysisk sløyfe og hullnummer for kombinasjonsbaner med navn som Haga Blå+Gul og Haga Gul+Rød.
+- Viser tidligere data på scoreføringssiden for samme faktiske hull, også når hullet tidligere ble spilt som en annen banekombinasjon.
+
 ## [1.8.93] - 2026-06-19
 - Lar administratorer redigere score, utslagskølle, utslagslengde, fairway-/greenresultat, putter og siste putt på alle hull i en fullført Shanklife-runde.
 - Beholder rundens status og fullføringstid under redigering, og validerer endringene før de lagres.

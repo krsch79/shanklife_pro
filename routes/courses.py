@@ -21,6 +21,7 @@ from services.course_importer import (
     analyze_scorecard_with_openai,
     analyze_slope_table_with_openai,
 )
+from services.physical_holes import infer_physical_hole_identity
 from services.time import server_now
 
 courses_bp = Blueprint("courses", __name__)
@@ -85,6 +86,14 @@ def import_course():
             return render_template("course_import.html")
 
         tees_data = score_data["tees"]
+        for hole in score_data["holes"]:
+            inferred = infer_physical_hole_identity(
+                score_data.get("course_name"),
+                hole.get("hole_number"),
+                score_data.get("hole_count"),
+            )
+            if inferred:
+                hole.update(inferred)
 
         slope_imported = False
         if slope_file and slope_file.filename:
@@ -159,7 +168,7 @@ def new_course():
             return render_new_course_form_from_request(hole_count, tee_count)
 
         try:
-            holes = validate_holes_data(hole_count)
+            holes = validate_holes_data(hole_count, name)
             tees = validate_tees_data(hole_count, tee_count)
         except ValueError as e:
             flash(str(e), "error")
@@ -176,6 +185,9 @@ def new_course():
                 hole_number=hole_data["hole_number"],
                 par=hole_data["par"],
                 stroke_index=hole_data["stroke_index"],
+                physical_course_group=hole_data["physical_course_group"],
+                physical_loop=hole_data["physical_loop"],
+                physical_hole_number=hole_data["physical_hole_number"],
             )
             db.session.add(hole)
             db.session.flush()
@@ -242,7 +254,7 @@ def edit_course(course_id):
             return render_edit_course_form_from_request(course, tee_count)
 
         try:
-            holes = validate_holes_data(course.hole_count)
+            holes = validate_holes_data(course.hole_count, name)
             tees = validate_tees_data(course.hole_count, tee_count)
         except ValueError as e:
             flash(str(e), "error")
@@ -252,8 +264,12 @@ def edit_course(course_id):
 
         existing_holes = {hole.hole_number: hole for hole in course.holes}
         for hole_data in holes:
-            existing_holes[hole_data["hole_number"]].par = hole_data["par"]
-            existing_holes[hole_data["hole_number"]].stroke_index = hole_data["stroke_index"]
+            hole = existing_holes[hole_data["hole_number"]]
+            hole.par = hole_data["par"]
+            hole.stroke_index = hole_data["stroke_index"]
+            hole.physical_course_group = hole_data["physical_course_group"]
+            hole.physical_loop = hole_data["physical_loop"]
+            hole.physical_hole_number = hole_data["physical_hole_number"]
 
         for tee in list(course.tees):
             db.session.delete(tee)

@@ -104,6 +104,57 @@
         </table>
     </div>
 
+    <h3>Fysisk hull-kobling</h3>
+    <p class="muted">
+        Brukes for baner som består av flere 9-hullssløyfer. Da kan historikk vises for samme faktiske hull,
+        selv om hullet er spilt i en annen banekombinasjon.
+    </p>
+    <div class="table-wrap">
+        <table class="course-physical-hole-table">
+            <thead>
+                <tr>
+                    <th>Hull</th>
+                    <th>Banegruppe</th>
+                    <th>Sløyfe</th>
+                    <th>Hull på sløyfe</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for hole in holes_data %}
+                <tr>
+                    <td>{{ hole.hole_number }}</td>
+                    <td>
+                        <input
+                            type="text"
+                            name="physical_course_group_{{ hole.hole_number }}"
+                            value="{{ hole.physical_course_group|default('', true) }}"
+                            placeholder="F.eks. Haga"
+                        >
+                    </td>
+                    <td>
+                        <input
+                            type="text"
+                            name="physical_loop_{{ hole.hole_number }}"
+                            value="{{ hole.physical_loop|default('', true) }}"
+                            placeholder="F.eks. Gul"
+                        >
+                    </td>
+                    <td>
+                        <input
+                            type="number"
+                            name="physical_hole_number_{{ hole.hole_number }}"
+                            value="{{ hole.physical_hole_number|default('', true) }}"
+                            min="1"
+                            max="18"
+                            placeholder="{{ ((hole.hole_number - 1) % 9) + 1 }}"
+                        >
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
     <h3>Kontrollsummer</h3>
     <p class="muted">Regnes direkte fra feltene over, slik at du kan kontrollere bildeanalysen.</p>
     <div class="table-wrap">

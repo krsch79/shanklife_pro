@@ -4,12 +4,14 @@ from secrets import token_hex
 
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, url_for, jsonify
 from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from werkzeug.utils import secure_filename
 
 from extensions import db
 from models import (
     Club,
     Course,
+    CourseHole,
     CourseTeeLength,
     Player,
     PlayerHoleDefaultClub,
@@ -33,6 +35,7 @@ from services.round_length import (
 )
 from services.round_summary import build_round_summary
 from services.balletour import get_balletour_course_id, get_balletour_memberships, get_balletour_series
+from services.physical_holes import physical_hole_filter_values, physical_hole_label
 from services.time import format_server_datetime, server_now
 from services.user_notifications import (
     send_balletour_round_finished_notifications,
@@ -1068,26 +1071,41 @@ def _previous_hole_history(round_obj, round_players, hole):
     if _is_balletour_round(round_obj):
         return []
 
+    physical_filter = physical_hole_filter_values(hole)
+    history_hole = aliased(CourseHole)
+    balletour_course_id = get_balletour_course_id()
     history = []
     for rp in round_players:
         if not rp.player_id:
             continue
-        rows = (
+        query = (
             db.session.query(ScoreEntry, Round, ScoreStat, Club)
             .join(Round, Round.id == ScoreEntry.round_id)
             .join(RoundPlayer, RoundPlayer.id == ScoreEntry.round_player_id)
+            .join(
+                history_hole,
+                (history_hole.course_id == Round.course_id)
+                & (history_hole.hole_number == ScoreEntry.hole_number),
+            )
             .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
             .outerjoin(Club, Club.id == ScoreEntry.tee_club_id)
-            .filter(Round.course_id == round_obj.course_id)
             .filter(Round.id != round_obj.id)
             .filter(Round.status == "finished")
             .filter(RoundPlayer.player_id == rp.player_id)
-            .filter(ScoreEntry.hole_number == hole.hole_number)
             .filter(ScoreEntry.strokes.isnot(None))
-            .order_by(Round.started_at.desc())
-            .limit(8)
-            .all()
         )
+        if balletour_course_id:
+            query = query.filter(Round.course_id != balletour_course_id)
+        if physical_filter:
+            group, loop, physical_hole_number = physical_filter
+            query = query.filter(func.lower(history_hole.physical_course_group) == group)
+            query = query.filter(func.lower(history_hole.physical_loop) == loop)
+            query = query.filter(history_hole.physical_hole_number == physical_hole_number)
+        else:
+            query = query.filter(Round.course_id == round_obj.course_id)
+            query = query.filter(ScoreEntry.hole_number == hole.hole_number)
+
+        rows = query.order_by(Round.started_at.desc()).limit(8).all()
         if not rows:
             continue
 
@@ -1114,6 +1132,11 @@ def _previous_hole_history(round_obj, round_players, hole):
             "rows": [
                 {
                     "date": round_row.started_at.strftime("%Y-%m-%d") if round_row.started_at else "",
+                    "source": (
+                        f"{round_row.course.name} hull {entry.hole_number}"
+                        if round_row.course_id != round_obj.course_id or entry.hole_number != hole.hole_number
+                        else None
+                    ),
                     "score": entry.strokes,
                     "to_par": entry.strokes - hole.par if entry.strokes is not None else None,
                     "club": club.name if club else None,
@@ -1126,7 +1149,13 @@ def _previous_hole_history(round_obj, round_players, hole):
             ],
         })
 
-    return history
+    if not history:
+        return None
+
+    return {
+        "label": physical_hole_label(hole),
+        "items": history,
+    }
 
 
 def _round_image_extension(filename):

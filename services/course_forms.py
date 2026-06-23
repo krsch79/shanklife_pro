@@ -1,5 +1,7 @@
 from flask import render_template, request
 
+from services.physical_holes import infer_physical_hole_identity
+
 
 def default_holes_data(hole_count: int):
     return [
@@ -7,6 +9,9 @@ def default_holes_data(hole_count: int):
             "hole_number": i,
             "par": 4,
             "stroke_index": i,
+            "physical_course_group": "",
+            "physical_loop": "",
+            "physical_hole_number": "",
         }
         for i in range(1, hole_count + 1)
     ]
@@ -18,19 +23,48 @@ def holes_data_for_course(course):
             "hole_number": hole.hole_number,
             "par": hole.par,
             "stroke_index": hole.stroke_index,
+            "physical_course_group": hole.physical_course_group or "",
+            "physical_loop": hole.physical_loop or "",
+            "physical_hole_number": hole.physical_hole_number or "",
         }
         for hole in sorted(course.holes, key=lambda h: h.hole_number)
     ]
 
 
-def holes_data_from_request(hole_count: int):
+def _hole_identity_from_request_or_name(course_name, hole_count, hole_number):
+    group = request.form.get(f"physical_course_group_{hole_number}", "").strip()
+    loop = request.form.get(f"physical_loop_{hole_number}", "").strip()
+    physical_hole_number = request.form.get(f"physical_hole_number_{hole_number}", "").strip()
+
+    if group or loop or physical_hole_number:
+        return {
+            "physical_course_group": group,
+            "physical_loop": loop,
+            "physical_hole_number": physical_hole_number,
+        }
+
+    inferred = infer_physical_hole_identity(course_name, hole_number, hole_count)
+    if not inferred:
+        return {
+            "physical_course_group": "",
+            "physical_loop": "",
+            "physical_hole_number": "",
+        }
+    return inferred
+
+
+def holes_data_from_request(hole_count: int, course_name=None):
     rows = []
     for i in range(1, hole_count + 1):
+        identity = _hole_identity_from_request_or_name(course_name, hole_count, i)
         rows.append(
             {
                 "hole_number": i,
                 "par": request.form.get(f"par_{i}", "").strip() or "4",
                 "stroke_index": request.form.get(f"index_{i}", "").strip() or str(i),
+                "physical_course_group": identity["physical_course_group"],
+                "physical_loop": identity["physical_loop"],
+                "physical_hole_number": identity["physical_hole_number"],
             }
         )
     return rows
@@ -168,13 +202,17 @@ def _validate_optional_rating(tee_name, gender_label, slope_raw, course_rating_r
     return {"slope": slope, "course_rating": course_rating}
 
 
-def validate_holes_data(hole_count: int):
+def validate_holes_data(hole_count: int, course_name=None):
     holes = []
     used_indexes = set()
 
     for i in range(1, hole_count + 1):
         par_raw = request.form.get(f"par_{i}", "").strip()
         index_raw = request.form.get(f"index_{i}", "").strip()
+        identity = _hole_identity_from_request_or_name(course_name, hole_count, i)
+        group = identity["physical_course_group"].strip()
+        loop = identity["physical_loop"].strip()
+        physical_hole_raw = str(identity["physical_hole_number"]).strip()
 
         try:
             par = int(par_raw)
@@ -191,12 +229,27 @@ def validate_holes_data(hole_count: int):
         if stroke_index in used_indexes:
             raise ValueError(f"Index {stroke_index} er brukt mer enn én gang.")
 
+        if group or loop or physical_hole_raw:
+            if not group or not loop or not physical_hole_raw:
+                raise ValueError(f"Fysisk hull-kobling må ha banegruppe, sløyfe og hullnummer for hull {i}.")
+            try:
+                physical_hole_number = int(physical_hole_raw)
+            except ValueError:
+                raise ValueError(f"Fysisk hullnummer må være et gyldig tall for hull {i}.")
+            if physical_hole_number < 1 or physical_hole_number > 18:
+                raise ValueError(f"Fysisk hullnummer må være mellom 1 og 18 for hull {i}.")
+        else:
+            physical_hole_number = None
+
         used_indexes.add(stroke_index)
         holes.append(
             {
                 "hole_number": i,
                 "par": par,
                 "stroke_index": stroke_index,
+                "physical_course_group": group or None,
+                "physical_loop": loop or None,
+                "physical_hole_number": physical_hole_number,
             }
         )
 
@@ -262,12 +315,18 @@ def validate_tees_data(hole_count: int, tee_count: int):
 
 
 def render_new_course_form(hole_count=18, tee_count=1, imported_course_name=None):
+    holes_data = default_holes_data(hole_count)
+    if imported_course_name:
+        for hole in holes_data:
+            inferred = infer_physical_hole_identity(imported_course_name, hole["hole_number"], hole_count)
+            if inferred:
+                hole.update(inferred)
     return render_template(
         "course_form.html",
         course=None,
         hole_count=hole_count,
         tee_count=tee_count,
-        holes_data=default_holes_data(hole_count),
+        holes_data=holes_data,
         tees_data=default_tees_data(hole_count, tee_count),
         imported_course_name=imported_course_name,
     )
@@ -279,7 +338,7 @@ def render_new_course_form_from_request(hole_count: int, tee_count: int, importe
         course=None,
         hole_count=hole_count,
         tee_count=tee_count,
-        holes_data=holes_data_from_request(hole_count),
+        holes_data=holes_data_from_request(hole_count, imported_course_name or request.form.get("name", "")),
         tees_data=tees_data_from_request(hole_count, tee_count),
         imported_course_name=imported_course_name,
     )
@@ -291,6 +350,6 @@ def render_edit_course_form_from_request(course, tee_count: int):
         course=course,
         hole_count=course.hole_count,
         tee_count=tee_count,
-        holes_data=holes_data_from_request(course.hole_count),
+        holes_data=holes_data_from_request(course.hole_count, request.form.get("name", course.name)),
         tees_data=tees_data_from_request(course.hole_count, tee_count),
     )

@@ -24,6 +24,7 @@ from routes.balletour import balletour_bp
 from routes.golfbox_scores import golfbox_scores_bp
 from services.balletour import is_balletour_player
 from services.golfbox import migrate_golfbox_password_tokens
+from services.physical_holes import infer_physical_hole_identity
 from services.time import format_server_datetime
 
 
@@ -90,6 +91,11 @@ def ensure_schema_updates(app):
 
         if "score_entries" in table_names:
             add_column_if_missing("score_entries", "tee_club_id", "tee_club_id INTEGER")
+
+        if "course_holes" in table_names:
+            add_column_if_missing("course_holes", "physical_course_group", "physical_course_group VARCHAR(120)")
+            add_column_if_missing("course_holes", "physical_loop", "physical_loop VARCHAR(80)")
+            add_column_if_missing("course_holes", "physical_hole_number", "physical_hole_number INTEGER")
 
         if "score_stats" in table_names:
             add_column_if_missing("score_stats", "last_putt_distance_m", "last_putt_distance_m FLOAT")
@@ -227,6 +233,27 @@ def ensure_course_data_corrections(app):
             db.session.commit()
 
 
+def ensure_physical_hole_identities(app):
+    with app.app_context():
+        changed = False
+        for course in Course.query.all():
+            for hole in course.holes:
+                inferred = infer_physical_hole_identity(course.name, hole.hole_number, course.hole_count)
+                if not inferred:
+                    continue
+                if not (hole.physical_course_group or "").strip():
+                    hole.physical_course_group = inferred["physical_course_group"]
+                    changed = True
+                if not (hole.physical_loop or "").strip():
+                    hole.physical_loop = inferred["physical_loop"]
+                    changed = True
+                if not hole.physical_hole_number:
+                    hole.physical_hole_number = inferred["physical_hole_number"]
+                    changed = True
+        if changed:
+            db.session.commit()
+
+
 def seed_initial_user(app):
     with app.app_context():
         has_admin = User.query.filter_by(is_admin=True).first() is not None
@@ -298,6 +325,7 @@ def create_app():
     ensure_schema_updates(app)
     ensure_shanklife_club_options(app)
     ensure_course_data_corrections(app)
+    ensure_physical_hole_identities(app)
     seed_initial_user(app)
 
     @app.template_filter("datetime_local")

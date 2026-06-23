@@ -281,6 +281,9 @@ class CourseHole(db.Model):
     hole_number = db.Column(db.Integer, nullable=False)
     par = db.Column(db.Integer, nullable=False)
     stroke_index = db.Column(db.Integer, nullable=False)
+    physical_course_group = db.Column(db.String(120), nullable=True)
+    physical_loop = db.Column(db.String(80), nullable=True)
+    physical_hole_number = db.Column(db.Integer, nullable=True)
 
     course = db.relationship("Course", back_populates="holes")
     tee_lengths = db.relationship(

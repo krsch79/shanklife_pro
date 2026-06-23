@@ -213,8 +213,15 @@
     {% if previous_hole_history %}
     <div class="form-card hole-history-panel">
         <h3>Tidligere på hull {{ hole.hole_number }}</h3>
-        <p class="muted">Samme spiller, bane og hull fra tidligere fullførte Shanklife-runder.</p>
-        {% for player_history in previous_hole_history %}
+        <p class="muted">
+            Samme spiller og
+            {% if previous_hole_history.label %}
+            samme faktiske hull ({{ previous_hole_history.label }}) fra tidligere fullførte Shanklife-runder.
+            {% else %}
+            samme bane og hull fra tidligere fullførte Shanklife-runder.
+            {% endif %}
+        </p>
+        {% for player_history in previous_hole_history["items"] %}
         <div class="hole-history-player">
             <div class="section-heading-row">
                 <h4>{{ player_history.player.player_name_snapshot }}</h4>
@@ -231,6 +238,7 @@
                     <thead>
                         <tr>
                             <th>Dato</th>
+                            {% if previous_hole_history.label %}<th>Bane/hull</th>{% endif %}
                             <th>Score</th>
                             <th>Kølle</th>
                             <th>Utslag</th>
@@ -243,6 +251,7 @@
                         {% for row in player_history.rows %}
                         <tr>
                             <td data-label="Dato">{{ row.date }}</td>
+                            {% if previous_hole_history.label %}<td data-label="Bane/hull">{{ row.source or "Denne banen" }}</td>{% endif %}
                             <td data-label="Score">
                                 {{ row.score }}
                                 {% if row.to_par is not none %}
