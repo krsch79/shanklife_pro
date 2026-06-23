@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.99] - 2026-06-23
+- Setter iPhone-prototypen til å bruke `https://app.shanklife.no` som standard serveradresse for TestFlight-testing.
+
 ## [1.8.98] - 2026-06-23
 - Legger grunnmuren for en native iPhone-app med JSON-API for innlogging, brukerprofil, app-oppsett og Shanklife-oversikt.
 - Legger til et første SwiftUI-prosjekt som kan logge inn mot Shanklife Pro-serveren og vise Shanklife Pro som egen appdel.

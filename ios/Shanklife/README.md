@@ -7,9 +7,9 @@ Native SwiftUI-klient for Shanklife Pro og BalleTour.
 1. Åpne `Shanklife.xcodeproj` i Xcode.
 2. Velg en iPhone-simulator eller fysisk iPhone.
 3. Start Flask-serveren lokalt på port `5055`.
-4. I appens login-skjerm bruker du base URL `http://127.0.0.1:5055` i simulatoren.
+4. I appens login-skjerm bruker du base URL `http://127.0.0.1:5055` i simulatoren for lokal testing, eller standardadressen `https://app.shanklife.no` for deployet server.
 
-For fysisk iPhone må base URL peke til en HTTPS-adresse eller en lokal nettverksadresse som telefonen når.
+For fysisk iPhone og TestFlight brukes `https://app.shanklife.no`.
 
 ## Struktur
 

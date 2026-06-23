@@ -14,7 +14,7 @@ final class SessionStore: ObservableObject {
     }
 
     init() {
-        baseURLText = UserDefaults.standard.string(forKey: "baseURLText") ?? "http://127.0.0.1:5055"
+        baseURLText = UserDefaults.standard.string(forKey: "baseURLText") ?? "https://app.shanklife.no"
     }
 
     var isLoggedIn: Bool {
