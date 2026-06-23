@@ -21,7 +21,7 @@ from services.course_importer import (
     analyze_scorecard_with_openai,
     analyze_slope_table_with_openai,
 )
-from services.physical_holes import infer_physical_hole_identity
+from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
 from services.time import server_now
 
 courses_bp = Blueprint("courses", __name__)
@@ -214,6 +214,7 @@ def new_course():
 
             _add_course_tee_ratings(tee, tee_data)
 
+        assign_physical_identities_from_loop_signatures(Course.query.all())
         db.session.commit()
         flash("Bane opprettet.", "success")
         return redirect(url_for("courses.courses"))
@@ -296,6 +297,7 @@ def edit_course(course_id):
 
             _add_course_tee_ratings(tee, tee_data)
 
+        assign_physical_identities_from_loop_signatures(Course.query.all())
         db.session.commit()
         flash("Bane oppdatert.", "success")
         return redirect(url_for("courses.courses"))

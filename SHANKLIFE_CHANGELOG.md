@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.97] - 2026-06-23
+- Kjenner igjen like 9-hullssløyfer ved å sammenligne par og tee-lengder hull for hull, ikke bare ved å tolke banenavnet.
+- Lar nye eller omdøpte kombinasjonsbaner arve fysisk hull-kobling fra eksisterende sløyfer når hulloppsettet matcher.
+
 ## [1.8.96] - 2026-06-23
 - Legger til fysisk hull-kobling på baner, slik at samme 9-hullssløyfe kan dele historikk på tvers av ulike banekombinasjoner.
 - Fyller automatisk fysisk sløyfe og hullnummer for kombinasjonsbaner med navn som Haga Blå+Gul og Haga Gul+Rød.

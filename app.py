@@ -24,7 +24,7 @@ from routes.balletour import balletour_bp
 from routes.golfbox_scores import golfbox_scores_bp
 from services.balletour import is_balletour_player
 from services.golfbox import migrate_golfbox_password_tokens
-from services.physical_holes import infer_physical_hole_identity
+from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
 from services.time import format_server_datetime
 
 
@@ -250,6 +250,8 @@ def ensure_physical_hole_identities(app):
                 if not hole.physical_hole_number:
                     hole.physical_hole_number = inferred["physical_hole_number"]
                     changed = True
+        if assign_physical_identities_from_loop_signatures(Course.query.all()):
+            changed = True
         if changed:
             db.session.commit()
 
