@@ -4,7 +4,7 @@
 import os
 from pathlib import Path
 
-from flask import Flask, g, redirect, request, send_file, session, url_for
+from flask import Flask, g, jsonify, redirect, request, send_file, session, url_for
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
@@ -22,6 +22,7 @@ from routes.series import series_bp
 from routes.stats import stats_bp
 from routes.balletour import balletour_bp
 from routes.golfbox_scores import golfbox_scores_bp
+from routes.api import api_bp
 from services.balletour import is_balletour_player
 from services.golfbox import migrate_golfbox_password_tokens
 from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
@@ -314,7 +315,7 @@ def create_app():
     load_env_file()
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "shanklife-pro-local-dev-key")
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///shanklife_pro.db"
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///shanklife_pro.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["UPLOAD_FOLDER"] = "uploads"
     app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
@@ -359,11 +360,16 @@ def create_app():
         public_endpoints = {
             "auth.login",
             "auth.accept_balletour_invitation",
+            "api.health",
+            "api.login",
+            "api.logout",
             "leaderboard.live_leaderboard",
             "leaderboard.live_leaderboard_partial",
             "leaderboard.leaderboard_player_modal",
             "static",
         }
+        if endpoint.startswith("api.") and endpoint not in public_endpoints:
+            return jsonify({"error": {"code": "unauthorized", "message": "Du må logge inn først."}}), 401
         if endpoint in public_endpoints:
             return None
         return redirect(url_for("auth.login", next=request.path))
@@ -393,6 +399,7 @@ def create_app():
     app.register_blueprint(stats_bp)
     app.register_blueprint(balletour_bp)
     app.register_blueprint(golfbox_scores_bp)
+    app.register_blueprint(api_bp)
 
     return app
 

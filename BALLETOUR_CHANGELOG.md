@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.8.98] - 2026-06-23
+- Legger grunnmuren for en native iPhone-app med JSON-API for innlogging, brukerprofil, app-oppsett og BalleTour-oversikt.
+- Legger til et første SwiftUI-prosjekt som kan vise BalleTour som egen appdel for spillere med tilgang.
+
 ## [1.8.95] - 2026-06-20
 - Slår opp oppgitte medlemsnumre direkte i GolfBox før en fremtidig eller overvåket AI-booking lagres.
 - Viser og lagrer korrekt navn, medlemsnummer og klubb for hver oppgitt medspiller i planlagte bookinger.

@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.8.98] - 2026-06-23
+- Legger grunnmuren for en native iPhone-app med JSON-API for innlogging, brukerprofil, app-oppsett og Shanklife-oversikt.
+- Legger til et første SwiftUI-prosjekt som kan logge inn mot Shanklife Pro-serveren og vise Shanklife Pro som egen appdel.
+
 ## [1.8.97] - 2026-06-23
 - Kjenner igjen like 9-hullssløyfer ved å sammenligne par og tee-lengder hull for hull, ikke bare ved å tolke banenavnet.
 - Lar nye eller omdøpte kombinasjonsbaner arve fysisk hull-kobling fra eksisterende sløyfer når hulloppsettet matcher.
