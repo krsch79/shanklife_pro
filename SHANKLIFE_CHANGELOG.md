@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.5] - 2026-06-24
+- Legger eksportklassifisering inn i iPhone-appen, slik at TestFlight-builds ikke lenger må merkes manuelt med krypteringsvalg i App Store Connect.
+
 ## [1.9.4] - 2026-06-24
 - Hindrer at automatiserte tester og testopprettede runder sender ekte e-postvarsler til brukere eller testadresser.
 - Fjerner falsk test-e-postadresse fra API-testbrukeren, slik at testdata ikke kan utløse leveringsfeil fra e-postsystemet.
