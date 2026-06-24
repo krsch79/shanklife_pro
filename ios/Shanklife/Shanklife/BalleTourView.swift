@@ -42,12 +42,22 @@ struct BalleTourView: View {
                     playersSection
                 case .me:
                     meSection
+                case .stats:
+                    statsSection
                 }
             }
         }
         .navigationTitle("BalleTour")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                NavigationLink {
+                    BalleTourNewRoundView()
+                        .environmentObject(session)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Ny runde")
+
                 Button {
                     Task { await load() }
                 } label: {
@@ -153,7 +163,7 @@ struct BalleTourView: View {
                 }
                 ForEach(ongoingRounds) { round in
                     NavigationLink {
-                        BalleTourRoundDetailView(roundID: round.id)
+                        BalleTourScoringLoaderView(roundID: round.id)
                             .environmentObject(session)
                     } label: {
                         roundRow(round)
@@ -214,6 +224,17 @@ struct BalleTourView: View {
                 summaryGrid(mySummary)
             } else {
                 emptyRow("Ingen personlig statistikk funnet.")
+            }
+        }
+    }
+
+    private var statsSection: some View {
+        Section("Statistikk") {
+            NavigationLink {
+                BalleTourStatsView(tee: selectedTee)
+                    .environmentObject(session)
+            } label: {
+                Label("Spillerstatistikk og samlet oversikt", systemImage: "chart.bar.xaxis")
             }
         }
     }
@@ -340,8 +361,7 @@ struct BalleTourRoundDetailView: View {
                                     Text("Hull \(score.holeNumber)")
                                         .font(.headline)
                                     Spacer()
-                                    Text(score.strokes.map(String.init) ?? "-")
-                                        .font(.headline.monospacedDigit())
+                                    detailScoreChip(score)
                                 }
                                 Text("Par \(score.par) · SI \(score.strokeIndex)\(score.lengthMeters.map { " · \($0)m" } ?? "")")
                                     .font(.caption)
@@ -375,6 +395,24 @@ struct BalleTourRoundDetailView: View {
         return Text(facts.isEmpty ? "Ingen detaljstatistikk" : facts.joined(separator: " · "))
             .font(.caption)
             .foregroundStyle(.secondary)
+    }
+
+    private func detailScoreChip(_ score: BalleTourHoleScore) -> some View {
+        let diff = score.strokes.map { $0 - score.par }
+        let color: Color = {
+            guard let diff else { return .secondary }
+            if diff < 0 { return .green }
+            if diff == 0 { return .primary }
+            if diff == 1 { return .orange }
+            return .red
+        }()
+
+        return Text(score.strokes.map(String.init) ?? "-")
+            .font(.headline.monospacedDigit())
+            .frame(width: 34, height: 34)
+            .foregroundStyle(color)
+            .background(color.opacity(diff == 0 ? 0.08 : 0.14))
+            .clipShape(RoundedRectangle(cornerRadius: diff.map { $0 < 0 ? 17 : 6 } ?? 6))
     }
 
     private func load() async {
@@ -472,6 +510,7 @@ enum BalleTourSection: String, CaseIterable, Identifiable {
     case rounds
     case players
     case me
+    case stats
 
     var id: String { rawValue }
 
@@ -481,6 +520,7 @@ enum BalleTourSection: String, CaseIterable, Identifiable {
         case .rounds: "Runder"
         case .players: "Spillere"
         case .me: "Meg"
+        case .stats: "Stats"
         }
     }
 
@@ -490,6 +530,7 @@ enum BalleTourSection: String, CaseIterable, Identifiable {
         case .rounds: "list.bullet.rectangle"
         case .players: "person.3"
         case .me: "person.crop.circle"
+        case .stats: "chart.bar.xaxis"
         }
     }
 }

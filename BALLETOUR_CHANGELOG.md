@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.2] - 2026-06-24
+- Legger til native iPhone-flyt for å starte BalleTour-runder, føre score og statistikk hull for hull og fullføre runden.
+- Viser BalleTour-scorekort mer visuelt i iPhone-appen med tydeligere markering av score mot par.
+- Legger til native BalleTour-statistikk med spillerstatistikk, samlet oversikt, strokes gained, greenmønster og køllebruk.
+
 ## [1.9.1] - 2026-06-24
 - Legger til native BalleTour-visninger i iPhone-appen for oversikt, tee-filter, leaderboard, spillere, runder, personlig statistikk og scorekortdetaljer.
 - Utvider BalleTour-API-et med strukturerte endepunkter som appen kan bruke uten webvisning.

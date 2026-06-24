@@ -357,6 +357,127 @@ struct BalleTourRoundDetail: Decodable, Identifiable {
     }
 }
 
+struct BalleTourRoundSetup: Decodable {
+    let course: BalleTourCourse
+    let holes: [BalleTourSetupHole]
+    let tees: [BalleTourSetupTee]
+    let players: [BalleTourPlayer]
+    let clubs: [BalleTourClub]
+    let maxPlayers: Int
+    let driveDistanceOptions: [Int]
+    let puttOptions: [Int]
+    let lastPuttDistanceOptions: [Double]
+    let weatherSummary: String?
+
+    enum CodingKeys: String, CodingKey {
+        case course
+        case holes
+        case tees
+        case players
+        case clubs
+        case maxPlayers = "max_players"
+        case driveDistanceOptions = "drive_distance_options"
+        case puttOptions = "putt_options"
+        case lastPuttDistanceOptions = "last_putt_distance_options"
+        case weatherSummary = "weather_summary"
+    }
+}
+
+struct BalleTourSetupHole: Decodable, Identifiable {
+    let holeNumber: Int
+    let par: Int
+    let strokeIndex: Int
+    let lengths: [String: Int]
+    let scoreOptions: [Int]
+
+    var id: Int { holeNumber }
+
+    enum CodingKeys: String, CodingKey {
+        case holeNumber = "hole_number"
+        case par
+        case strokeIndex = "stroke_index"
+        case lengths
+        case scoreOptions = "score_options"
+    }
+}
+
+struct BalleTourSetupTee: Decodable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let displayOrder: Int
+    let totalLengthMeters: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case displayOrder = "display_order"
+        case totalLengthMeters = "total_length_meters"
+    }
+}
+
+struct BalleTourClub: Decodable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let sortOrder: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case sortOrder = "sort_order"
+    }
+}
+
+struct BalleTourCreateRoundRequest: Encodable {
+    let players: [BalleTourCreateRoundPlayer]
+}
+
+struct BalleTourCreateRoundPlayer: Encodable, Identifiable {
+    var playerID: Int
+    var hcp: Double
+    var teeID: Int
+
+    var id: Int { playerID }
+
+    enum CodingKeys: String, CodingKey {
+        case playerID = "player_id"
+        case hcp
+        case teeID = "tee_id"
+    }
+}
+
+struct BalleTourSaveHoleRequest: Encodable {
+    let players: [BalleTourHolePlayerInput]
+}
+
+struct BalleTourHolePlayerInput: Encodable, Identifiable {
+    let roundPlayerID: Int
+    var strokes: Int?
+    var teeClubID: Int?
+    var driveDistanceM: Int?
+    var green: BalleTourGreenInput?
+    var fairwayResult: String?
+    var putts: Int?
+    var lastPuttDistanceM: Double?
+
+    var id: Int { roundPlayerID }
+
+    enum CodingKeys: String, CodingKey {
+        case roundPlayerID = "round_player_id"
+        case strokes
+        case teeClubID = "tee_club_id"
+        case driveDistanceM = "drive_distance_m"
+        case green
+        case fairwayResult = "fairway_result"
+        case putts
+        case lastPuttDistanceM = "last_putt_distance_m"
+    }
+}
+
+struct BalleTourGreenInput: Encodable, Hashable {
+    var status: String
+    var directions: [String]
+}
+
 struct BalleTourRoundDetailPlayer: Decodable, Identifiable {
     let id: Int
     let roundPlayerID: Int
@@ -392,6 +513,7 @@ struct BalleTourHoleScore: Decodable, Identifiable {
     let lengthMeters: Int?
     let strokes: Int?
     let toPar: Int?
+    let teeClubID: Int?
     let teeClub: String?
     let driveDistanceM: Int?
     let greenResult: String?
@@ -405,12 +527,157 @@ struct BalleTourHoleScore: Decodable, Identifiable {
         case par
         case strokeIndex = "stroke_index"
         case lengthMeters = "length_meters"
-        case strokes
-        case toPar = "to_par"
-        case teeClub = "tee_club"
+            case strokes
+            case toPar = "to_par"
+            case teeClubID = "tee_club_id"
+            case teeClub = "tee_club"
         case driveDistanceM = "drive_distance_m"
         case greenResult = "green_result"
         case putts
         case lastPuttDistanceM = "last_putt_distance_m"
+    }
+}
+
+struct BalleTourStatsResponse: Decodable {
+    let tee: String
+    let players: [BalleTourPlayerProfile]
+    let stats: BalleTourDetailedStats
+}
+
+struct BalleTourAllStatsResponse: Decodable {
+    let tee: String
+    let rows: [BalleTourAllStatsRow]
+}
+
+struct BalleTourDetailedStats: Decodable {
+    let selectedPlayer: BalleTourPlayerProfile?
+    let selectedHoleNumber: Int?
+    let roundCount: Int?
+    let completedRoundCount: Int?
+    let avgRound: Double?
+    let bestRound: Int?
+    let bestRoundVsPar: Int?
+    let scoredHoles: Int?
+    let birdiesOrBetter: Int?
+    let pars: Int?
+    let bogeysOrWorse: Int?
+    let greenAttempts: Int?
+    let greenHitPercent: Double?
+    let bunkerPercent: Double?
+    let sandSaveAttempts: Int?
+    let sandSaves: Int?
+    let sandSavePercent: Double?
+    let avgPutts: Double?
+    let avgLastPuttDistance: Double?
+    let avgPuttMetersPerRound: Double?
+    let strokesGained: BalleTourStrokesGained?
+    let greenPoints: [BalleTourGreenPoint]?
+    let greenDistribution: [BalleTourGreenDistribution]?
+    let bestByHole: [String: Int?]?
+    let clubRows: [BalleTourClubStats]?
+
+    enum CodingKeys: String, CodingKey {
+        case selectedPlayer = "selected_player"
+        case selectedHoleNumber = "selected_hole_number"
+        case roundCount = "round_count"
+        case completedRoundCount = "completed_round_count"
+        case avgRound = "avg_round"
+        case bestRound = "best_round"
+        case bestRoundVsPar = "best_round_vs_par"
+        case scoredHoles = "scored_holes"
+        case birdiesOrBetter = "birdies_or_better"
+        case pars
+        case bogeysOrWorse = "bogeys_or_worse"
+        case greenAttempts = "green_attempts"
+        case greenHitPercent = "green_hit_percent"
+        case bunkerPercent = "bunker_percent"
+        case sandSaveAttempts = "sand_save_attempts"
+        case sandSaves = "sand_saves"
+        case sandSavePercent = "sand_save_percent"
+        case avgPutts = "avg_putts"
+        case avgLastPuttDistance = "avg_last_putt_distance"
+        case avgPuttMetersPerRound = "avg_putt_meters_per_round"
+        case strokesGained = "strokes_gained"
+        case greenPoints = "green_points"
+        case greenDistribution = "green_distribution"
+        case bestByHole = "best_by_hole"
+        case clubRows = "club_rows"
+    }
+}
+
+struct BalleTourStrokesGained: Decodable {
+    let unitLabel: String?
+    let total: Double?
+    let teeToGreen: Double?
+    let putting: Double?
+    let greenResult: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case unitLabel = "unit_label"
+        case total
+        case teeToGreen = "tee_to_green"
+        case putting
+        case greenResult = "green_result"
+    }
+}
+
+struct BalleTourGreenPoint: Decodable, Identifiable {
+    let status: String
+    let x: Double
+    let y: Double
+
+    var id: String { "\(status)-\(x)-\(y)" }
+}
+
+struct BalleTourGreenDistribution: Decodable, Identifiable {
+    let key: String
+    let label: String
+    let count: Int
+    let percent: Double?
+
+    var id: String { key }
+}
+
+struct BalleTourClubStats: Decodable, Identifiable {
+    let name: String
+    let count: Int
+    let avg: Double
+
+    var id: String { name }
+}
+
+struct BalleTourAllStatsRow: Decodable, Identifiable {
+    let player: BalleTourPlayerProfile
+    let completedRoundCount: Int?
+    let avgRound: Double?
+    let bestRound: Int?
+    let greenHitPercent: Double?
+    let bunkerPercent: Double?
+    let sandSavePercent: Double?
+    let avgPutts: Double?
+    let avgLastPuttDistance: Double?
+    let avgPuttMetersPerRound: Double?
+    let birdiesOrBetter: Int?
+    let pars: Int?
+    let bogeysOrWorse: Int?
+    let strokesGained: BalleTourStrokesGained?
+
+    var id: Int { player.id }
+
+    enum CodingKeys: String, CodingKey {
+        case player
+        case completedRoundCount = "completed_round_count"
+        case avgRound = "avg_round"
+        case bestRound = "best_round"
+        case greenHitPercent = "green_hit_percent"
+        case bunkerPercent = "bunker_percent"
+        case sandSavePercent = "sand_save_percent"
+        case avgPutts = "avg_putts"
+        case avgLastPuttDistance = "avg_last_putt_distance"
+        case avgPuttMetersPerRound = "avg_putt_meters_per_round"
+        case birdiesOrBetter = "birdies_or_better"
+        case pars
+        case bogeysOrWorse = "bogeys_or_worse"
+        case strokesGained = "strokes_gained"
     }
 }

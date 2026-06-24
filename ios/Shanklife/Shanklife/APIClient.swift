@@ -75,10 +75,49 @@ struct APIClient {
         try await request(path: "/api/v1/balletour/rounds/\(roundID)")
     }
 
+    func balletourRoundSetup() async throws -> BalleTourRoundSetup {
+        try await request(path: "/api/v1/balletour/round-setup")
+    }
+
+    func createBalleTourRound(_ body: BalleTourCreateRoundRequest) async throws -> BalleTourRoundDetail {
+        try await request(path: "/api/v1/balletour/rounds", method: "POST", encodableBody: body)
+    }
+
+    func saveBalleTourHole(roundID: Int, holeNumber: Int, body: BalleTourSaveHoleRequest) async throws -> BalleTourRoundDetail {
+        try await request(path: "/api/v1/balletour/rounds/\(roundID)/holes/\(holeNumber)", method: "PUT", encodableBody: body)
+    }
+
+    func finishBalleTourRound(roundID: Int) async throws -> BalleTourRoundDetail {
+        try await request(path: "/api/v1/balletour/rounds/\(roundID)/finish", method: "POST")
+    }
+
+    func balletourStats(tee: String, playerID: Int? = nil, hole: Int? = nil) async throws -> BalleTourStatsResponse {
+        var path = "/api/v1/balletour/stats?tee=\(tee)"
+        if let playerID {
+            path += "&player_id=\(playerID)"
+        }
+        if let hole {
+            path += "&hole=\(hole)"
+        }
+        return try await request(path: path)
+    }
+
+    func balletourAllStats(tee: String) async throws -> BalleTourAllStatsResponse {
+        try await request(path: "/api/v1/balletour/stats/all?tee=\(tee)")
+    }
+
     private func request<Response: Decodable>(
         path: String,
         method: String = "GET",
         body: [String: String]? = nil
+    ) async throws -> Response {
+        try await request(path: path, method: method, encodableBody: body)
+    }
+
+    private func request<Response: Decodable, Body: Encodable>(
+        path: String,
+        method: String = "GET",
+        encodableBody: Body? = nil
     ) async throws -> Response {
         guard let url = URL(string: path, relativeTo: baseURL) else {
             throw APIClientError.invalidBaseURL
@@ -88,9 +127,9 @@ struct APIClient {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        if let body {
+        if let encodableBody {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONEncoder().encode(body)
+            request.httpBody = try JSONEncoder().encode(encodableBody)
         }
 
         let (data, response) = try await session.data(for: request)
