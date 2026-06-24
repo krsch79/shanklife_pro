@@ -37,6 +37,19 @@ struct DashboardView: View {
                     if let email = user.email, !email.isEmpty {
                         LabeledContent("E-post", value: email)
                     }
+                    LabeledContent("Shanklife", value: user.products.shanklife ? "Tilgang" : "Ingen tilgang")
+                    LabeledContent("BalleTour", value: user.products.balletour ? "Tilgang" : "Ingen tilgang")
+                }
+            }
+
+            Section("Tilkobling") {
+                LabeledContent("Server", value: session.baseURLText)
+                if let version = session.bootstrap?.version {
+                    LabeledContent("Serverversjon", value: version)
+                }
+                if let lastConnectionMessage = session.lastConnectionMessage {
+                    Text(lastConnectionMessage)
+                        .foregroundStyle(.secondary)
                 }
             }
 

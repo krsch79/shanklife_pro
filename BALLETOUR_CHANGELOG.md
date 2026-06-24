@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.0] - 2026-06-23
+- Gjør iPhone-prototypen mer TestFlight-klar med appikon, oppdatert buildversjon og bedre innloggings- og profilvisning.
+- Viser BalleTour-tilgang og enkel spilleroversikt i den native prototypen.
+
 ## [1.8.99] - 2026-06-23
 - Setter iPhone-prototypen til å bruke `https://app.shanklife.no` som standard serveradresse for TestFlight-testing.
 

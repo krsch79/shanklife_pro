@@ -6,6 +6,7 @@ final class SessionStore: ObservableObject {
     @Published var bootstrap: BootstrapResponse?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var lastConnectionMessage: String?
 
     @Published var baseURLText: String {
         didSet {
@@ -39,9 +40,11 @@ final class SessionStore: ObservableObject {
         do {
             user = try await client.me()
             bootstrap = try await client.bootstrap()
+            lastConnectionMessage = "Tilkoblet \(baseURLText)"
         } catch {
             user = nil
             bootstrap = nil
+            lastConnectionMessage = nil
         }
     }
 
@@ -58,8 +61,10 @@ final class SessionStore: ObservableObject {
         do {
             user = try await client.login(username: username, password: password)
             bootstrap = try await client.bootstrap()
+            lastConnectionMessage = "Tilkoblet \(baseURLText)"
         } catch {
             errorMessage = error.localizedDescription
+            lastConnectionMessage = nil
         }
     }
 
@@ -78,5 +83,6 @@ final class SessionStore: ObservableObject {
 
         user = nil
         bootstrap = nil
+        lastConnectionMessage = nil
     }
 }

@@ -43,13 +43,25 @@ struct ProductOverviewView: View {
             }
 
             Section("Runder") {
-                ForEach(overview?.recentRounds ?? []) { round in
+                let rounds = overview?.recentRounds ?? []
+                if rounds.isEmpty && !isLoading {
+                    Text("Ingen runder funnet.")
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(rounds) { round in
+                    let playerNames = round.players.map(\.name).joined(separator: ", ")
                     VStack(alignment: .leading, spacing: 4) {
                         Text(round.course?.name ?? "Ukjent bane")
                             .font(.headline)
-                        Text(round.players.map(\.name).joined(separator: ", "))
+                        Text(playerNames.isEmpty ? round.status : playerNames)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                        if let startedAt = round.startedAt {
+                            Text(startedAt)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
             }
@@ -66,7 +78,13 @@ struct ProductOverviewView: View {
             }
 
             Section("Spillere") {
-                ForEach(overview?.players ?? []) { player in
+                let players = overview?.players ?? []
+                if players.isEmpty && !isLoading {
+                    Text("Ingen spillere funnet.")
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(players) { player in
                     Text(player.name)
                 }
             }
