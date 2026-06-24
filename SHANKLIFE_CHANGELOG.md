@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.4] - 2026-06-24
+- Hindrer at automatiserte tester og testopprettede runder sender ekte e-postvarsler til brukere eller testadresser.
+- Fjerner falsk test-e-postadresse fra API-testbrukeren, slik at testdata ikke kan utløse leveringsfeil fra e-postsystemet.
+
 ## [1.9.3] - 2026-06-24
 - Legger til native iPhone-flyt for å opprette Shanklife-runder, føre score og statistikk hull for hull og avslutte runden.
 - Legger til native iPhone-visninger for Shanklife-baner med opprettelse av nye baner, hull, par, index, tee og lengder.

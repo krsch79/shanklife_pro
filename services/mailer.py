@@ -5,6 +5,8 @@ import smtplib
 from email.message import EmailMessage
 from pathlib import Path
 
+from flask import current_app, has_app_context
+
 
 DEFAULT_RECIPIENT = "kristian.schiander@gmail.com"
 DEFAULT_SENDER = "noreply@balletour.shanklife.no"
@@ -49,7 +51,20 @@ def _mail_config():
     }
 
 
+def _mail_delivery_disabled():
+    if os.environ.get("SHANKLIFE_MAIL_DISABLED", "").strip().lower() in ("1", "true", "yes", "on"):
+        return "SHANKLIFE_MAIL_DISABLED"
+    if has_app_context() and current_app.config.get("TESTING"):
+        return "Flask TESTING"
+    return None
+
+
 def send_mail(subject, body, *, recipient=None):
+    disabled_reason = _mail_delivery_disabled()
+    if disabled_reason:
+        _log(f"Mail ikke sendt, mail er deaktivert av {disabled_reason}. Subject: {subject}")
+        return False
+
     config = _mail_config()
     target = recipient or config["recipient"]
     if not config["host"] and shutil.which("sendmail"):

@@ -39,7 +39,7 @@ class ApiTests(unittest.TestCase):
                 username="api@example.com",
                 password_hash=generate_password_hash("hemmelig"),
                 player_id=player.id,
-                email="api@example.com",
+                email=None,
             ))
             db.session.commit()
 
