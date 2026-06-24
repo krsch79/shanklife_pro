@@ -152,6 +152,193 @@ struct BalleTourPlayer: Decodable, Identifiable {
     }
 }
 
+struct ShanklifeSetupResponse: Decodable {
+    let courses: [ShanklifeCourse]
+    let players: [BalleTourPlayer]
+    let clubs: [BalleTourClub]
+    let maxPlayers: Int
+    let driveDistanceOptions: [Int]
+    let puttOptions: [Int]
+    let lastPuttDistanceOptions: [Double]
+
+    enum CodingKeys: String, CodingKey {
+        case courses
+        case players
+        case clubs
+        case maxPlayers = "max_players"
+        case driveDistanceOptions = "drive_distance_options"
+        case puttOptions = "putt_options"
+        case lastPuttDistanceOptions = "last_putt_distance_options"
+    }
+}
+
+struct ShanklifeCoursesResponse: Decodable {
+    let courses: [ShanklifeCourse]
+}
+
+struct ShanklifeCourse: Decodable, Identifiable {
+    let id: Int
+    let name: String
+    let holeCount: Int
+    let par: Int
+    let supportsNineHoleRound: Bool
+    let tees: [BalleTourSetupTee]
+    let holes: [BalleTourSetupHole]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case holeCount = "hole_count"
+        case par
+        case supportsNineHoleRound = "supports_nine_hole_round"
+        case tees
+        case holes
+    }
+}
+
+struct ShanklifeCourseCreateRequest: Encodable {
+    let name: String
+    let holeCount: Int
+    let holes: [ShanklifeCourseHoleInput]
+    let tees: [ShanklifeCourseTeeInput]
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case holeCount = "hole_count"
+        case holes
+        case tees
+    }
+}
+
+struct ShanklifeCourseHoleInput: Encodable, Identifiable {
+    let holeNumber: Int
+    var par: Int
+    var strokeIndex: Int
+
+    var id: Int { holeNumber }
+
+    enum CodingKeys: String, CodingKey {
+        case holeNumber = "hole_number"
+        case par
+        case strokeIndex = "stroke_index"
+    }
+}
+
+struct ShanklifeCourseTeeInput: Encodable, Identifiable {
+    var id = UUID()
+    var name: String
+    var lengths: [String: Int]
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case lengths
+    }
+}
+
+struct ShanklifeRoundsResponse: Decodable {
+    let status: String
+    let rounds: [ShanklifeRoundListItem]
+}
+
+struct ShanklifeRoundListItem: Decodable, Identifiable {
+    let id: Int
+    let status: String
+    let course: String
+    let startedAt: String?
+    let startedAtDisplay: String?
+    let finishedAt: String?
+    let players: [ShanklifeRoundPlayerSummary]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case status
+        case course
+        case startedAt = "started_at"
+        case startedAtDisplay = "started_at_display"
+        case finishedAt = "finished_at"
+        case players
+    }
+}
+
+struct ShanklifeRoundPlayerSummary: Decodable, Identifiable {
+    let id: Int
+    let roundPlayerID: Int
+    let name: String
+    let hcp: Double
+    let tee: String?
+    let tracksStats: Bool
+    let totalStrokes: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case roundPlayerID = "round_player_id"
+        case name
+        case hcp
+        case tee
+        case tracksStats = "tracks_stats"
+        case totalStrokes = "total_strokes"
+    }
+}
+
+struct ShanklifeCreateRoundRequest: Encodable {
+    let courseID: Int
+    let playedHoleCount: Int
+    let players: [ShanklifeCreateRoundPlayer]
+
+    enum CodingKeys: String, CodingKey {
+        case courseID = "course_id"
+        case playedHoleCount = "played_hole_count"
+        case players
+    }
+}
+
+struct ShanklifeCreateRoundPlayer: Encodable, Identifiable {
+    var playerID: Int?
+    var newPlayerName: String?
+    var hcp: Double
+    var teeID: Int
+    var tracksStats: Bool
+
+    var id: String {
+        if let playerID { return "player-\(playerID)" }
+        return "new-\(newPlayerName ?? UUID().uuidString)"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case playerID = "player_id"
+        case newPlayerName = "new_player_name"
+        case hcp
+        case teeID = "tee_id"
+        case tracksStats = "tracks_stats"
+    }
+}
+
+struct ShanklifeRoundDetail: Decodable, Identifiable {
+    let id: Int
+    let status: String
+    let course: BalleTourCourse
+    let startedAt: String?
+    let startedAtDisplay: String?
+    let finishedAt: String?
+    let finishedAtDisplay: String?
+    let players: [BalleTourRoundDetailPlayer]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case status
+        case course
+        case startedAt = "started_at"
+        case startedAtDisplay = "started_at_display"
+        case finishedAt = "finished_at"
+        case finishedAtDisplay = "finished_at_display"
+        case players
+    }
+}
+
+struct ShanklifeSaveHoleRequest: Encodable {
+    let players: [BalleTourHolePlayerInput]
+}
+
 struct BalleTourOverviewResponse: Decodable {
     let enabled: Bool?
     let series: String

@@ -5,7 +5,19 @@ import json
 from flask import Blueprint, g, jsonify, request, session
 from werkzeug.security import check_password_hash
 
-from models import Club, Course, Round, RoundPlayer, ScoreEntry, ScoreStat, SeriesPlayer, User
+from models import (
+    Club,
+    Course,
+    CourseHole,
+    CourseTee,
+    CourseTeeLength,
+    Player,
+    Round,
+    ScoreEntry,
+    ScoreStat,
+    SeriesPlayer,
+    User,
+)
 from extensions import db
 from routes.balletour import (
     MAX_BALLETOUR_ROUND_PLAYERS,
@@ -27,8 +39,12 @@ from routes.rounds import (
     _parse_tee,
     _save_score_stat,
     _save_tee_club,
+    _send_shanklife_round_finished_mail,
+    _send_shanklife_round_started_mail,
+    _shanklife_rounds_query,
     _score_options_for_par,
 )
+from services.round_length import allowed_round_hole_counts, round_holes
 from services.balletour import BALLETOUR_MENU_LABEL, get_balletour_series, is_balletour_player
 from services.balletour import get_balletour_memberships
 from services.balletour_mcp import (
@@ -125,7 +141,6 @@ def _balletour_tee_options(course):
 
 def _balletour_round_detail_payload(round_obj):
     holes = list(round_obj.course.holes)
-    par_by_hole = {hole.hole_number: hole.par for hole in holes}
     length_by_tee = {
         tee.id: {length.hole_number: length.length_meters for length in tee.lengths}
         for tee in round_obj.course.tees
@@ -256,6 +271,328 @@ def _balletour_course_setup_payload(series):
         "putt_options": list(range(0, 6)),
         "last_putt_distance_options": list(LAST_PUTT_DISTANCE_OPTIONS),
     }
+
+
+def _course_summary_payload(course):
+    return {
+        "id": course.id,
+        "name": course.name,
+        "hole_count": course.hole_count,
+        "par": sum(hole.par for hole in course.holes),
+        "supports_nine_hole_round": 9 in allowed_round_hole_counts(course),
+        "tees": [
+            {
+                "id": tee.id,
+                "name": tee.name,
+                "display_order": tee.display_order,
+                "total_length_meters": sum(length.length_meters for length in tee.lengths),
+                "ratings": {
+                    rating.gender: {
+                        "slope": rating.slope,
+                        "course_rating": rating.course_rating,
+                    }
+                    for rating in tee.ratings
+                },
+            }
+            for tee in sorted(course.tees, key=lambda item: item.display_order)
+        ],
+        "holes": [
+            {
+                "hole_number": hole.hole_number,
+                "par": hole.par,
+                "stroke_index": hole.stroke_index,
+                "lengths": {
+                    str(length.tee_id): length.length_meters
+                    for length in hole.tee_lengths
+                },
+            }
+            for hole in sorted(course.holes, key=lambda item: item.hole_number)
+        ],
+    }
+
+
+def _player_payload(player, display_order=0):
+    return {
+        "id": player.id,
+        "name": player.name,
+        "display_name": player.name,
+        "default_hcp": player.default_hcp,
+        "gender": player.gender,
+        "display_order": display_order,
+    }
+
+
+def _shanklife_setup_payload():
+    courses = Course.query.order_by(Course.name.asc()).all()
+    players = Player.query.order_by(Player.name.asc()).all()
+    return {
+        "courses": [_course_summary_payload(course) for course in courses],
+        "players": [_player_payload(player, index) for index, player in enumerate(players)],
+        "clubs": [
+            {
+                "id": club.id,
+                "name": club.name,
+                "sort_order": club.sort_order,
+            }
+            for club in Club.query.order_by(Club.sort_order.asc(), Club.name.asc()).all()
+        ],
+        "max_players": 4,
+        "drive_distance_options": list(DRIVE_DISTANCE_OPTIONS),
+        "putt_options": list(range(0, 6)),
+        "last_putt_distance_options": list(LAST_PUTT_DISTANCE_OPTIONS),
+    }
+
+
+def _shanklife_round_detail_payload(round_obj):
+    holes = list(round_holes(round_obj))
+    length_by_tee = {
+        tee.id: {length.hole_number: length.length_meters for length in tee.lengths}
+        for tee in round_obj.course.tees
+    }
+    round_player_ids = [round_player.id for round_player in round_obj.round_players]
+    stats_by_entry = {
+        stat.score_entry_id: stat
+        for stat in ScoreStat.query.join(ScoreEntry)
+        .filter(ScoreEntry.round_player_id.in_(round_player_ids))
+        .all()
+    } if round_player_ids else {}
+
+    course_par = sum(hole.par for hole in holes)
+    players = []
+    for round_player in sorted(round_obj.round_players, key=lambda item: item.id):
+        entries = {entry.hole_number: entry for entry in round_player.score_entries}
+        scores = []
+        total = 0
+        scored_count = 0
+        for hole in holes:
+            entry = entries.get(hole.hole_number)
+            stat = stats_by_entry.get(entry.id) if entry else None
+            strokes = entry.strokes if entry else None
+            if strokes is not None:
+                total += strokes
+                scored_count += 1
+            scores.append({
+                "hole_number": hole.hole_number,
+                "par": hole.par,
+                "stroke_index": hole.stroke_index,
+                "length_meters": length_by_tee.get(round_player.selected_tee_id, {}).get(hole.hole_number),
+                "strokes": strokes,
+                "to_par": strokes - hole.par if strokes is not None else None,
+                "tee_club_id": entry.tee_club_id if entry else None,
+                "tee_club": entry.tee_club.name if entry and entry.tee_club else None,
+                "drive_distance_m": stat.drive_distance_m if stat else None,
+                "green_result": stat.fairway_result if stat else None,
+                "putts": stat.putts if stat else None,
+                "last_putt_distance_m": stat.last_putt_distance_m if stat else None,
+            })
+
+        complete = scored_count == len(holes)
+        players.append({
+            "id": round_player.player_id,
+            "round_player_id": round_player.id,
+            "name": round_player.player_name_snapshot,
+            "hcp": round_player.hcp_for_round,
+            "tee": round_player.selected_tee.name if round_player.selected_tee else None,
+            "tracks_stats": bool(round_player.tracks_stats),
+            "completed_holes": scored_count,
+            "total_strokes": total if scored_count else None,
+            "to_par": total - course_par if complete else None,
+            "to_par_display": _score_vs_par_display(total - course_par) if complete else "-",
+            "scores": scores,
+        })
+
+    return {
+        "id": round_obj.id,
+        "status": round_obj.status,
+        "course": {
+            "id": round_obj.course.id,
+            "name": round_obj.course.name,
+            "hole_count": round_obj.played_hole_count or round_obj.course.hole_count,
+            "par": course_par,
+        },
+        "started_at": round_obj.started_at.isoformat() if round_obj.started_at else None,
+        "started_at_display": format_server_datetime(round_obj.started_at),
+        "finished_at": round_obj.finished_at.isoformat() if round_obj.finished_at else None,
+        "finished_at_display": format_server_datetime(round_obj.finished_at) if round_obj.finished_at else None,
+        "players": players,
+    }
+
+
+def _shanklife_round_list_item(round_obj):
+    payload = _round_payload(round_obj)
+    payload["course"] = round_obj.course.name if round_obj.course else "Ukjent bane"
+    payload["started_at_display"] = format_server_datetime(round_obj.started_at)
+    payload["finished_at_display"] = format_server_datetime(round_obj.finished_at) if round_obj.finished_at else None
+    payload["players"] = [
+        {
+            "id": round_player.player_id,
+            "round_player_id": round_player.id,
+            "name": round_player.player_name_snapshot,
+            "hcp": round_player.hcp_for_round,
+            "tee": round_player.selected_tee.name if round_player.selected_tee else None,
+            "tracks_stats": bool(round_player.tracks_stats),
+            "total_strokes": sum(
+                entry.strokes
+                for entry in round_player.score_entries
+                if entry.strokes is not None
+            ) or None,
+        }
+        for round_player in sorted(round_obj.round_players, key=lambda item: item.id)
+    ]
+    return payload
+
+
+def _save_shanklife_hole_payload(round_obj, hole_number, player_payloads):
+    if round_obj.status != "ongoing":
+        raise ValueError("Runden er allerede fullført.")
+    if _is_balletour_round(round_obj):
+        raise ValueError("Dette er ikke en Shanklife-runde.")
+
+    hole = next((item for item in round_holes(round_obj) if item.hole_number == hole_number), None)
+    if not hole:
+        raise ValueError("Fant ikke hullet.")
+
+    round_players = {round_player.id: round_player for round_player in round_obj.round_players}
+    stats_players = {
+        round_player.id
+        for round_player in round_obj.round_players
+        if round_player.tracks_stats
+    }
+    allowed_club_ids = {club.id for club in _club_options_for_round(round_obj)} if stats_players else None
+
+    for player_payload in player_payloads:
+        try:
+            round_player_id = int(player_payload.get("round_player_id"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Ugyldig spiller i scoredata.") from exc
+
+        round_player = round_players.get(round_player_id)
+        if not round_player:
+            raise ValueError("Fant ikke spiller i runden.")
+
+        entry = ScoreEntry.query.filter_by(
+            round_id=round_obj.id,
+            round_player_id=round_player.id,
+            hole_number=hole_number,
+        ).first()
+        if not entry:
+            raise ValueError(f"Fant ikke scorelinje for {round_player.player_name_snapshot}.")
+
+        entry.strokes = _parse_score_for_hole(
+            "" if player_payload.get("strokes") is None else str(player_payload.get("strokes")),
+            hole,
+            round_player.player_name_snapshot,
+        )
+
+        if round_player.id in stats_players:
+            _save_tee_club(
+                entry,
+                "" if player_payload.get("tee_club_id") is None else str(player_payload.get("tee_club_id")),
+                round_player.player_name_snapshot,
+                allowed_club_ids,
+            )
+            fairway_result = (
+                _normalize_green_payload(player_payload.get("green"))
+                if hole.par == 3
+                else (player_payload.get("fairway_result") or "")
+            )
+            _save_score_stat(
+                entry,
+                hole,
+                "" if player_payload.get("drive_distance_m") is None else str(player_payload.get("drive_distance_m")),
+                fairway_result,
+                "" if player_payload.get("putts") is None else str(player_payload.get("putts")),
+                "" if player_payload.get("last_putt_distance_m") is None else str(player_payload.get("last_putt_distance_m")),
+            )
+
+
+def _create_course_from_payload(data):
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise ValueError("Banenavn må fylles ut.")
+    if Course.query.filter(db.func.lower(Course.name) == name.lower()).first():
+        raise ValueError("Det finnes allerede en bane med dette navnet.")
+
+    try:
+        hole_count = int(data.get("hole_count") or 18)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Ugyldig antall hull.") from exc
+    if hole_count not in (9, 18):
+        raise ValueError("Banen må ha 9 eller 18 hull.")
+
+    holes_payload = data.get("holes") or []
+    tees_payload = data.get("tees") or []
+    if len(holes_payload) != hole_count:
+        raise ValueError(f"Banen må ha {hole_count} hull.")
+    if not (1 <= len(tees_payload) <= 6):
+        raise ValueError("Banen må ha mellom 1 og 6 tee-sett.")
+
+    seen_indexes = set()
+    holes = []
+    for index, hole_payload in enumerate(holes_payload, start=1):
+        try:
+            par = int(hole_payload.get("par"))
+            stroke_index = int(hole_payload.get("stroke_index"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Par og index må være gyldige tall for hull {index}.") from exc
+        if par < 3 or par > 6:
+            raise ValueError(f"Par må være mellom 3 og 6 for hull {index}.")
+        if stroke_index < 1 or stroke_index > hole_count:
+            raise ValueError(f"Index må være mellom 1 og {hole_count} for hull {index}.")
+        if stroke_index in seen_indexes:
+            raise ValueError(f"Index {stroke_index} er brukt mer enn én gang.")
+        seen_indexes.add(stroke_index)
+        holes.append({"hole_number": index, "par": par, "stroke_index": stroke_index})
+
+    tee_names = set()
+    tees = []
+    for tee_index, tee_payload in enumerate(tees_payload, start=1):
+        tee_name = (tee_payload.get("name") or "").strip()
+        if not tee_name:
+            raise ValueError(f"Navn mangler for tee {tee_index}.")
+        if tee_name.lower() in tee_names:
+            raise ValueError(f"Tee-navnet '{tee_name}' er brukt mer enn én gang.")
+        tee_names.add(tee_name.lower())
+
+        lengths_payload = tee_payload.get("lengths") or {}
+        lengths = {}
+        for hole_number in range(1, hole_count + 1):
+            raw_length = lengths_payload.get(str(hole_number), lengths_payload.get(hole_number))
+            try:
+                length_meters = int(raw_length)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Lengde må være et heltall for tee '{tee_name}', hull {hole_number}.") from exc
+            if length_meters < 50 or length_meters > 650:
+                raise ValueError(f"Lengde må være mellom 50 og 650 for tee '{tee_name}', hull {hole_number}.")
+            lengths[hole_number] = length_meters
+        tees.append({"index": tee_index, "name": tee_name, "lengths": lengths})
+
+    course = Course(name=name, hole_count=hole_count)
+    db.session.add(course)
+    db.session.flush()
+
+    hole_map = {}
+    for hole_data in holes:
+        hole = CourseHole(course_id=course.id, **hole_data)
+        db.session.add(hole)
+        db.session.flush()
+        hole_map[hole.hole_number] = hole
+
+    for tee_data in tees:
+        tee = CourseTee(course_id=course.id, name=tee_data["name"], display_order=tee_data["index"])
+        db.session.add(tee)
+        db.session.flush()
+        for hole_number, length_meters in tee_data["lengths"].items():
+            db.session.add(
+                CourseTeeLength(
+                    tee_id=tee.id,
+                    hole_id=hole_map[hole_number].id,
+                    hole_number=hole_number,
+                    length_meters=length_meters,
+                )
+            )
+
+    return course
 
 
 def _json_error(code, message, status=400, **extra):
@@ -474,7 +811,7 @@ def bootstrap():
 @api_login_required
 def shanklife_overview():
     rounds = (
-        Round.query.order_by(Round.started_at.desc())
+        _shanklife_rounds_query().order_by(Round.started_at.desc())
         .limit(10)
         .all()
     )
@@ -482,6 +819,180 @@ def shanklife_overview():
         "course_count": Course.query.count(),
         "recent_rounds": [_round_payload(round_obj) for round_obj in rounds],
     })
+
+
+@api_bp.route("/shanklife/setup")
+@api_login_required
+def shanklife_setup():
+    return jsonify(_shanklife_setup_payload())
+
+
+@api_bp.route("/shanklife/courses")
+@api_login_required
+def shanklife_courses():
+    courses = Course.query.order_by(Course.name.asc()).all()
+    return jsonify({"courses": [_course_summary_payload(course) for course in courses]})
+
+
+@api_bp.route("/shanklife/courses", methods=["POST"])
+@api_login_required
+def shanklife_create_course():
+    data = request.get_json(silent=True) or {}
+    try:
+        course = _create_course_from_payload(data)
+    except ValueError as exc:
+        db.session.rollback()
+        return _json_error("bad_request", str(exc), 400)
+
+    db.session.commit()
+    return jsonify(_course_summary_payload(course)), 201
+
+
+@api_bp.route("/shanklife/rounds")
+@api_login_required
+def shanklife_rounds():
+    status = request.args.get("status", "all")
+    query = _shanklife_rounds_query()
+    if status in ("ongoing", "finished"):
+        query = query.filter_by(status=status)
+    rounds = query.order_by(Round.started_at.desc()).limit(50).all()
+    return jsonify({
+        "status": status,
+        "rounds": [_shanklife_round_list_item(round_obj) for round_obj in rounds],
+    })
+
+
+@api_bp.route("/shanklife/rounds", methods=["POST"])
+@api_login_required
+def shanklife_create_round():
+    data = request.get_json(silent=True) or {}
+    try:
+        course_id = int(data.get("course_id"))
+    except (TypeError, ValueError):
+        return _json_error("bad_request", "Du må velge bane.", 400)
+
+    course = Course.query.get(course_id)
+    if not course:
+        return _json_error("not_found", "Valgt bane finnes ikke.", 404)
+    if _balletour_series_or_error() and get_balletour_series().course_id == course.id:
+        return _json_error("bad_request", "BalleTour-runder må startes fra BalleTour.", 400)
+
+    try:
+        played_hole_count = int(data.get("played_hole_count") or course.hole_count)
+    except (TypeError, ValueError):
+        return _json_error("bad_request", "Ugyldig valg av antall hull.", 400)
+    if played_hole_count not in allowed_round_hole_counts(course):
+        return _json_error("bad_request", "Denne banen kan ikke spilles med valgt antall hull.", 400)
+
+    course_tees = {tee.id: tee for tee in course.tees}
+    if not course_tees:
+        return _json_error("bad_request", "Valgt bane har ingen tees.", 400)
+
+    player_payloads = data.get("players") or []
+    if not (1 <= len(player_payloads) <= 4):
+        return _json_error("bad_request", "Du må velge mellom 1 og 4 spillere totalt.", 400)
+
+    round_players_payload = []
+    seen_names = set()
+    try:
+        for index, player_payload in enumerate(player_payloads, start=1):
+            player = None
+            new_name = (player_payload.get("new_player_name") or "").strip()
+            if new_name:
+                if Player.query.filter(db.func.lower(Player.name) == new_name.lower()).first():
+                    raise ValueError(f"Spilleren '{new_name}' finnes allerede.")
+                player = Player(name=new_name, default_hcp=_parse_hcp(str(player_payload.get("hcp") or ""), new_name), gender="male")
+                db.session.add(player)
+                db.session.flush()
+            else:
+                try:
+                    player_id = int(player_payload.get("player_id"))
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"Ugyldig spiller-valg i slot {index}.") from exc
+                player = Player.query.get(player_id)
+                if not player:
+                    raise ValueError(f"Valgt spiller finnes ikke i slot {index}.")
+
+            player_name = player.name
+            if player_name.lower() in seen_names:
+                raise ValueError("Du kan ikke ha samme spiller mer enn én gang i samme runde.")
+            seen_names.add(player_name.lower())
+
+            hcp = _parse_hcp(str(player_payload.get("hcp") or ""), player_name)
+            selected_tee_id = _parse_tee(
+                "" if player_payload.get("tee_id") is None else str(player_payload.get("tee_id")),
+                course_tees,
+                player_name,
+            )
+            if player.default_hcp != hcp:
+                player.default_hcp = hcp
+
+            round_players_payload.append({
+                "player": player,
+                "player_name": player_name,
+                "hcp_for_round": hcp,
+                "selected_tee_id": selected_tee_id,
+                "tracks_stats": bool(player_payload.get("tracks_stats")),
+            })
+
+        round_obj = _create_round(course, round_players_payload, played_hole_count=played_hole_count)
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        return _json_error("bad_request", str(exc), 400)
+
+    _send_shanklife_round_started_mail(round_obj)
+    return jsonify(_shanklife_round_detail_payload(round_obj)), 201
+
+
+@api_bp.route("/shanklife/rounds/<int:round_id>")
+@api_login_required
+def shanklife_round_detail(round_id):
+    round_obj = _shanklife_rounds_query().filter_by(id=round_id).first()
+    if not round_obj:
+        return _json_error("not_found", "Fant ikke Shanklife-runden.", 404)
+    return jsonify(_shanklife_round_detail_payload(round_obj))
+
+
+@api_bp.route("/shanklife/rounds/<int:round_id>/holes/<int:hole_number>", methods=["PUT"])
+@api_login_required
+def shanklife_save_hole(round_id, hole_number):
+    round_obj = _shanklife_rounds_query().filter_by(id=round_id).first()
+    if not round_obj:
+        return _json_error("not_found", "Fant ikke Shanklife-runden.", 404)
+    player_payloads = (request.get_json(silent=True) or {}).get("players") or []
+    try:
+        _save_shanklife_hole_payload(round_obj, hole_number, player_payloads)
+    except ValueError as exc:
+        db.session.rollback()
+        return _json_error("bad_request", str(exc), 400)
+    db.session.commit()
+    return jsonify(_shanklife_round_detail_payload(round_obj))
+
+
+@api_bp.route("/shanklife/rounds/<int:round_id>/finish", methods=["POST"])
+@api_login_required
+def shanklife_finish_round(round_id):
+    round_obj = _shanklife_rounds_query().filter_by(id=round_id).first()
+    if not round_obj:
+        return _json_error("not_found", "Fant ikke Shanklife-runden.", 404)
+    if round_obj.status == "finished":
+        return jsonify(_shanklife_round_detail_payload(round_obj))
+
+    missing_round_choices = _missing_round_choices(round_obj)
+    if missing_round_choices:
+        return _json_error(
+            "missing_choices",
+            "Runden kan ikke fullføres før alle obligatoriske valg er fylt ut.",
+            400,
+            missing_choices=missing_round_choices,
+        )
+
+    round_obj.status = "finished"
+    round_obj.finished_at = server_now()
+    db.session.commit()
+    _send_shanklife_round_finished_mail(round_obj)
+    return jsonify(_shanklife_round_detail_payload(round_obj))
 
 
 @api_bp.route("/balletour/overview")

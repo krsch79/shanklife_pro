@@ -224,6 +224,82 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(all_stats.status_code, 200)
         self.assertGreaterEqual(len(all_stats.get_json()["rows"]), 1)
 
+    def test_shanklife_course_and_round_can_be_created_scored_and_finished_from_api(self):
+        self._login()
+        with self.app.app_context():
+            player = self.Player.query.filter_by(name="API Testspiller").first()
+            if not self.Club.query.filter_by(name="Driver").first():
+                self.db.session.add(self.Club(name="Driver", sort_order=1))
+            self.db.session.commit()
+            player_id = player.id
+
+        holes = [
+            {"hole_number": number, "par": 3 if number % 3 == 0 else 4, "stroke_index": number}
+            for number in range(1, 10)
+        ]
+        lengths = {str(number): 145 if number % 3 == 0 else 330 for number in range(1, 10)}
+        course_response = self.client.post(
+            "/api/v1/shanklife/courses",
+            json={
+                "name": "Native Shanklife Testbane",
+                "hole_count": 9,
+                "holes": holes,
+                "tees": [{"name": "Gul", "lengths": lengths}],
+            },
+        )
+        self.assertEqual(course_response.status_code, 201)
+        course_payload = course_response.get_json()
+        tee_id = course_payload["tees"][0]["id"]
+
+        setup = self.client.get("/api/v1/shanklife/setup")
+        self.assertEqual(setup.status_code, 200)
+        club_id = setup.get_json()["clubs"][0]["id"]
+
+        create_response = self.client.post(
+            "/api/v1/shanklife/rounds",
+            json={
+                "course_id": course_payload["id"],
+                "played_hole_count": 9,
+                "players": [{
+                    "player_id": player_id,
+                    "hcp": 12.3,
+                    "tee_id": tee_id,
+                    "tracks_stats": True,
+                }],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        round_payload = create_response.get_json()
+        round_id = round_payload["id"]
+        round_player_id = round_payload["players"][0]["round_player_id"]
+
+        for hole in holes:
+            hole_number = hole["hole_number"]
+            score_response = self.client.put(
+                f"/api/v1/shanklife/rounds/{round_id}/holes/{hole_number}",
+                json={
+                    "players": [{
+                        "round_player_id": round_player_id,
+                        "strokes": hole["par"],
+                        "tee_club_id": club_id,
+                        "drive_distance_m": lengths[str(hole_number)],
+                        "green": {"status": "hit", "directions": ["pin"]},
+                        "fairway_result": "hit",
+                        "putts": 2,
+                        "last_putt_distance_m": 1.0,
+                    }]
+                },
+            )
+            self.assertEqual(score_response.status_code, 200)
+
+        finish = self.client.post(f"/api/v1/shanklife/rounds/{round_id}/finish")
+        self.assertEqual(finish.status_code, 200)
+        self.assertEqual(finish.get_json()["status"], "finished")
+
+        rounds = self.client.get("/api/v1/shanklife/rounds?status=finished")
+        self.assertEqual(rounds.status_code, 200)
+        self.assertEqual(rounds.get_json()["rounds"][0]["id"], round_id)
+
 
 if __name__ == "__main__":
     unittest.main()

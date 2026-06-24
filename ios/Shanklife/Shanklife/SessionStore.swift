@@ -7,6 +7,7 @@ final class SessionStore: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var lastConnectionMessage: String?
+    @Published var savedUsername: String?
 
     @Published var baseURLText: String {
         didSet {
@@ -16,6 +17,7 @@ final class SessionStore: ObservableObject {
 
     init() {
         baseURLText = UserDefaults.standard.string(forKey: "baseURLText") ?? "https://app.shanklife.no"
+        savedUsername = KeychainStore.load()?.username
     }
 
     var isLoggedIn: Bool {
@@ -42,6 +44,18 @@ final class SessionStore: ObservableObject {
             bootstrap = try await client.bootstrap()
             lastConnectionMessage = "Tilkoblet \(baseURLText)"
         } catch {
+            if let savedLogin = KeychainStore.load() {
+                do {
+                    user = try await client.login(username: savedLogin.username, password: savedLogin.password)
+                    bootstrap = try await client.bootstrap()
+                    savedUsername = savedLogin.username
+                    lastConnectionMessage = "Tilkoblet \(baseURLText)"
+                    return
+                } catch {
+                    KeychainStore.delete()
+                    savedUsername = nil
+                }
+            }
             user = nil
             bootstrap = nil
             lastConnectionMessage = nil
@@ -61,6 +75,8 @@ final class SessionStore: ObservableObject {
         do {
             user = try await client.login(username: username, password: password)
             bootstrap = try await client.bootstrap()
+            KeychainStore.save(username: username, password: password)
+            savedUsername = username
             lastConnectionMessage = "Tilkoblet \(baseURLText)"
         } catch {
             errorMessage = error.localizedDescription
@@ -83,6 +99,8 @@ final class SessionStore: ObservableObject {
 
         user = nil
         bootstrap = nil
+        KeychainStore.delete()
+        savedUsername = nil
         lastConnectionMessage = nil
     }
 }

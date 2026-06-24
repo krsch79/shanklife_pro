@@ -47,6 +47,38 @@ struct APIClient {
         try await request(path: "/api/v1/shanklife/overview")
     }
 
+    func shanklifeSetup() async throws -> ShanklifeSetupResponse {
+        try await request(path: "/api/v1/shanklife/setup")
+    }
+
+    func shanklifeCourses() async throws -> ShanklifeCoursesResponse {
+        try await request(path: "/api/v1/shanklife/courses")
+    }
+
+    func createShanklifeCourse(_ body: ShanklifeCourseCreateRequest) async throws -> ShanklifeCourse {
+        try await request(path: "/api/v1/shanklife/courses", method: "POST", encodableBody: body)
+    }
+
+    func shanklifeRounds(status: String = "all") async throws -> ShanklifeRoundsResponse {
+        try await request(path: "/api/v1/shanklife/rounds?status=\(status)")
+    }
+
+    func shanklifeRoundDetail(roundID: Int) async throws -> ShanklifeRoundDetail {
+        try await request(path: "/api/v1/shanklife/rounds/\(roundID)")
+    }
+
+    func createShanklifeRound(_ body: ShanklifeCreateRoundRequest) async throws -> ShanklifeRoundDetail {
+        try await request(path: "/api/v1/shanklife/rounds", method: "POST", encodableBody: body)
+    }
+
+    func saveShanklifeHole(roundID: Int, holeNumber: Int, body: ShanklifeSaveHoleRequest) async throws -> ShanklifeRoundDetail {
+        try await request(path: "/api/v1/shanklife/rounds/\(roundID)/holes/\(holeNumber)", method: "PUT", encodableBody: body)
+    }
+
+    func finishShanklifeRound(roundID: Int) async throws -> ShanklifeRoundDetail {
+        try await request(path: "/api/v1/shanklife/rounds/\(roundID)/finish", method: "POST")
+    }
+
     func balletourOverview() async throws -> OverviewResponse {
         try await request(path: "/api/v1/balletour/overview")
     }

@@ -6,7 +6,7 @@ struct DashboardView: View {
     var body: some View {
         TabView {
             NavigationStack {
-                ProductOverviewView(productID: "shanklife", title: "Shanklife Pro")
+                ShanklifeView()
             }
             .tabItem {
                 Label("Shanklife", systemImage: "figure.golf")

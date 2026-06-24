@@ -73,6 +73,11 @@ struct LoginView: View {
                 }
             }
             .navigationTitle("Shanklife")
+            .onAppear {
+                if username.isEmpty, let savedUsername = session.savedUsername {
+                    username = savedUsername
+                }
+            }
         }
     }
 
