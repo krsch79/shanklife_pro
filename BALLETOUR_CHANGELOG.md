@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.1] - 2026-06-24
+- Legger til native BalleTour-visninger i iPhone-appen for oversikt, tee-filter, leaderboard, spillere, runder, personlig statistikk og scorekortdetaljer.
+- Utvider BalleTour-API-et med strukturerte endepunkter som appen kan bruke uten webvisning.
+
 ## [1.9.0] - 2026-06-23
 - Gjør iPhone-prototypen mer TestFlight-klar med appikon, oppdatert buildversjon og bedre innloggings- og profilvisning.
 - Viser BalleTour-tilgang og enkel spilleroversikt i den native prototypen.

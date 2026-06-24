@@ -13,7 +13,7 @@ struct DashboardView: View {
             }
 
             NavigationStack {
-                ProductOverviewView(productID: "balletour", title: "BalleTour")
+                BalleTourView()
             }
             .tabItem {
                 Label("BalleTour", systemImage: "trophy")

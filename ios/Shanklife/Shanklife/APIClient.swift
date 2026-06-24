@@ -51,6 +51,30 @@ struct APIClient {
         try await request(path: "/api/v1/balletour/overview")
     }
 
+    func balletourOverview(tee: String) async throws -> BalleTourOverviewResponse {
+        try await request(path: "/api/v1/balletour/overview?tee=\(tee)")
+    }
+
+    func balletourPlayers() async throws -> BalleTourPlayersResponse {
+        try await request(path: "/api/v1/balletour/players")
+    }
+
+    func balletourRounds(status: String, tee: String, limit: Int = 30) async throws -> BalleTourRoundsResponse {
+        try await request(path: "/api/v1/balletour/rounds?status=\(status)&tee=\(tee)&limit=\(limit)")
+    }
+
+    func balletourMe(tee: String) async throws -> BalleTourPlayerSummaryResponse {
+        try await request(path: "/api/v1/balletour/me?tee=\(tee)")
+    }
+
+    func balletourPlayerSummary(playerID: Int, tee: String) async throws -> BalleTourPlayerSummaryResponse {
+        try await request(path: "/api/v1/balletour/players/\(playerID)/summary?tee=\(tee)")
+    }
+
+    func balletourRoundDetail(roundID: Int) async throws -> BalleTourRoundDetail {
+        try await request(path: "/api/v1/balletour/rounds/\(roundID)")
+    }
+
     private func request<Response: Decodable>(
         path: String,
         method: String = "GET",
