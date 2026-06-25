@@ -23,8 +23,4 @@ def missing_saved_entry_choices(entry, hole, tracks_stats, club_required):
     elif hole.par in (4, 5) and (not stat or not stat.fairway_result):
         missing.append("fairway")
 
-    if not stat or stat.putts is None:
-        missing.append("putter")
-    elif stat.putts > 0 and stat.last_putt_distance_m is None:
-        missing.append("siste putt")
     return missing

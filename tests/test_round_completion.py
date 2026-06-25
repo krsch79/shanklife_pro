@@ -10,12 +10,12 @@ class RoundCompletionTests(unittest.TestCase):
 
         self.assertEqual(missing, ["score"])
 
-    def test_statistics_and_club_are_required_at_completion(self):
+    def test_green_or_fairway_and_club_are_required_at_completion(self):
         entry = SimpleNamespace(strokes=5, tee_club_id=None, detailed_stat=None)
 
         missing = missing_saved_entry_choices(entry, SimpleNamespace(par=4), True, True)
 
-        self.assertEqual(missing, ["kølle", "fairway", "putter"])
+        self.assertEqual(missing, ["kølle", "fairway"])
 
     def test_par_three_requires_tee_club_at_completion(self):
         stat = SimpleNamespace(fairway_result="hit:pin", putts=1, last_putt_distance_m=0.5)
@@ -44,6 +44,14 @@ class RoundCompletionTests(unittest.TestCase):
         entry = SimpleNamespace(strokes=3, tee_club_id=1, detailed_stat=stat)
 
         missing = missing_saved_entry_choices(entry, SimpleNamespace(par=3), True, True)
+
+        self.assertEqual(missing, [])
+
+    def test_missing_putts_pass_round_completion(self):
+        stat = SimpleNamespace(fairway_result="hit", putts=None, last_putt_distance_m=None)
+        entry = SimpleNamespace(strokes=4, tee_club_id=1, detailed_stat=stat)
+
+        missing = missing_saved_entry_choices(entry, SimpleNamespace(par=4), True, True)
 
         self.assertEqual(missing, [])
 

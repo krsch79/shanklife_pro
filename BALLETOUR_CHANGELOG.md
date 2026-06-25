@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.12] - 2026-06-25
+- Retter iPhone-scoreføringen slik at manglende påkrevde felt stopper før lagring, viser hva som mangler og beholder utfylte valg på skjermen.
+- Gjør putter og siste putt valgfrie ved fullføring av runder, samtidig som ugyldige puttervalg fortsatt stoppes.
+
 ## [1.9.11] - 2026-06-25
 - Viser iPhone-appens versjonsnummer på profilsiden, og lar scoreføringen gå videre uten putter og siste putt når resten av de påkrevde feltene er fylt ut.
 

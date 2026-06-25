@@ -237,6 +237,13 @@ struct BalleTourScoringView: View {
                 }
             }
 
+            if let validationMessage {
+                Section {
+                    Label(validationMessage, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+            }
+
             if let finishMessage {
                 Section {
                     Label(finishMessage, systemImage: "checkmark.circle")
@@ -504,6 +511,7 @@ struct BalleTourScoringView: View {
         busyMessage = move == 0 ? "Lagrer hull..." : "Lagrer og går videre..."
         isSaving = true
         errorMessage = nil
+        validationMessage = nil
         defer { isSaving = false }
 
         do {
@@ -579,27 +587,25 @@ struct BalleTourScoringView: View {
                 missing.append("score")
             }
 
-            if player.tracksStats {
-                if input.teeClubID == nil {
-                    missing.append("kølle")
-                }
+            if input.teeClubID == nil {
+                missing.append("kølle")
+            }
 
-                if par == 3 {
-                    if input.green?.status.isEmpty ?? true {
-                        missing.append("green")
-                    }
-                    let directions = input.green?.directions ?? []
-                    if !directions.contains(where: { ["pin", "left", "right"].contains($0) }) {
-                        missing.append("retning")
-                    }
-                } else if input.fairwayResult == nil {
-                    missing.append("fairway")
+            if par == 3 {
+                if input.green?.status.isEmpty ?? true {
+                    missing.append("green")
                 }
+                let directions = input.green?.directions ?? []
+                if !directions.contains(where: { ["pin", "left", "right"].contains($0) }) {
+                    missing.append("retning")
+                }
+            } else if input.fairwayResult == nil {
+                missing.append("fairway")
+            }
 
-                if let putts = input.putts {
-                    if let strokes = input.strokes, putts > 0, putts > strokes - 1 {
-                        missing.append("putter kan ikke være høyere enn score minus 1")
-                    }
+            if let putts = input.putts {
+                if let strokes = input.strokes, putts > 0, putts > strokes - 1 {
+                    missing.append("putter kan ikke være høyere enn score minus 1")
                 }
             }
 
