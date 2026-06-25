@@ -100,6 +100,7 @@ struct ShanklifeScoringView: View {
                             Label("Forrige", systemImage: "chevron.left")
                         }
                         .disabled(isSaving)
+                        .buttonStyle(.borderless)
 
                         Spacer()
 
@@ -109,6 +110,7 @@ struct ShanklifeScoringView: View {
                             Label("Neste", systemImage: "chevron.right")
                         }
                         .disabled(isSaving)
+                        .buttonStyle(.borderless)
                     }
 
                     Button {
@@ -121,6 +123,7 @@ struct ShanklifeScoringView: View {
                         }
                     }
                     .disabled(isSaving || detail.status == "finished")
+                    .buttonStyle(.borderless)
                 }
             }
 

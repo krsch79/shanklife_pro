@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.13] - 2026-06-25
+- Sikrer at handlingsknappene i native scoreføring bare utløser valgt handling, slik at utfylte felter ikke kan lastes på nytt ved valideringsstopp.
+
 ## [1.9.12] - 2026-06-25
 - Retter iPhone-scoreføringen slik at manglende påkrevde felt stopper før lagring, viser hva som mangler og beholder utfylte valg på skjermen.
 - Gjør putter og siste putt valgfrie ved fullføring av runder, samtidig som ugyldige puttervalg fortsatt stoppes.

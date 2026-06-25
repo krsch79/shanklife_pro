@@ -220,6 +220,7 @@ struct BalleTourScoringView: View {
     @State private var errorMessage: String?
     @State private var validationMessage: String?
     @State private var finishMessage: String?
+    @State private var didInitializeInputs = false
 
     init(initialDetail: BalleTourRoundDetail, setup: BalleTourRoundSetup?) {
         self.initialDetail = initialDetail
@@ -258,8 +259,7 @@ struct BalleTourScoringView: View {
         }
         .navigationTitle("Runde #\(detail.id)")
         .onAppear {
-            currentHoleNumber = nextPlayableHole()
-            loadInputsForCurrentHole()
+            initializeInputsIfNeeded()
             Task { await loadSetupIfNeeded() }
         }
         .onChange(of: currentHoleNumber) { _, _ in
@@ -398,6 +398,7 @@ struct BalleTourScoringView: View {
                     Label("Forrige", systemImage: "chevron.left")
                 }
                 .disabled(currentHoleNumber == 1 || isSaving)
+                .buttonStyle(.borderless)
 
                 Spacer()
 
@@ -407,6 +408,7 @@ struct BalleTourScoringView: View {
                     Label(currentHoleNumber == detail.course.holeCount ? "Lagre" : "Neste", systemImage: "chevron.right")
                 }
                 .disabled(detail.status == "finished" || isSaving)
+                .buttonStyle(.borderless)
             }
 
             Button(role: .destructive) {
@@ -415,6 +417,7 @@ struct BalleTourScoringView: View {
                 Label("Fullfør runde", systemImage: "checkmark.seal")
             }
             .disabled(detail.status == "finished" || isSaving)
+            .buttonStyle(.borderless)
         }
     }
 
@@ -483,6 +486,15 @@ struct BalleTourScoringView: View {
             )
         }
         inputs = nextInputs
+    }
+
+    private func initializeInputsIfNeeded() {
+        guard !didInitializeInputs else {
+            return
+        }
+        didInitializeInputs = true
+        currentHoleNumber = nextPlayableHole()
+        loadInputsForCurrentHole()
     }
 
     private func greenInput(from score: BalleTourHoleScore?) -> BalleTourGreenInput? {
