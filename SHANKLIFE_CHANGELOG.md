@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.8] - 2026-06-25
+- Hindrer at lokale iOS-simulatortester sender Shanklife-varsel om at en runde er startet, samtidig som TestFlight- og App Store-builds beholder vanlige varsler.
+
 ## [1.9.7] - 2026-06-25
 - Gjør lokal Xcode-simulatortesting raskere ved å logge inn automatisk som Kristian i debug/simulator-builds, uten at snarveien bygges inn i TestFlight- eller App Store-versjoner.
 

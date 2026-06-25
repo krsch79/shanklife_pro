@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.8] - 2026-06-25
+- Hindrer at lokale iOS-simulatortester sender BalleTour-varsel om at en runde er startet, samtidig som TestFlight- og App Store-builds beholder vanlige varsler.
+
 ## [1.9.2] - 2026-06-24
 - Legger til native iPhone-flyt for å starte BalleTour-runder, føre score og statistikk hull for hull og fullføre runden.
 - Viser BalleTour-scorekort mer visuelt i iPhone-appen med tydeligere markering av score mot par.

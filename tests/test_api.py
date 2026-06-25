@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from werkzeug.security import generate_password_hash
 
@@ -132,6 +133,116 @@ class ApiTests(unittest.TestCase):
             ])
             self.db.session.commit()
             return round_obj.id, player.id, tee.id
+
+    def _create_shanklife_course_data(self):
+        with self.app.app_context():
+            player = self.Player.query.filter_by(name="API Testspiller").first()
+            course = self.Course(name="Native Shanklife Testbane", hole_count=9)
+            self.db.session.add(course)
+            self.db.session.flush()
+            holes = [
+                self.CourseHole(
+                    course_id=course.id,
+                    hole_number=number,
+                    par=3 if number % 3 == 0 else 4,
+                    stroke_index=number,
+                )
+                for number in range(1, 10)
+            ]
+            self.db.session.add_all(holes)
+            self.db.session.flush()
+            tee = self.CourseTee(course_id=course.id, name="Gul", display_order=1)
+            self.db.session.add(tee)
+            self.db.session.flush()
+            self.db.session.add_all([
+                self.CourseTeeLength(
+                    tee_id=tee.id,
+                    hole_id=hole.id,
+                    hole_number=hole.hole_number,
+                    length_meters=145 if hole.par == 3 else 330,
+                )
+                for hole in holes
+            ])
+            self.db.session.commit()
+            return course.id, player.id, tee.id
+
+    def test_shanklife_round_started_mail_is_sent_without_local_simulator_header(self):
+        course_id, player_id, tee_id = self._create_shanklife_course_data()
+        self._login()
+
+        with patch("routes.api._send_shanklife_round_started_mail") as send_started_mail:
+            response = self.client.post(
+                "/api/v1/shanklife/rounds",
+                json={
+                    "course_id": course_id,
+                    "played_hole_count": 9,
+                    "players": [{
+                        "player_id": player_id,
+                        "hcp": 12.3,
+                        "tee_id": tee_id,
+                        "tracks_stats": True,
+                    }],
+                },
+            )
+
+        self.assertEqual(response.status_code, 201)
+        send_started_mail.assert_called_once()
+
+    def test_shanklife_round_started_mail_is_suppressed_for_local_simulator_header(self):
+        course_id, player_id, tee_id = self._create_shanklife_course_data()
+        self._login()
+
+        with patch("routes.api._send_shanklife_round_started_mail") as send_started_mail:
+            response = self.client.post(
+                "/api/v1/shanklife/rounds",
+                headers={"X-Shanklife-Local-Client": "ios-debug-simulator"},
+                json={
+                    "course_id": course_id,
+                    "played_hole_count": 9,
+                    "players": [{
+                        "player_id": player_id,
+                        "hcp": 12.3,
+                        "tee_id": tee_id,
+                        "tracks_stats": True,
+                    }],
+                },
+            )
+
+        self.assertEqual(response.status_code, 201)
+        send_started_mail.assert_not_called()
+
+    def test_balletour_round_started_mail_is_sent_without_local_simulator_header(self):
+        _, player_id, tee_id = self._create_balletour_data()
+        self._login()
+
+        with (
+            patch("routes.api.fetch_bekkestua_weather", return_value={}),
+            patch("routes.api._send_balletour_round_started_mail") as send_started_mail,
+        ):
+            response = self.client.post(
+                "/api/v1/balletour/rounds",
+                json={"players": [{"player_id": player_id, "hcp": 12.3, "tee_id": tee_id}]},
+            )
+
+        self.assertEqual(response.status_code, 201)
+        send_started_mail.assert_called_once()
+
+    def test_balletour_round_started_mail_is_suppressed_for_local_simulator_header(self):
+        _, player_id, tee_id = self._create_balletour_data()
+        self._login()
+
+        with (
+            patch("routes.api.fetch_bekkestua_weather", return_value={}),
+            patch("routes.api._send_balletour_round_started_mail") as send_started_mail,
+        ):
+            response = self.client.post(
+                "/api/v1/balletour/rounds",
+                headers={"X-Shanklife-Local-Client": "ios-debug-simulator"},
+                json={"players": [{"player_id": player_id, "hcp": 12.3, "tee_id": tee_id}]},
+            )
+
+        self.assertEqual(response.status_code, 201)
+        send_started_mail.assert_not_called()
 
     def test_balletour_overview_requires_balletour_membership(self):
         self._login()

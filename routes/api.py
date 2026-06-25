@@ -63,6 +63,20 @@ from routes.rounds import _send_balletour_round_finished_mail
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
 
+def _is_local_ios_simulator_request():
+    return request.headers.get("X-Shanklife-Local-Client") == "ios-debug-simulator"
+
+
+def _send_shanklife_round_started_mail_unless_local_simulator(round_obj):
+    if not _is_local_ios_simulator_request():
+        _send_shanklife_round_started_mail(round_obj)
+
+
+def _send_balletour_round_started_mail_unless_local_simulator(round_obj):
+    if not _is_local_ios_simulator_request():
+        _send_balletour_round_started_mail(round_obj)
+
+
 def _user_payload(user):
     player = user.player if user else None
     return {
@@ -941,7 +955,7 @@ def shanklife_create_round():
         db.session.rollback()
         return _json_error("bad_request", str(exc), 400)
 
-    _send_shanklife_round_started_mail(round_obj)
+    _send_shanklife_round_started_mail_unless_local_simulator(round_obj)
     return jsonify(_shanklife_round_detail_payload(round_obj)), 201
 
 
@@ -1166,7 +1180,7 @@ def balletour_create_round():
         round_obj.weather_json = None
 
     db.session.commit()
-    _send_balletour_round_started_mail(round_obj)
+    _send_balletour_round_started_mail_unless_local_simulator(round_obj)
     return jsonify(_balletour_round_detail_payload(round_obj)), 201
 
 

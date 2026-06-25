@@ -158,6 +158,9 @@ struct APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        #if DEBUG && targetEnvironment(simulator)
+        request.setValue("ios-debug-simulator", forHTTPHeaderField: "X-Shanklife-Local-Client")
+        #endif
 
         if let encodableBody {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
