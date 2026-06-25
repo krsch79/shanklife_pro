@@ -24,6 +24,9 @@ struct LoginView: View {
                         Text("Native prototype")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                        Text(appVersionDisplay)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
                     .padding(.vertical, 8)
                 }
@@ -89,6 +92,13 @@ struct LoginView: View {
         Task {
             await session.login(username: username, password: password)
         }
+    }
+
+    private var appVersionDisplay: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "-"
+        let build = info?["CFBundleVersion"] as? String ?? "-"
+        return "Versjon \(version) (\(build))"
     }
 }
 
