@@ -114,6 +114,7 @@ struct BalleTourNewRoundView: View {
         .task {
             await load()
         }
+        .blockingProgress(isLoading && setup != nil, message: "Starter runde...")
         .navigationDestination(item: $createdRoundID) { roundID in
             BalleTourScoringLoaderView(roundID: roundID)
                 .environmentObject(session)
@@ -215,6 +216,7 @@ struct BalleTourScoringView: View {
     @State private var currentHoleNumber = 1
     @State private var inputs: [Int: BalleTourHolePlayerInput] = [:]
     @State private var isSaving = false
+    @State private var busyMessage = "Lagrer..."
     @State private var errorMessage: String?
     @State private var finishMessage: String?
 
@@ -255,6 +257,7 @@ struct BalleTourScoringView: View {
         .onChange(of: currentHoleNumber) { _, _ in
             loadInputsForCurrentHole()
         }
+        .blockingProgress(isSaving, message: busyMessage)
     }
 
     private var currentHole: BalleTourSetupHole? {
@@ -291,8 +294,6 @@ struct BalleTourScoringView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        scoreChip(player.scores.first(where: { $0.holeNumber == currentHoleNumber })?.strokes, par: currentHole?.par ?? currentScoreFallback?.par)
                     }
 
                     Picker("Score", selection: binding(for: player.roundPlayerID).strokes) {
@@ -303,19 +304,17 @@ struct BalleTourScoringView: View {
                     }
                     .pickerStyle(.segmented)
 
-                    Picker("Kølle", selection: binding(for: player.roundPlayerID).teeClubID) {
-                        Text("-").tag(Int?.none)
-                        ForEach(activeSetup?.clubs ?? []) { club in
-                            Text(club.name).tag(Int?.some(club.id))
-                        }
-                    }
+                    OptionMenuRow(
+                        title: "Kølle",
+                        options: clubOptions,
+                        selection: binding(for: player.roundPlayerID).teeClubID
+                    )
 
-                    Picker("Utslagslengde", selection: binding(for: player.roundPlayerID).driveDistanceM) {
-                        Text("-").tag(Int?.none)
-                        ForEach(activeSetup?.driveDistanceOptions ?? defaultDriveOptions, id: \.self) { distance in
-                            Text("\(distance)m").tag(Int?.some(distance))
-                        }
-                    }
+                    OptionMenuRow(
+                        title: "Utslagslengde",
+                        options: driveDistanceOptions,
+                        selection: binding(for: player.roundPlayerID).driveDistanceM
+                    )
 
                     if (currentHole?.par ?? currentScoreFallback?.par ?? 3) == 3 {
                         greenControls(for: player)
@@ -329,19 +328,17 @@ struct BalleTourScoringView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    HStack {
-                        Picker("Putts", selection: binding(for: player.roundPlayerID).putts) {
-                            Text("-").tag(Int?.none)
-                            ForEach(activeSetup?.puttOptions ?? [0, 1, 2, 3, 4, 5], id: \.self) { putts in
-                                Text("\(putts)").tag(Int?.some(putts))
-                            }
-                        }
-                        Picker("Siste putt", selection: binding(for: player.roundPlayerID).lastPuttDistanceM) {
-                            Text("-").tag(Double?.none)
-                            ForEach(activeSetup?.lastPuttDistanceOptions ?? defaultLastPuttOptions, id: \.self) { distance in
-                                Text("\(number(distance, digits: 1))m").tag(Double?.some(distance))
-                            }
-                        }
+                    VStack(spacing: 12) {
+                        OptionMenuRow(
+                            title: "Putts",
+                            options: puttOptions,
+                            selection: binding(for: player.roundPlayerID).putts
+                        )
+                        OptionMenuRow(
+                            title: "Siste putt",
+                            options: lastPuttOptions,
+                            selection: binding(for: player.roundPlayerID).lastPuttDistanceM
+                        )
                     }
                 }
                 .padding(.vertical, 6)
@@ -489,6 +486,7 @@ struct BalleTourScoringView: View {
             return
         }
 
+        busyMessage = move == 0 ? "Lagrer hull..." : "Lagrer og går videre..."
         isSaving = true
         errorMessage = nil
         defer { isSaving = false }
@@ -525,6 +523,7 @@ struct BalleTourScoringView: View {
             return
         }
 
+        busyMessage = "Fullfører runde..."
         isSaving = true
         defer { isSaving = false }
 
@@ -545,6 +544,24 @@ struct BalleTourScoringView: View {
             return score.holeNumber
         }
         return 1
+    }
+
+    private var clubOptions: [(label: String, value: Int?)] {
+        [("-", nil)] + (activeSetup?.clubs ?? []).map { ($0.name, Optional($0.id)) }
+    }
+
+    private var driveDistanceOptions: [(label: String, value: Int?)] {
+        [("-", nil)] + (activeSetup?.driveDistanceOptions ?? defaultDriveOptions).map { ("\($0)m", Optional($0)) }
+    }
+
+    private var puttOptions: [(label: String, value: Int?)] {
+        [("-", nil)] + (activeSetup?.puttOptions ?? [0, 1, 2, 3, 4, 5]).map { ("\($0)", Optional($0)) }
+    }
+
+    private var lastPuttOptions: [(label: String, value: Double?)] {
+        [("-", nil)] + (activeSetup?.lastPuttDistanceOptions ?? defaultLastPuttOptions).map {
+            ("\(number($0, digits: 1))m", Optional($0))
+        }
     }
 
     private func metric(_ title: String, _ value: String, systemImage: String) -> some View {

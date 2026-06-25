@@ -170,6 +170,7 @@ struct ShanklifeNewCourseView: View {
             }
         }
         .navigationTitle("Ny bane")
+        .blockingProgress(isSaving, message: "Lagrer bane...")
     }
 
     private static func defaultHoles(_ count: Int) -> [ShanklifeCourseHoleInput] {

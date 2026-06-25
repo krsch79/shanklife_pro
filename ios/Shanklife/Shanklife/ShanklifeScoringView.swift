@@ -52,6 +52,7 @@ struct ShanklifeScoringView: View {
     @State private var currentHoleNumber: Int
     @State private var inputs: [Int: BalleTourHolePlayerInput] = [:]
     @State private var isSaving = false
+    @State private var busyMessage = "Lagrer..."
     @State private var errorMessage: String?
     @State private var finishMessage: String?
 
@@ -148,6 +149,7 @@ struct ShanklifeScoringView: View {
                 await loadSetup()
             }
         }
+        .blockingProgress(isSaving, message: busyMessage)
     }
 
     private var holes: [BalleTourSetupHole] {
@@ -245,19 +247,17 @@ struct ShanklifeScoringView: View {
             .pickerStyle(.segmented)
 
             if player.tracksStats {
-                Picker("Kølle", selection: input.teeClubID) {
-                    Text("-").tag(Optional<Int>.none)
-                    ForEach(activeSetup?.clubs ?? []) { club in
-                        Text(club.name).tag(Optional(club.id))
-                    }
-                }
+                OptionMenuRow(
+                    title: "Kølle",
+                    options: clubOptions,
+                    selection: input.teeClubID
+                )
 
-                Picker("Utslag", selection: input.driveDistanceM) {
-                    Text("-").tag(Optional<Int>.none)
-                    ForEach(activeSetup?.driveDistanceOptions ?? [], id: \.self) { value in
-                        Text("\(value)m").tag(Optional(value))
-                    }
-                }
+                OptionMenuRow(
+                    title: "Utslagslengde",
+                    options: driveDistanceOptions,
+                    selection: input.driveDistanceM
+                )
 
                 if hole.par == 3 {
                     greenControls(input)
@@ -271,20 +271,17 @@ struct ShanklifeScoringView: View {
                     .pickerStyle(.segmented)
                 }
 
-                Picker("Putter", selection: input.putts) {
-                    Text("-").tag(Optional<Int>.none)
-                    ForEach(activeSetup?.puttOptions ?? [], id: \.self) { value in
-                        Text("\(value)").tag(Optional(value))
-                    }
-                }
-                .pickerStyle(.segmented)
+                OptionMenuRow(
+                    title: "Putts",
+                    options: puttOptions,
+                    selection: input.putts
+                )
 
-                Picker("Siste putt", selection: input.lastPuttDistanceM) {
-                    Text("-").tag(Optional<Double>.none)
-                    ForEach(activeSetup?.lastPuttDistanceOptions ?? [], id: \.self) { value in
-                        Text(shanklifeNumber(value) + "m").tag(Optional(value))
-                    }
-                }
+                OptionMenuRow(
+                    title: "Siste putt",
+                    options: lastPuttOptions,
+                    selection: input.lastPuttDistanceM
+                )
             }
         }
     }
@@ -352,6 +349,7 @@ struct ShanklifeScoringView: View {
 
     private func saveHole(move: Int) async {
         guard let client = session.client else { return }
+        busyMessage = move == 0 ? "Lagrer hull..." : "Lagrer og går videre..."
         isSaving = true
         errorMessage = nil
         defer { isSaving = false }
@@ -383,6 +381,7 @@ struct ShanklifeScoringView: View {
         guard let client = session.client else { return }
         await saveHole(move: 0)
         if errorMessage != nil { return }
+        busyMessage = "Fullfører runde..."
         isSaving = true
         defer { isSaving = false }
         do {
@@ -390,6 +389,24 @@ struct ShanklifeScoringView: View {
             finishMessage = "Runden er fullført."
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private var clubOptions: [(label: String, value: Int?)] {
+        [("-", nil)] + (activeSetup?.clubs ?? []).map { ($0.name, Optional($0.id)) }
+    }
+
+    private var driveDistanceOptions: [(label: String, value: Int?)] {
+        [("-", nil)] + (activeSetup?.driveDistanceOptions ?? []).map { ("\($0)m", Optional($0)) }
+    }
+
+    private var puttOptions: [(label: String, value: Int?)] {
+        [("-", nil)] + (activeSetup?.puttOptions ?? []).map { ("\($0)", Optional($0)) }
+    }
+
+    private var lastPuttOptions: [(label: String, value: Double?)] {
+        [("-", nil)] + (activeSetup?.lastPuttDistanceOptions ?? []).map {
+            ("\(shanklifeNumber($0))m", Optional($0))
         }
     }
 }

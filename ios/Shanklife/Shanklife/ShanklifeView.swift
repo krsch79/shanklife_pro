@@ -189,6 +189,7 @@ struct ShanklifeNewRoundView: View {
         }
         .navigationTitle("Ny Shanklife-runde")
         .task { await load() }
+        .blockingProgress(isLoading && setup != nil, message: "Starter runde...")
         .navigationDestination(item: $createdRound) { destination in
             ShanklifeScoringLoaderView(roundID: destination.id)
                 .environmentObject(session)
