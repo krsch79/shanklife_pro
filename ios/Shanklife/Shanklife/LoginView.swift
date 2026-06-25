@@ -4,6 +4,9 @@ struct LoginView: View {
     @EnvironmentObject private var session: SessionStore
     @State private var username = ""
     @State private var password = ""
+    #if DEBUG && targetEnvironment(simulator)
+    @State private var didStartLocalAutoLogin = false
+    #endif
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -80,6 +83,9 @@ struct LoginView: View {
                 if username.isEmpty, let savedUsername = session.savedUsername {
                     username = savedUsername
                 }
+                #if DEBUG && targetEnvironment(simulator)
+                startLocalAutoLoginIfAvailable()
+                #endif
             }
         }
     }
@@ -93,6 +99,18 @@ struct LoginView: View {
             await session.login(username: username, password: password)
         }
     }
+
+    #if DEBUG && targetEnvironment(simulator)
+    private func startLocalAutoLoginIfAvailable() {
+        guard !didStartLocalAutoLogin, !session.isLoggedIn else {
+            return
+        }
+        didStartLocalAutoLogin = true
+        username = "kristian"
+        password = "kristian"
+        login()
+    }
+    #endif
 
     private var appVersionDisplay: String {
         let info = Bundle.main.infoDictionary

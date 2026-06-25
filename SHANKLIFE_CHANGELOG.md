@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.7] - 2026-06-25
+- Gjør lokal Xcode-simulatortesting raskere ved å logge inn automatisk som Kristian i debug/simulator-builds, uten at snarveien bygges inn i TestFlight- eller App Store-versjoner.
+
 ## [1.9.6] - 2026-06-25
 - Viser iPhone-appens versjonsnummer og buildnummer på innloggingssiden, slik at simulator- og TestFlight-builds enkelt kan identifiseres før testing.
 
