@@ -44,6 +44,7 @@ struct DashboardView: View {
 
             Section("Tilkobling") {
                 LabeledContent("Server", value: session.baseURLText)
+                LabeledContent("Appversjon", value: appVersionDisplay)
                 if let version = session.bootstrap?.version {
                     LabeledContent("Serverversjon", value: version)
                 }
@@ -64,6 +65,13 @@ struct DashboardView: View {
             }
         }
         .navigationTitle("Profil")
+    }
+
+    private var appVersionDisplay: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "-"
+        let build = info?["CFBundleVersion"] as? String ?? "-"
+        return "\(version) (\(build))"
     }
 }
 

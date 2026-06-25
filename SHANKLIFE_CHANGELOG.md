@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.11] - 2026-06-25
+- Viser iPhone-appens versjonsnummer på profilsiden, og lar scoreføringen gå videre uten putter og siste putt når resten av de påkrevde feltene er fylt ut.
+
 ## [1.9.10] - 2026-06-25
 - Beholder utfylte scoreføringsfelt i iPhone-appen når spilleren prøver å gå videre uten alle nødvendige valg, og viser en tydelig melding om hva som mangler.
 

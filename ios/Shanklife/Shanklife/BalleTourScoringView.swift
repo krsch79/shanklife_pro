@@ -600,11 +600,6 @@ struct BalleTourScoringView: View {
                     if let strokes = input.strokes, putts > 0, putts > strokes - 1 {
                         missing.append("putter kan ikke være høyere enn score minus 1")
                     }
-                    if putts > 0 && input.lastPuttDistanceM == nil {
-                        missing.append("siste putt")
-                    }
-                } else {
-                    missing.append("putter")
                 }
             }
 
