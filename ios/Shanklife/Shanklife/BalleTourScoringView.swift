@@ -218,6 +218,7 @@ struct BalleTourScoringView: View {
     @State private var isSaving = false
     @State private var busyMessage = "Lagrer..."
     @State private var errorMessage: String?
+    @State private var validationMessage: String?
     @State private var finishMessage: String?
 
     init(initialDetail: BalleTourRoundDetail, setup: BalleTourRoundSetup?) {
@@ -258,6 +259,14 @@ struct BalleTourScoringView: View {
             loadInputsForCurrentHole()
         }
         .blockingProgress(isSaving, message: busyMessage)
+        .alert("Mangler informasjon", isPresented: Binding(
+            get: { validationMessage != nil },
+            set: { if !$0 { validationMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(validationMessage ?? "")
+        }
     }
 
     private var currentHole: BalleTourSetupHole? {
@@ -486,6 +495,12 @@ struct BalleTourScoringView: View {
             return
         }
 
+        if move > 0, let message = currentHoleValidationMessage() {
+            validationMessage = message
+            errorMessage = nil
+            return
+        }
+
         busyMessage = move == 0 ? "Lagrer hull..." : "Lagrer og går videre..."
         isSaving = true
         errorMessage = nil
@@ -518,6 +533,12 @@ struct BalleTourScoringView: View {
     }
 
     private func finishRound() async {
+        if let message = currentHoleValidationMessage() {
+            validationMessage = message
+            errorMessage = nil
+            return
+        }
+
         await saveHole()
         guard errorMessage == nil, let client = session.client else {
             return
@@ -544,6 +565,58 @@ struct BalleTourScoringView: View {
             return score.holeNumber
         }
         return 1
+    }
+
+    private func currentHoleValidationMessage() -> String? {
+        let par = currentHole?.par ?? currentScoreFallback?.par ?? 3
+        var missingRows: [String] = []
+
+        for player in detail.players {
+            let input = inputs[player.roundPlayerID] ?? BalleTourHolePlayerInput(roundPlayerID: player.roundPlayerID)
+            var missing: [String] = []
+
+            if input.strokes == nil {
+                missing.append("score")
+            }
+
+            if player.tracksStats {
+                if input.teeClubID == nil {
+                    missing.append("kølle")
+                }
+
+                if par == 3 {
+                    if input.green?.status.isEmpty ?? true {
+                        missing.append("green")
+                    }
+                    let directions = input.green?.directions ?? []
+                    if !directions.contains(where: { ["pin", "left", "right"].contains($0) }) {
+                        missing.append("retning")
+                    }
+                } else if input.fairwayResult == nil {
+                    missing.append("fairway")
+                }
+
+                if let putts = input.putts {
+                    if let strokes = input.strokes, putts > 0, putts > strokes - 1 {
+                        missing.append("putter kan ikke være høyere enn score minus 1")
+                    }
+                    if putts > 0 && input.lastPuttDistanceM == nil {
+                        missing.append("siste putt")
+                    }
+                } else {
+                    missing.append("putter")
+                }
+            }
+
+            if !missing.isEmpty {
+                missingRows.append("\(player.name): \(missing.joined(separator: ", "))")
+            }
+        }
+
+        guard !missingRows.isEmpty else {
+            return nil
+        }
+        return "Fyll ut dette før du går videre:\n" + missingRows.joined(separator: "\n")
     }
 
     private var clubOptions: [(label: String, value: Int?)] {

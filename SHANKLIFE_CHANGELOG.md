@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.10] - 2026-06-25
+- Beholder utfylte scoreføringsfelt i iPhone-appen når spilleren prøver å gå videre uten alle nødvendige valg, og viser en tydelig melding om hva som mangler.
+
 ## [1.9.9] - 2026-06-25
 - Forbedrer native iPhone-scoreføring med tydelige valgmenyer for kølle, utslagslengde, putter og siste putt, samt ventemelding ved lagring, navigering og fullføring av runder.
 
