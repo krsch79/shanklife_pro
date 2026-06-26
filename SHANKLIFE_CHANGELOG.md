@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.17] - 2026-06-26
+- Hindrer at vanlige deployer sender versjonsvarsler på e-post, med mindre varsling eksplisitt slås på for den deployen.
+
 ## [1.9.16] - 2026-06-26
 - Retter iPhone-feilen som stoppet opprettelse av nye Shanklife-runder fordi baneoppsettet manglet scorevalg i API-et.
 - Forbedrer Shanklife-scoreføringen på iPhone med standardkølle, trygg tilbake-navigering og siste-hull-flyt uten unødvendig neste-knapp.

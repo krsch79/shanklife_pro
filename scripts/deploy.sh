@@ -113,8 +113,12 @@ nohup ./run.sh > "$LOG_FILE" 2>&1 < /dev/null &
 sleep 3
 ps -ef | grep "/tmp/shanklife_pro_venv/bin/python app.py" | grep -v grep
 
-echo "Sender eventuelle versjonsvarsler..."
-"$PYTHON_BIN" scripts/send_version_update_notifications.py
+if [ "${SHANKLIFE_SEND_VERSION_NOTIFICATIONS:-0}" = "1" ]; then
+    echo "Sender eventuelle versjonsvarsler..."
+    "$PYTHON_BIN" scripts/send_version_update_notifications.py
+else
+    echo "Hopper over versjonsvarsler. Sett SHANKLIFE_SEND_VERSION_NOTIFICATIONS=1 for å sende dem."
+fi
 
 echo "Tar Shanklife Pro ut av vedlikeholdsmodus..."
 disable_maintenance
