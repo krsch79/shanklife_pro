@@ -14,7 +14,7 @@ class ApiTests(unittest.TestCase):
 
         from app import create_app
         from extensions import db
-        from models import Club, Course, CourseHole, CourseTee, CourseTeeLength, Player, Round, RoundPlayer, ScoreEntry, Series, SeriesPlayer, User
+        from models import Club, Course, CourseHole, CourseTee, CourseTeeLength, Player, PlayerHoleDefaultClub, Round, RoundPlayer, ScoreEntry, Series, SeriesPlayer, User
 
         self.app = create_app()
         self.app.config["TESTING"] = True
@@ -25,6 +25,7 @@ class ApiTests(unittest.TestCase):
         self.CourseTee = CourseTee
         self.CourseTeeLength = CourseTeeLength
         self.Player = Player
+        self.PlayerHoleDefaultClub = PlayerHoleDefaultClub
         self.Round = Round
         self.RoundPlayer = RoundPlayer
         self.ScoreEntry = ScoreEntry
@@ -272,6 +273,38 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(detail.get_json()["players"][0]["scores"][1]["strokes"], 5)
         self.assertEqual(player_summary.status_code, 200)
         self.assertEqual(player_summary.get_json()["finished_rounds"], 1)
+
+    def test_balletour_round_detail_includes_default_tee_club(self):
+        _, player_id, tee_id = self._create_balletour_data()
+        self._login()
+
+        with self.app.app_context():
+            course = self.Course.query.filter_by(name="Balletour Testbane").first()
+            club = self.Club.query.filter_by(name="J7").first()
+            club_id = club.id
+            self.db.session.add(self.PlayerHoleDefaultClub(
+                player_id=player_id,
+                course_id=course.id,
+                hole_number=1,
+                club_id=club_id,
+            ))
+            self.db.session.commit()
+
+        with patch("routes.api.fetch_bekkestua_weather", return_value={}):
+            create_response = self.client.post(
+                "/api/v1/balletour/rounds",
+                json={"players": [{"player_id": player_id, "hcp": 12.3, "tee_id": tee_id}]},
+            )
+
+        self.assertEqual(create_response.status_code, 201)
+        round_id = create_response.get_json()["id"]
+
+        detail = self.client.get(f"/api/v1/balletour/rounds/{round_id}")
+
+        self.assertEqual(detail.status_code, 200)
+        first_score = detail.get_json()["players"][0]["scores"][0]
+        self.assertIsNone(first_score["tee_club_id"])
+        self.assertEqual(first_score["default_tee_club_id"], club_id)
 
     def test_balletour_round_can_be_created_scored_and_finished_from_api(self):
         _, player_id, tee_id = self._create_balletour_data()

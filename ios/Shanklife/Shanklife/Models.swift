@@ -701,6 +701,7 @@ struct BalleTourHoleScore: Decodable, Identifiable {
     let strokes: Int?
     let toPar: Int?
     let teeClubID: Int?
+    let defaultTeeClubID: Int?
     let teeClub: String?
     let driveDistanceM: Int?
     let greenResult: String?
@@ -714,10 +715,11 @@ struct BalleTourHoleScore: Decodable, Identifiable {
         case par
         case strokeIndex = "stroke_index"
         case lengthMeters = "length_meters"
-            case strokes
-            case toPar = "to_par"
-            case teeClubID = "tee_club_id"
-            case teeClub = "tee_club"
+        case strokes
+        case toPar = "to_par"
+        case teeClubID = "tee_club_id"
+        case defaultTeeClubID = "default_tee_club_id"
+        case teeClub = "tee_club"
         case driveDistanceM = "drive_distance_m"
         case greenResult = "green_result"
         case putts

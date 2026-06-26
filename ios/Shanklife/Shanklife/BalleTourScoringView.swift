@@ -402,13 +402,15 @@ struct BalleTourScoringView: View {
 
                 Spacer()
 
-                Button {
-                    Task { await saveHole(move: 1) }
-                } label: {
-                    Label(currentHoleNumber == detail.course.holeCount ? "Lagre" : "Neste", systemImage: "chevron.right")
+                if currentHoleNumber < detail.course.holeCount {
+                    Button {
+                        Task { await saveHole(move: 1) }
+                    } label: {
+                        Label("Neste", systemImage: "chevron.right")
+                    }
+                    .disabled(detail.status == "finished" || isSaving)
+                    .buttonStyle(.borderless)
                 }
-                .disabled(detail.status == "finished" || isSaving)
-                .buttonStyle(.borderless)
             }
 
             Button(role: .destructive) {
@@ -477,7 +479,7 @@ struct BalleTourScoringView: View {
             nextInputs[player.roundPlayerID] = BalleTourHolePlayerInput(
                 roundPlayerID: player.roundPlayerID,
                 strokes: score?.strokes,
-                teeClubID: score?.teeClubID,
+                teeClubID: score?.teeClubID ?? score?.defaultTeeClubID,
                 driveDistanceM: score?.driveDistanceM,
                 green: green,
                 fairwayResult: score?.greenResult,

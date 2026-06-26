@@ -12,6 +12,7 @@ from models import (
     CourseTee,
     CourseTeeLength,
     Player,
+    PlayerHoleDefaultClub,
     Round,
     ScoreEntry,
     ScoreStat,
@@ -160,6 +161,14 @@ def _balletour_round_detail_payload(round_obj):
         for tee in round_obj.course.tees
     }
     round_player_ids = [round_player.id for round_player in round_obj.round_players]
+    player_ids = [round_player.player_id for round_player in round_obj.round_players]
+    default_clubs = {
+        (row.player_id, row.hole_number): row.club_id
+        for row in PlayerHoleDefaultClub.query.filter(
+            PlayerHoleDefaultClub.course_id == round_obj.course_id,
+            PlayerHoleDefaultClub.player_id.in_(player_ids),
+        ).all()
+    } if player_ids else {}
     stats_by_entry = {
         stat.score_entry_id: stat
         for stat in ScoreStat.query.join(ScoreEntry)
@@ -189,6 +198,7 @@ def _balletour_round_detail_payload(round_obj):
                 "strokes": strokes,
                 "to_par": strokes - hole.par if strokes is not None else None,
                 "tee_club_id": entry.tee_club_id if entry else None,
+                "default_tee_club_id": default_clubs.get((round_player.player_id, hole.hole_number)),
                 "tee_club": entry.tee_club.name if entry and entry.tee_club else None,
                 "drive_distance_m": stat.drive_distance_m if stat else None,
                 "green_result": stat.fairway_result if stat else None,
