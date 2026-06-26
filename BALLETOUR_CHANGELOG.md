@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.14] - 2026-06-26
+- Gjør pågående BalleTour-runder tydelige i iPhone-appen, med rask fortsettelse av runder som allerede er startet.
+- Hindrer at lokal Kristian-auto-login fra simulator følger med som lagret innlogging i TestFlight.
+
 ## [1.9.13] - 2026-06-25
 - Sikrer at handlingsknappene i native scoreføring bare utløser valgt handling, slik at utfylte felter ikke kan lastes på nytt ved valideringsstopp.
 

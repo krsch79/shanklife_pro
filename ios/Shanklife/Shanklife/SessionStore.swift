@@ -40,11 +40,33 @@ final class SessionStore: ObservableObject {
         defer { isLoading = false }
 
         do {
-            user = try await client.me()
+            let restoredUser = try await client.me()
+            #if !(DEBUG && targetEnvironment(simulator))
+            if restoredUser.username.lowercased() == "kristian" {
+                try? await client.logout()
+                KeychainStore.delete()
+                savedUsername = nil
+                user = nil
+                bootstrap = nil
+                lastConnectionMessage = nil
+                return
+            }
+            #endif
+            user = restoredUser
             bootstrap = try await client.bootstrap()
             lastConnectionMessage = "Tilkoblet \(baseURLText)"
         } catch {
             if let savedLogin = KeychainStore.load() {
+                #if !(DEBUG && targetEnvironment(simulator))
+                if savedLogin.username.lowercased() == "kristian" {
+                    KeychainStore.delete()
+                    savedUsername = nil
+                    user = nil
+                    bootstrap = nil
+                    lastConnectionMessage = nil
+                    return
+                }
+                #endif
                 do {
                     user = try await client.login(username: savedLogin.username, password: savedLogin.password)
                     bootstrap = try await client.bootstrap()
@@ -62,7 +84,7 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    func login(username: String, password: String) async {
+    func login(username: String, password: String, rememberCredentials: Bool = true) async {
         guard let client else {
             errorMessage = "Skriv inn en gyldig serveradresse."
             return
@@ -75,8 +97,10 @@ final class SessionStore: ObservableObject {
         do {
             user = try await client.login(username: username, password: password)
             bootstrap = try await client.bootstrap()
-            KeychainStore.save(username: username, password: password)
-            savedUsername = username
+            if rememberCredentials {
+                KeychainStore.save(username: username, password: password)
+                savedUsername = username
+            }
             lastConnectionMessage = "Tilkoblet \(baseURLText)"
         } catch {
             errorMessage = error.localizedDescription

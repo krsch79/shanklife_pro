@@ -5,6 +5,7 @@ struct ShanklifeView: View {
     @State private var rounds: [ShanklifeRoundListItem] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var didInitialLoad = false
 
     var body: some View {
         List {
@@ -33,7 +34,7 @@ struct ShanklifeView: View {
                 }
             }
 
-            Section("Pågående") {
+            Section("Fortsett runde") {
                 let ongoing = rounds.filter { $0.status == "ongoing" }
                 if ongoing.isEmpty && !isLoading {
                     Text("Ingen pågående runder.")
@@ -44,12 +45,17 @@ struct ShanklifeView: View {
                         ShanklifeScoringLoaderView(roundID: round.id)
                             .environmentObject(session)
                     } label: {
-                        shanklifeRoundRow(round)
+                        HStack(spacing: 12) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.green)
+                            shanklifeRoundRow(round)
+                        }
                     }
                 }
             }
 
-            Section("Siste runder") {
+            Section("Fullførte runder") {
                 let finished = rounds.filter { $0.status == "finished" }
                 if finished.isEmpty && !isLoading {
                     Text("Ingen fullførte runder.")
@@ -81,7 +87,15 @@ struct ShanklifeView: View {
                 }
             }
         }
-        .task { await load() }
+        .task {
+            guard !didInitialLoad else { return }
+            didInitialLoad = true
+            await load()
+        }
+        .onAppear {
+            guard didInitialLoad else { return }
+            Task { await load() }
+        }
         .refreshable { await load() }
     }
 

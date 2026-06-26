@@ -9,9 +9,10 @@ struct BalleTourView: View {
     @State private var finishedRounds: [BalleTourRoundListItem] = []
     @State private var ongoingRounds: [BalleTourRoundListItem] = []
     @State private var mySummary: BalleTourPlayerSummaryResponse?
-    @State private var selectedSection = BalleTourSection.leaderboard
+    @State private var selectedSection = BalleTourSection.rounds
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var didInitialLoad = false
 
     var body: some View {
         List {
@@ -30,6 +31,7 @@ struct BalleTourView: View {
 
             if let overview {
                 overviewSection(overview)
+                activeRoundsSection
                 teeSection(overview)
                 sectionPicker
 
@@ -68,7 +70,13 @@ struct BalleTourView: View {
             }
         }
         .task {
+            guard !didInitialLoad else { return }
+            didInitialLoad = true
             await load()
+        }
+        .onAppear {
+            guard didInitialLoad else { return }
+            Task { await load() }
         }
         .refreshable {
             await load()
@@ -157,7 +165,7 @@ struct BalleTourView: View {
 
     private var roundsSection: some View {
         Group {
-            Section("Pågående runder") {
+            Section("Alle pågående runder") {
                 if ongoingRounds.isEmpty {
                     emptyRow("Ingen pågående runder.")
                 }
@@ -182,6 +190,37 @@ struct BalleTourView: View {
                     } label: {
                         roundRow(round)
                     }
+                }
+            }
+        }
+    }
+
+    private var activeRoundsSection: some View {
+        Section("Fortsett runde") {
+            if ongoingRounds.isEmpty {
+                Text("Ingen pågående BalleTour-runder.")
+                    .foregroundStyle(.secondary)
+            }
+
+            ForEach(ongoingRounds) { round in
+                NavigationLink {
+                    BalleTourScoringLoaderView(roundID: round.id)
+                        .environmentObject(session)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "play.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Fortsett runde #\(round.id)")
+                                .font(.headline)
+                            Text(round.players.map { "\($0.playerName) \($0.completedHoles)/18" }.joined(separator: ", "))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
             }
         }

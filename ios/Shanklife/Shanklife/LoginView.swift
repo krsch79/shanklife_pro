@@ -108,7 +108,9 @@ struct LoginView: View {
         didStartLocalAutoLogin = true
         username = "kristian"
         password = "kristian"
-        login()
+        Task {
+            await session.login(username: username, password: password, rememberCredentials: false)
+        }
     }
     #endif
 
