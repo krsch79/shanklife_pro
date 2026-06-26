@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.16] - 2026-06-26
+- Retter iPhone-feilen som stoppet opprettelse av nye Shanklife-runder fordi baneoppsettet manglet scorevalg i API-et.
+- Forbedrer Shanklife-scoreføringen på iPhone med standardkølle, trygg tilbake-navigering og siste-hull-flyt uten unødvendig neste-knapp.
+- Legger til native iPhone-import av nye Shanklife-baner fra bilde av scorekort og valgfri slopetabell, med redigerbart utkast før lagring.
+
 ## [1.9.14] - 2026-06-26
 - Gjør pågående Shanklife-runder tydelige i iPhone-appen, med rask fortsettelse av runder som allerede er startet.
 - Hindrer at lokal Kristian-auto-login fra simulator følger med som lagret innlogging i TestFlight.

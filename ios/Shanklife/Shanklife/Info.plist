@@ -29,6 +29,8 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Shanklife bruker lokal nettverkstilgang for å koble til utviklingsserveren under testing.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Shanklife bruker valgte bilder for å lese scorekort og slopetabell når du oppretter nye baner.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -59,6 +59,16 @@ struct APIClient {
         try await request(path: "/api/v1/shanklife/courses", method: "POST", encodableBody: body)
     }
 
+    func importShanklifeCourse(scorecardImage: Data, scorecardFilename: String, slopeImage: Data?, slopeFilename: String?) async throws -> ShanklifeCourseImportResponse {
+        var files: [(field: String, filename: String, data: Data, mimeType: String)] = [
+            ("scorecard_image", scorecardFilename, scorecardImage, mimeType(for: scorecardFilename))
+        ]
+        if let slopeImage, let slopeFilename {
+            files.append(("slope_table_image", slopeFilename, slopeImage, mimeType(for: slopeFilename)))
+        }
+        return try await multipartRequest(path: "/api/v1/shanklife/courses/import", files: files)
+    }
+
     func shanklifeRounds(status: String = "all") async throws -> ShanklifeRoundsResponse {
         try await request(path: "/api/v1/shanklife/rounds?status=\(status)")
     }
@@ -185,6 +195,60 @@ struct APIClient {
 
         throw APIClientError.invalidResponse
     }
+
+    private func multipartRequest<Response: Decodable>(
+        path: String,
+        files: [(field: String, filename: String, data: Data, mimeType: String)]
+    ) async throws -> Response {
+        guard let url = URL(string: path, relativeTo: baseURL) else {
+            throw APIClientError.invalidBaseURL
+        }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        #if DEBUG && targetEnvironment(simulator)
+        request.setValue("ios-debug-simulator", forHTTPHeaderField: "X-Shanklife-Local-Client")
+        #endif
+
+        var body = Data()
+        for file in files {
+            body.append("--\(boundary)\r\n")
+            body.append("Content-Disposition: form-data; name=\"\(file.field)\"; filename=\"\(file.filename)\"\r\n")
+            body.append("Content-Type: \(file.mimeType)\r\n\r\n")
+            body.append(file.data)
+            body.append("\r\n")
+        }
+        body.append("--\(boundary)--\r\n")
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIClientError.invalidResponse
+        }
+        if (200..<300).contains(httpResponse.statusCode) {
+            return try JSONDecoder().decode(Response.self, from: data)
+        }
+        if let apiError = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data) {
+            throw APIClientError.server(apiError.error.message)
+        }
+        throw APIClientError.invalidResponse
+    }
+
+    private func mimeType(for filename: String) -> String {
+        let lowercased = filename.lowercased()
+        if lowercased.hasSuffix(".png") { return "image/png" }
+        if lowercased.hasSuffix(".webp") { return "image/webp" }
+        return "image/jpeg"
+    }
 }
 
 struct EmptyResponse: Decodable {}
+
+private extension Data {
+    mutating func append(_ string: String) {
+        append(Data(string.utf8))
+    }
+}

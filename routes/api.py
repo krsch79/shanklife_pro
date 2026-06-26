@@ -1,9 +1,11 @@
 from functools import wraps
 
 import json
+import os
 
-from flask import Blueprint, g, jsonify, request, session
+from flask import Blueprint, current_app, g, jsonify, request, session
 from werkzeug.security import check_password_hash
+from werkzeug.utils import secure_filename
 
 from models import (
     Club,
@@ -11,6 +13,7 @@ from models import (
     CourseHole,
     CourseTee,
     CourseTeeLength,
+    CourseTeeRating,
     Player,
     PlayerHoleDefaultClub,
     Round,
@@ -54,6 +57,9 @@ from services.balletour_mcp import (
     list_balletour_players,
     list_balletour_rounds,
 )
+from services.course_forms import merge_imported_ratings_into_tees
+from services.course_importer import allowed_file, analyze_scorecard_with_openai, analyze_slope_table_with_openai
+from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
 from services.tee_filters import selected_tee_key, tee_ids_for_key
 from services.time import format_server_datetime, server_now
 from services.version import APP_VERSION
@@ -325,6 +331,7 @@ def _course_summary_payload(course):
                 "hole_number": hole.hole_number,
                 "par": hole.par,
                 "stroke_index": hole.stroke_index,
+                "score_options": list(_score_options_for_par(hole.par)),
                 "lengths": {
                     str(length.tee_id): length.length_meters
                     for length in hole.tee_lengths
@@ -374,6 +381,14 @@ def _shanklife_round_detail_payload(round_obj):
         for tee in round_obj.course.tees
     }
     round_player_ids = [round_player.id for round_player in round_obj.round_players]
+    player_ids = [round_player.player_id for round_player in round_obj.round_players]
+    default_clubs = {
+        (row.player_id, row.hole_number): row.club_id
+        for row in PlayerHoleDefaultClub.query.filter(
+            PlayerHoleDefaultClub.course_id == round_obj.course_id,
+            PlayerHoleDefaultClub.player_id.in_(player_ids),
+        ).all()
+    } if player_ids else {}
     stats_by_entry = {
         stat.score_entry_id: stat
         for stat in ScoreStat.query.join(ScoreEntry)
@@ -403,6 +418,7 @@ def _shanklife_round_detail_payload(round_obj):
                 "strokes": strokes,
                 "to_par": strokes - hole.par if strokes is not None else None,
                 "tee_club_id": entry.tee_club_id if entry else None,
+                "default_tee_club_id": default_clubs.get((round_player.player_id, hole.hole_number)),
                 "tee_club": entry.tee_club.name if entry and entry.tee_club else None,
                 "drive_distance_m": stat.drive_distance_m if stat else None,
                 "green_result": stat.fairway_result if stat else None,
@@ -566,7 +582,14 @@ def _create_course_from_payload(data):
         if stroke_index in seen_indexes:
             raise ValueError(f"Index {stroke_index} er brukt mer enn én gang.")
         seen_indexes.add(stroke_index)
-        holes.append({"hole_number": index, "par": par, "stroke_index": stroke_index})
+        holes.append({
+            "hole_number": index,
+            "par": par,
+            "stroke_index": stroke_index,
+            "physical_course_group": (hole_payload.get("physical_course_group") or None),
+            "physical_loop": (hole_payload.get("physical_loop") or None),
+            "physical_hole_number": hole_payload.get("physical_hole_number"),
+        })
 
     tee_names = set()
     tees = []
@@ -589,7 +612,28 @@ def _create_course_from_payload(data):
             if length_meters < 50 or length_meters > 650:
                 raise ValueError(f"Lengde må være mellom 50 og 650 for tee '{tee_name}', hull {hole_number}.")
             lengths[hole_number] = length_meters
-        tees.append({"index": tee_index, "name": tee_name, "lengths": lengths})
+        ratings = {}
+        for gender in ("male", "female"):
+            raw_rating = (tee_payload.get("ratings") or {}).get(gender) or {}
+            slope = raw_rating.get("slope")
+            course_rating = raw_rating.get("course_rating")
+            if slope in ("", None) and course_rating in ("", None):
+                ratings[gender] = None
+                continue
+            if slope in ("", None) or course_rating in ("", None):
+                raise ValueError(f"{gender} slope og course rating må enten begge fylles ut eller begge stå tomme på tee '{tee_name}'.")
+            try:
+                slope = int(slope)
+                course_rating = float(str(course_rating).replace(",", "."))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Ugyldig slope/course rating for tee '{tee_name}'.") from exc
+            if not (55 <= slope <= 155):
+                raise ValueError(f"Slope må være mellom 55 og 155 for tee '{tee_name}'.")
+            if not (40 <= course_rating <= 80):
+                raise ValueError(f"Course rating må være mellom 40.0 og 80.0 for tee '{tee_name}'.")
+            ratings[gender] = {"slope": slope, "course_rating": course_rating}
+
+        tees.append({"index": tee_index, "name": tee_name, "lengths": lengths, "ratings": ratings})
 
     course = Course(name=name, hole_count=hole_count)
     db.session.add(course)
@@ -597,7 +641,20 @@ def _create_course_from_payload(data):
 
     hole_map = {}
     for hole_data in holes:
-        hole = CourseHole(course_id=course.id, **hole_data)
+        physical_hole_number = hole_data.get("physical_hole_number")
+        try:
+            physical_hole_number = int(physical_hole_number) if physical_hole_number not in ("", None) else None
+        except (TypeError, ValueError):
+            physical_hole_number = None
+        hole = CourseHole(
+            course_id=course.id,
+            hole_number=hole_data["hole_number"],
+            par=hole_data["par"],
+            stroke_index=hole_data["stroke_index"],
+            physical_course_group=hole_data.get("physical_course_group"),
+            physical_loop=hole_data.get("physical_loop"),
+            physical_hole_number=physical_hole_number,
+        )
         db.session.add(hole)
         db.session.flush()
         hole_map[hole.hole_number] = hole
@@ -615,8 +672,59 @@ def _create_course_from_payload(data):
                     length_meters=length_meters,
                 )
             )
+        for gender, rating in tee_data["ratings"].items():
+            if not rating:
+                continue
+            db.session.add(
+                CourseTeeRating(
+                    tee_id=tee.id,
+                    gender=gender,
+                    slope=rating["slope"],
+                    course_rating=rating["course_rating"],
+                )
+            )
+
+    assign_physical_identities_from_loop_signatures(Course.query.all())
 
     return course
+
+
+def _imported_course_draft_payload(score_data, slope_imported=False):
+    hole_count = score_data["hole_count"]
+
+    def normalized_int(value, fallback):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return fallback
+
+    return {
+        "course_name": score_data["course_name"],
+        "hole_count": hole_count,
+        "holes": [
+            {
+                "hole_number": hole["hole_number"],
+                "par": normalized_int(hole.get("par"), 4),
+                "stroke_index": normalized_int(hole.get("stroke_index"), hole["hole_number"]),
+                "physical_course_group": hole.get("physical_course_group"),
+                "physical_loop": hole.get("physical_loop"),
+                "physical_hole_number": hole.get("physical_hole_number"),
+            }
+            for hole in score_data["holes"]
+        ],
+        "tees": [
+            {
+                "name": tee["name"],
+                "lengths": {
+                    str(hole_number): normalized_int(length, 300)
+                    for hole_number, length in tee["lengths"].items()
+                },
+                "ratings": tee.get("ratings") or {},
+            }
+            for tee in score_data["tees"]
+        ],
+        "slope_imported": slope_imported,
+    }
 
 
 def _json_error(code, message, status=400, **extra):
@@ -870,6 +978,58 @@ def shanklife_create_course():
 
     db.session.commit()
     return jsonify(_course_summary_payload(course)), 201
+
+
+@api_bp.route("/shanklife/courses/import", methods=["POST"])
+@api_login_required
+def shanklife_import_course():
+    scorecard_file = request.files.get("scorecard_image")
+    slope_file = request.files.get("slope_table_image")
+
+    if not scorecard_file or not scorecard_file.filename:
+        return _json_error("bad_request", "Du må velge et bilde av scorekortet.", 400)
+    if not allowed_file(scorecard_file.filename):
+        return _json_error("bad_request", "Kun jpg, jpeg, png og webp er støttet for scorekort.", 400)
+    if slope_file and slope_file.filename and not allowed_file(slope_file.filename):
+        return _json_error("bad_request", "Kun jpg, jpeg, png og webp er støttet for slopetabell.", 400)
+
+    os.makedirs(current_app.config["UPLOAD_FOLDER"], exist_ok=True)
+    timestamp = server_now().strftime("%Y%m%d%H%M%S")
+    scorecard_path = os.path.join(
+        current_app.config["UPLOAD_FOLDER"],
+        f"{timestamp}_ios_score_{secure_filename(scorecard_file.filename)}",
+    )
+    scorecard_file.save(scorecard_path)
+
+    try:
+        score_data = analyze_scorecard_with_openai(scorecard_path)
+    except Exception as exc:
+        return _json_error("import_failed", f"Import feilet: {exc}", 400)
+
+    for hole in score_data["holes"]:
+        inferred = infer_physical_hole_identity(
+            score_data.get("course_name"),
+            hole.get("hole_number"),
+            score_data.get("hole_count"),
+        )
+        if inferred:
+            hole.update(inferred)
+
+    slope_imported = False
+    if slope_file and slope_file.filename:
+        slope_path = os.path.join(
+            current_app.config["UPLOAD_FOLDER"],
+            f"{timestamp}_ios_slope_{secure_filename(slope_file.filename)}",
+        )
+        slope_file.save(slope_path)
+        try:
+            slope_data = analyze_slope_table_with_openai(slope_path)
+            score_data["tees"] = merge_imported_ratings_into_tees(score_data["tees"], slope_data.get("ratings", []))
+            slope_imported = True
+        except Exception:
+            slope_imported = False
+
+    return jsonify(_imported_course_draft_payload(score_data, slope_imported=slope_imported))
 
 
 @api_bp.route("/shanklife/rounds")

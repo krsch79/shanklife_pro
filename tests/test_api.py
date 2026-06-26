@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from io import BytesIO
 from unittest.mock import patch
 
 from werkzeug.security import generate_password_hash
@@ -14,7 +15,7 @@ class ApiTests(unittest.TestCase):
 
         from app import create_app
         from extensions import db
-        from models import Club, Course, CourseHole, CourseTee, CourseTeeLength, Player, PlayerHoleDefaultClub, Round, RoundPlayer, ScoreEntry, Series, SeriesPlayer, User
+        from models import Club, Course, CourseHole, CourseTee, CourseTeeLength, CourseTeeRating, Player, PlayerHoleDefaultClub, Round, RoundPlayer, ScoreEntry, Series, SeriesPlayer, User
 
         self.app = create_app()
         self.app.config["TESTING"] = True
@@ -24,6 +25,7 @@ class ApiTests(unittest.TestCase):
         self.CourseHole = CourseHole
         self.CourseTee = CourseTee
         self.CourseTeeLength = CourseTeeLength
+        self.CourseTeeRating = CourseTeeRating
         self.Player = Player
         self.PlayerHoleDefaultClub = PlayerHoleDefaultClub
         self.Round = Round
@@ -397,7 +399,10 @@ class ApiTests(unittest.TestCase):
 
         setup = self.client.get("/api/v1/shanklife/setup")
         self.assertEqual(setup.status_code, 200)
-        club_id = setup.get_json()["clubs"][0]["id"]
+        setup_payload = setup.get_json()
+        native_course = next(course for course in setup_payload["courses"] if course["id"] == course_payload["id"])
+        self.assertIn("score_options", native_course["holes"][0])
+        club_id = setup_payload["clubs"][0]["id"]
 
         create_response = self.client.post(
             "/api/v1/shanklife/rounds",
@@ -443,6 +448,55 @@ class ApiTests(unittest.TestCase):
         rounds = self.client.get("/api/v1/shanklife/rounds?status=finished")
         self.assertEqual(rounds.status_code, 200)
         self.assertEqual(rounds.get_json()["rounds"][0]["id"], round_id)
+
+    def test_shanklife_course_import_returns_native_draft_with_slope(self):
+        self._login()
+
+        score_data = {
+            "course_name": "Importert Testbane",
+            "hole_count": 9,
+            "holes": [
+                {"hole_number": number, "par": 3 if number % 3 == 0 else 4, "stroke_index": number}
+                for number in range(1, 10)
+            ],
+            "tees": [{
+                "index": 1,
+                "name": "Gul",
+                "lengths": {number: 145 if number % 3 == 0 else 330 for number in range(1, 10)},
+                "ratings": {
+                    "male": {"slope": "", "course_rating": ""},
+                    "female": {"slope": "", "course_rating": ""},
+                },
+            }],
+        }
+        slope_data = {
+            "ratings": [{
+                "tee_name": "Gul",
+                "male_slope": 124,
+                "male_course_rating": 68.4,
+                "female_slope": "",
+                "female_course_rating": "",
+            }]
+        }
+
+        with (
+            patch("routes.api.analyze_scorecard_with_openai", return_value=score_data),
+            patch("routes.api.analyze_slope_table_with_openai", return_value=slope_data),
+        ):
+            response = self.client.post(
+                "/api/v1/shanklife/courses/import",
+                data={
+                    "scorecard_image": (BytesIO(b"scorecard"), "scorecard.jpg"),
+                    "slope_table_image": (BytesIO(b"slope"), "slope.jpg"),
+                },
+                content_type="multipart/form-data",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["course_name"], "Importert Testbane")
+        self.assertTrue(payload["slope_imported"])
+        self.assertEqual(payload["tees"][0]["ratings"]["male"]["slope"], 124)
 
 
 if __name__ == "__main__":

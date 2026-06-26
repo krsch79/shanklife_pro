@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct ShanklifeCoursesView: View {
@@ -106,9 +107,13 @@ struct ShanklifeNewCourseView: View {
 
     @State private var name = ""
     @State private var holeCount = 18
-    @State private var teeName = "Gul"
     @State private var holes = ShanklifeNewCourseView.defaultHoles(18)
-    @State private var lengths = ShanklifeNewCourseView.defaultLengths(18)
+    @State private var tees = [ShanklifeCourseTeeInput(name: "Gul", lengths: ShanklifeNewCourseView.defaultLengths(18))]
+    @State private var scorecardItem: PhotosPickerItem?
+    @State private var slopeItem: PhotosPickerItem?
+    @State private var scorecardImageData: Data?
+    @State private var slopeImageData: Data?
+    @State private var isImporting = false
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -123,9 +128,27 @@ struct ShanklifeNewCourseView: View {
                 .pickerStyle(.segmented)
                 .onChange(of: holeCount) { _, newValue in
                     holes = Self.defaultHoles(newValue)
-                    lengths = Self.defaultLengths(newValue)
+                    tees = [ShanklifeCourseTeeInput(name: tees.first?.name ?? "Gul", lengths: Self.defaultLengths(newValue))]
                 }
-                TextField("Tee", text: $teeName)
+            }
+
+            Section("Importer fra bilde") {
+                PhotosPicker(selection: $scorecardItem, matching: .images) {
+                    Label(scorecardImageData == nil ? "Velg scorekort" : "Scorekort valgt", systemImage: "doc.viewfinder")
+                }
+                PhotosPicker(selection: $slopeItem, matching: .images) {
+                    Label(slopeImageData == nil ? "Velg slopetabell" : "Slopetabell valgt", systemImage: "tablecells")
+                }
+                Button {
+                    Task { await importCourseImages() }
+                } label: {
+                    if isImporting {
+                        ProgressView()
+                    } else {
+                        Label("Les bane fra bilde", systemImage: "sparkles")
+                    }
+                }
+                .disabled(isImporting || scorecardImageData == nil)
             }
 
             Section("Hull") {
@@ -139,14 +162,33 @@ struct ShanklifeNewCourseView: View {
                                 .keyboardType(.numberPad)
                                 .frame(width: 72)
                         }
-                        TextField("Lengde", value: Binding(
-                            get: { lengths[String(hole.holeNumber)] ?? 300 },
-                            set: { lengths[String(hole.holeNumber)] = $0 }
-                        ), format: .number)
-                        .keyboardType(.numberPad)
                     }
                     .padding(.vertical, 4)
                 }
+            }
+
+            ForEach($tees) { $tee in
+                Section("Tee") {
+                    TextField("Navn", text: $tee.name)
+                    ForEach(holes) { hole in
+                        teeLengthField(tee: $tee, holeNumber: hole.holeNumber)
+                    }
+
+                    Text("Slope og course rating")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ratingFields(title: "Herre", rating: maleRatingBinding(tee: $tee))
+                    ratingFields(title: "Dame", rating: femaleRatingBinding(tee: $tee))
+                }
+            }
+
+            Section {
+                Button {
+                    addTee()
+                } label: {
+                    Label("Legg til tee", systemImage: "plus.circle")
+                }
+                .disabled(tees.count >= 6)
             }
 
             Section {
@@ -170,7 +212,13 @@ struct ShanklifeNewCourseView: View {
             }
         }
         .navigationTitle("Ny bane")
-        .blockingProgress(isSaving, message: "Lagrer bane...")
+        .blockingProgress(isSaving || isImporting, message: isImporting ? "Leser bilder..." : "Lagrer bane...")
+        .onChange(of: scorecardItem) { _, item in
+            Task { scorecardImageData = await loadImageData(from: item) }
+        }
+        .onChange(of: slopeItem) { _, item in
+            Task { slopeImageData = await loadImageData(from: item) }
+        }
     }
 
     private static func defaultHoles(_ count: Int) -> [ShanklifeCourseHoleInput] {
@@ -209,12 +257,141 @@ struct ShanklifeNewCourseView: View {
                     name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                     holeCount: holeCount,
                     holes: holes,
-                    tees: [ShanklifeCourseTeeInput(name: teeName.trimmingCharacters(in: .whitespacesAndNewlines), lengths: lengths)]
+                    tees: tees
                 )
             )
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    @ViewBuilder
+    private func ratingFields(title: String, rating: Binding<ShanklifeCourseTeeRating?>) -> some View {
+        HStack {
+            Text(title)
+                .frame(width: 52, alignment: .leading)
+            TextField("Slope", text: optionalIntText(rating, keyPath: \.slope))
+                .keyboardType(.numberPad)
+            TextField("CR", text: optionalDoubleText(rating, keyPath: \.courseRating))
+                .keyboardType(.decimalPad)
+        }
+    }
+
+    private func teeLengthField(tee: Binding<ShanklifeCourseTeeInput>, holeNumber: Int) -> some View {
+        let key = String(holeNumber)
+        let lengthBinding = Binding<Int>(
+            get: { tee.wrappedValue.lengths[key] ?? 300 },
+            set: { tee.wrappedValue.lengths[key] = $0 }
+        )
+        return TextField("Hull \(holeNumber)", value: lengthBinding, format: .number)
+            .keyboardType(.numberPad)
+    }
+
+    private func addTee() {
+        tees.append(ShanklifeCourseTeeInput(name: "Tee \(tees.count + 1)", lengths: Self.defaultLengths(holeCount)))
+    }
+
+    private func importCourseImages() async {
+        guard let client = session.client, let scorecardImageData else {
+            errorMessage = "Velg et bilde av scorekortet først."
+            return
+        }
+        isImporting = true
+        errorMessage = nil
+        defer { isImporting = false }
+        do {
+            let draft = try await client.importShanklifeCourse(
+                scorecardImage: scorecardImageData,
+                scorecardFilename: "scorecard.jpg",
+                slopeImage: slopeImageData,
+                slopeFilename: slopeImageData == nil ? nil : "slope.jpg"
+            )
+            name = draft.courseName
+            holeCount = draft.holeCount
+            holes = draft.holes.map {
+                ShanklifeCourseHoleInput(
+                    holeNumber: $0.holeNumber,
+                    par: $0.par,
+                    strokeIndex: $0.strokeIndex,
+                    physicalCourseGroup: $0.physicalCourseGroup,
+                    physicalLoop: $0.physicalLoop,
+                    physicalHoleNumber: $0.physicalHoleNumber
+                )
+            }
+            tees = draft.tees.map {
+                ShanklifeCourseTeeInput(name: $0.name, lengths: $0.lengths, ratings: $0.ratings)
+            }
+            if tees.isEmpty {
+                tees = [ShanklifeCourseTeeInput(name: "Gul", lengths: Self.defaultLengths(draft.holeCount))]
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadImageData(from item: PhotosPickerItem?) async -> Data? {
+        guard let item else { return nil }
+        return try? await item.loadTransferable(type: Data.self)
+    }
+
+    private func maleRatingBinding(tee: Binding<ShanklifeCourseTeeInput>) -> Binding<ShanklifeCourseTeeRating?> {
+        Binding(
+            get: { tee.wrappedValue.ratings?.male },
+            set: { newValue in
+                var ratings = tee.wrappedValue.ratings ?? ShanklifeCourseTeeRatings()
+                ratings.male = newValue
+                tee.wrappedValue.ratings = ratings
+            }
+        )
+    }
+
+    private func femaleRatingBinding(tee: Binding<ShanklifeCourseTeeInput>) -> Binding<ShanklifeCourseTeeRating?> {
+        Binding(
+            get: { tee.wrappedValue.ratings?.female },
+            set: { newValue in
+                var ratings = tee.wrappedValue.ratings ?? ShanklifeCourseTeeRatings()
+                ratings.female = newValue
+                tee.wrappedValue.ratings = ratings
+            }
+        )
+    }
+
+    private func optionalIntText(_ rating: Binding<ShanklifeCourseTeeRating?>, keyPath: WritableKeyPath<ShanklifeCourseTeeRating, Int?>) -> Binding<String> {
+        Binding(
+            get: {
+                guard let value = rating.wrappedValue?[keyPath: keyPath] else { return "" }
+                return String(value)
+            },
+            set: { text in
+                var value = rating.wrappedValue ?? ShanklifeCourseTeeRating()
+                value[keyPath: keyPath] = Int(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                rating.wrappedValue = value.isEmpty ? nil : value
+            }
+        )
+    }
+
+    private func optionalDoubleText(_ rating: Binding<ShanklifeCourseTeeRating?>, keyPath: WritableKeyPath<ShanklifeCourseTeeRating, Double?>) -> Binding<String> {
+        Binding(
+            get: {
+                guard let value = rating.wrappedValue?[keyPath: keyPath] else { return "" }
+                return formatShanklifeNumber(value)
+            },
+            set: { text in
+                var value = rating.wrappedValue ?? ShanklifeCourseTeeRating()
+                value[keyPath: keyPath] = Double(text.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespacesAndNewlines))
+                rating.wrappedValue = value.isEmpty ? nil : value
+            }
+        )
+    }
+}
+
+private func formatShanklifeNumber(_ value: Double) -> String {
+    value == floor(value) ? String(Int(value)) : String(format: "%.1f", value)
+}
+
+private extension ShanklifeCourseTeeRating {
+    var isEmpty: Bool {
+        slope == nil && courseRating == nil
     }
 }

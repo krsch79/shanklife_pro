@@ -95,22 +95,24 @@ struct ShanklifeScoringView: View {
                 Section {
                     HStack {
                         Button {
-                            Task { await saveHole(move: -1) }
+                            moveHole(-1)
                         } label: {
                             Label("Forrige", systemImage: "chevron.left")
                         }
-                        .disabled(isSaving)
+                        .disabled(isSaving || currentHoleNumber == holes.first?.holeNumber)
                         .buttonStyle(.borderless)
 
                         Spacer()
 
-                        Button {
-                            Task { await saveHole(move: 1) }
-                        } label: {
-                            Label("Neste", systemImage: "chevron.right")
+                        if currentHoleNumber < detail.course.holeCount {
+                            Button {
+                                Task { await saveHole(move: 1) }
+                            } label: {
+                                Label("Neste", systemImage: "chevron.right")
+                            }
+                            .disabled(isSaving)
+                            .buttonStyle(.borderless)
                         }
-                        .disabled(isSaving)
-                        .buttonStyle(.borderless)
                     }
 
                     Button {
@@ -337,7 +339,7 @@ struct ShanklifeScoringView: View {
             nextInputs[player.roundPlayerID] = BalleTourHolePlayerInput(
                 roundPlayerID: player.roundPlayerID,
                 strokes: score?.strokes,
-                teeClubID: score?.teeClubID,
+                teeClubID: score?.teeClubID ?? score?.defaultTeeClubID,
                 driveDistanceM: score?.driveDistanceM,
                 green: greenInput(from: score),
                 fairwayResult: score?.greenResult,
@@ -346,6 +348,13 @@ struct ShanklifeScoringView: View {
             )
         }
         inputs = nextInputs
+    }
+
+    private func moveHole(_ delta: Int) {
+        let target = currentHoleNumber + delta
+        if holes.contains(where: { $0.holeNumber == target }) {
+            currentHoleNumber = target
+        }
     }
 
     private func greenInput(from score: BalleTourHoleScore?) -> BalleTourGreenInput? {

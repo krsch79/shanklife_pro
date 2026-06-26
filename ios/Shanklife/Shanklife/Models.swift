@@ -210,10 +210,13 @@ struct ShanklifeCourseCreateRequest: Encodable {
     }
 }
 
-struct ShanklifeCourseHoleInput: Encodable, Identifiable {
+struct ShanklifeCourseHoleInput: Codable, Identifiable {
     let holeNumber: Int
     var par: Int
     var strokeIndex: Int
+    var physicalCourseGroup: String? = nil
+    var physicalLoop: String? = nil
+    var physicalHoleNumber: Int? = nil
 
     var id: Int { holeNumber }
 
@@ -221,6 +224,9 @@ struct ShanklifeCourseHoleInput: Encodable, Identifiable {
         case holeNumber = "hole_number"
         case par
         case strokeIndex = "stroke_index"
+        case physicalCourseGroup = "physical_course_group"
+        case physicalLoop = "physical_loop"
+        case physicalHoleNumber = "physical_hole_number"
     }
 }
 
@@ -228,10 +234,49 @@ struct ShanklifeCourseTeeInput: Encodable, Identifiable {
     var id = UUID()
     var name: String
     var lengths: [String: Int]
+    var ratings: ShanklifeCourseTeeRatings? = nil
 
     enum CodingKeys: String, CodingKey {
         case name
         case lengths
+        case ratings
+    }
+}
+
+struct ShanklifeCourseImportResponse: Decodable {
+    let courseName: String
+    let holeCount: Int
+    let holes: [ShanklifeCourseHoleInput]
+    let tees: [ShanklifeImportedTee]
+    let slopeImported: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case courseName = "course_name"
+        case holeCount = "hole_count"
+        case holes
+        case tees
+        case slopeImported = "slope_imported"
+    }
+}
+
+struct ShanklifeImportedTee: Decodable {
+    let name: String
+    let lengths: [String: Int]
+    let ratings: ShanklifeCourseTeeRatings?
+}
+
+struct ShanklifeCourseTeeRatings: Codable {
+    var male: ShanklifeCourseTeeRating? = nil
+    var female: ShanklifeCourseTeeRating? = nil
+}
+
+struct ShanklifeCourseTeeRating: Codable {
+    var slope: Int? = nil
+    var courseRating: Double? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case slope
+        case courseRating = "course_rating"
     }
 }
 
