@@ -367,6 +367,7 @@ class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
     status = db.Column(db.String(20), nullable=False, default="ongoing")
+    play_format = db.Column(db.String(30), nullable=False, default="stroke_play", server_default="stroke_play")
     started_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
     finished_at = db.Column(db.DateTime, nullable=True)
     played_hole_count = db.Column(db.Integer, nullable=True)
@@ -461,6 +462,7 @@ class ScoreEntry(db.Model):
     round_player_id = db.Column(db.Integer, db.ForeignKey("round_players.id"), nullable=False)
     hole_number = db.Column(db.Integer, nullable=False)
     strokes = db.Column(db.Integer, nullable=True)
+    hole_result = db.Column(db.String(20), nullable=True)
     tee_club_id = db.Column(db.Integer, db.ForeignKey("clubs.id"), nullable=True)
 
     round = db.relationship("Round", back_populates="score_entries")

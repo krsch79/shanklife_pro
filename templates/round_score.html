@@ -5,7 +5,7 @@
 <div class="page-header">
     <h2>{{ round.course.name }} - scorekort</h2>
     <div class="button-row compact">
-        {% if round.status == 'finished' and current_user_round_player %}
+        {% if round.status == 'finished' and current_user_round_player and not is_matchplay_round %}
         <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
         {% endif %}
         <a class="button secondary" href="{{ url_for('rounds.rounds') }}">Alle runder</a>
@@ -14,6 +14,7 @@
 
 <div class="form-card">
     <p><strong>Status:</strong> {{ round.status }}</p>
+    <p><strong>Spilleform:</strong> {{ play_format_label(round.play_format) }}</p>
     <p><strong>Startet:</strong> {{ round.started_at|datetime_local }}</p>
     {% if round.finished_at %}
     <p><strong>Fullført:</strong> {{ round.finished_at|datetime_local }}</p>
@@ -104,6 +105,18 @@
                             <option value="{{ score_option }}" {% if current_score == score_option %}selected{% endif %}>{{ score_option }}</option>
                             {% endfor %}
                         </select>
+                        {% if is_matchplay_round %}
+                        <select
+                            name="hole_result_{{ rp.id }}_{{ hole.hole_number }}"
+                            class="compact-score-input"
+                            {% if round.status == 'finished' %}disabled{% endif %}
+                        >
+                            <option value="" {% if not hole_result_map[rp.id][hole.hole_number] %}selected{% endif %}>Hullresultat</option>
+                            {% for value, label in matchplay_hole_result_labels.items() %}
+                            <option value="{{ value }}" {% if hole_result_map[rp.id][hole.hole_number] == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
                         {% if stats_round_player_id == rp.id %}
                         {% set stat = stats_map.get(hole.hole_number, {}) %}
                         <div class="score-stat-fields">

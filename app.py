@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import Club, Course, CourseHole, Player, RoundPlayer, User
+from models import Club, Course, CourseHole, Player, Round, RoundPlayer, User
 from routes.main import main_bp
 from routes.players import players_bp
 from routes.courses import courses_bp
@@ -26,6 +26,7 @@ from routes.api import api_bp
 from services.balletour import is_balletour_player
 from services.golfbox import migrate_golfbox_password_tokens
 from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
+from services.play_formats import MATCHPLAY, STROKE_PLAY, matchplay_hole_result_label, play_format_label
 from services.time import format_server_datetime
 
 
@@ -81,6 +82,7 @@ def ensure_schema_updates(app):
 
         if "rounds" in table_names:
             add_column_if_missing("rounds", "played_hole_count", "played_hole_count INTEGER")
+            add_column_if_missing("rounds", "play_format", "play_format VARCHAR(30) DEFAULT 'stroke_play' NOT NULL")
             add_column_if_missing("rounds", "stats_user_id", "stats_user_id INTEGER")
             add_column_if_missing("rounds", "weather_json", "weather_json TEXT")
             add_column_if_missing("rounds", "notes", "notes TEXT")
@@ -92,6 +94,7 @@ def ensure_schema_updates(app):
 
         if "score_entries" in table_names:
             add_column_if_missing("score_entries", "tee_club_id", "tee_club_id INTEGER")
+            add_column_if_missing("score_entries", "hole_result", "hole_result VARCHAR(20)")
 
         if "course_holes" in table_names:
             add_column_if_missing("course_holes", "physical_course_group", "physical_course_group VARCHAR(120)")
@@ -199,6 +202,18 @@ def ensure_schema_updates(app):
                         FOREIGN KEY(user_id) REFERENCES users (id)
                     )
                 """))
+
+        if "rounds" in table_names:
+            with db.engine.begin() as conn:
+                conn.execute(text("UPDATE rounds SET play_format = :default WHERE play_format IS NULL OR play_format = ''"), {"default": STROKE_PLAY})
+
+
+def ensure_round_play_format_corrections(app):
+    with app.app_context():
+        round_47 = Round.query.get(47)
+        if round_47 and round_47.play_format != MATCHPLAY:
+            round_47.play_format = MATCHPLAY
+            db.session.commit()
 
 
 def ensure_shanklife_club_options(app):
@@ -326,6 +341,7 @@ def create_app():
         db.create_all()
 
     ensure_schema_updates(app)
+    ensure_round_play_format_corrections(app)
     ensure_shanklife_club_options(app)
     ensure_course_data_corrections(app)
     ensure_physical_hole_identities(app)
@@ -385,6 +401,8 @@ def create_app():
                 and is_balletour_player(current_user)
                 and not (current_user.email or "").strip()
             ),
+            "play_format_label": play_format_label,
+            "matchplay_hole_result_label": matchplay_hole_result_label,
         }
 
     app.register_blueprint(main_bp)

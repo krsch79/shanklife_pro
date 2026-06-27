@@ -6,7 +6,13 @@ def validate_score_putts(putts, score):
         raise ValueError("Score må være minst én mer enn antall putter.")
 
 
-def missing_saved_entry_choices(entry, hole, tracks_stats, club_required):
+def missing_saved_entry_choices(entry, hole, tracks_stats, club_required, require_score=True, require_hole_result=False):
+    if require_hole_result and (not entry or not entry.hole_result):
+        return ["hullresultat"]
+
+    if not require_score:
+        return []
+
     if not entry or entry.strokes is None:
         return ["score"]
 

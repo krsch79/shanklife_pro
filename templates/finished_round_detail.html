@@ -67,7 +67,7 @@
 {% block content %}
 <div class="page-title-row round-summary-heading">
     <div>
-        <p class="muted">Fullført Shanklife-runde · {{ round.played_hole_count or round.course.hole_count }} hull</p>
+        <p class="muted">Fullført Shanklife-runde · {{ round.played_hole_count or round.course.hole_count }} hull · {{ play_format_label(round.play_format) }}</p>
         <h2>{{ round.course.name }}</h2>
         <p class="muted">{{ round.started_at|datetime_local }}{% if weather_summary %} · {{ weather_summary }}{% endif %}</p>
     </div>
@@ -75,7 +75,7 @@
         {% if current_user and current_user.is_admin %}
         <a class="button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=1, edit=1) }}">Rediger runde</a>
         {% endif %}
-        {% if current_user_round_player %}
+        {% if current_user_round_player and not is_matchplay_round %}
         <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
         {% endif %}
         <a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Alle runder</a>

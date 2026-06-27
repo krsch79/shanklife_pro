@@ -6,6 +6,7 @@ from routes.auth import login_required
 from services.balletour import get_balletour_series, is_balletour_player
 from services.golfbox import golfbox_connection_summary
 from services.golfbox_scores import round_player_score_payload, search_marker, submit_score
+from services.play_formats import is_matchplay_round
 from services.time import server_now
 
 
@@ -49,6 +50,9 @@ def prepare(round_id):
         return redirect(url_for(_return_endpoint(round_obj), round_id=round_obj.id))
     if round_obj.status != "finished":
         flash("Runden må være fullført før den kan sendes til GolfBox.", "error")
+        return redirect(url_for(_return_endpoint(round_obj), round_id=round_obj.id))
+    if is_matchplay_round(round_obj):
+        flash("Matchplay-runder kan ikke sendes til GolfBox som slagspillscore.", "error")
         return redirect(url_for(_return_endpoint(round_obj), round_id=round_obj.id))
 
     payload = round_player_score_payload(round_player)

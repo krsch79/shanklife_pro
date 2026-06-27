@@ -60,6 +60,13 @@ from services.balletour_mcp import (
 from services.course_forms import merge_imported_ratings_into_tees
 from services.course_importer import allowed_file, analyze_scorecard_with_openai, analyze_slope_table_with_openai
 from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
+from services.play_formats import (
+    MATCHPLAY_HOLE_RESULTS,
+    STROKE_PLAY,
+    is_matchplay_round,
+    normalize_play_format,
+    play_format_label,
+)
 from services.tee_filters import selected_tee_key, tee_ids_for_key
 from services.time import format_server_datetime, server_now
 from services.version import APP_VERSION
@@ -109,6 +116,8 @@ def _round_payload(round_obj):
     return {
         "id": round_obj.id,
         "status": round_obj.status,
+        "play_format": getattr(round_obj, "play_format", STROKE_PLAY),
+        "play_format_label": play_format_label(getattr(round_obj, "play_format", STROKE_PLAY)),
         "started_at": round_obj.started_at.isoformat() if round_obj.started_at else None,
         "finished_at": round_obj.finished_at.isoformat() if round_obj.finished_at else None,
         "played_hole_count": round_obj.played_hole_count,
@@ -416,6 +425,7 @@ def _shanklife_round_detail_payload(round_obj):
                 "stroke_index": hole.stroke_index,
                 "length_meters": length_by_tee.get(round_player.selected_tee_id, {}).get(hole.hole_number),
                 "strokes": strokes,
+                "hole_result": entry.hole_result if entry else None,
                 "to_par": strokes - hole.par if strokes is not None else None,
                 "tee_club_id": entry.tee_club_id if entry else None,
                 "default_tee_club_id": default_clubs.get((round_player.player_id, hole.hole_number)),
@@ -444,6 +454,8 @@ def _shanklife_round_detail_payload(round_obj):
     return {
         "id": round_obj.id,
         "status": round_obj.status,
+        "play_format": getattr(round_obj, "play_format", STROKE_PLAY),
+        "play_format_label": play_format_label(getattr(round_obj, "play_format", STROKE_PLAY)),
         "course": {
             "id": round_obj.course.id,
             "name": round_obj.course.name,
@@ -499,6 +511,7 @@ def _save_shanklife_hole_payload(round_obj, hole_number, player_payloads):
         if round_player.tracks_stats
     }
     allowed_club_ids = {club.id for club in _club_options_for_round(round_obj)} if stats_players else None
+    matchplay_round = is_matchplay_round(round_obj)
 
     for player_payload in player_payloads:
         try:
@@ -523,6 +536,13 @@ def _save_shanklife_hole_payload(round_obj, hole_number, player_payloads):
             hole,
             round_player.player_name_snapshot,
         )
+        if matchplay_round:
+            hole_result = (player_payload.get("hole_result") or "").strip()
+            if hole_result and hole_result not in MATCHPLAY_HOLE_RESULTS:
+                raise ValueError(f"Ugyldig hullresultat for {round_player.player_name_snapshot}.")
+            entry.hole_result = hole_result or None
+        else:
+            entry.hole_result = None
 
         if round_player.id in stats_players:
             _save_tee_club(
@@ -1051,6 +1071,11 @@ def shanklife_rounds():
 def shanklife_create_round():
     data = request.get_json(silent=True) or {}
     try:
+        play_format = normalize_play_format(data.get("play_format", STROKE_PLAY))
+    except ValueError as exc:
+        return _json_error("bad_request", str(exc), 400)
+
+    try:
         course_id = int(data.get("course_id"))
     except (TypeError, ValueError):
         return _json_error("bad_request", "Du må velge bane.", 400)
@@ -1119,7 +1144,12 @@ def shanklife_create_round():
                 "tracks_stats": bool(player_payload.get("tracks_stats")),
             })
 
-        round_obj = _create_round(course, round_players_payload, played_hole_count=played_hole_count)
+        round_obj = _create_round(
+            course,
+            round_players_payload,
+            played_hole_count=played_hole_count,
+            play_format=play_format,
+        )
         db.session.commit()
     except ValueError as exc:
         db.session.rollback()

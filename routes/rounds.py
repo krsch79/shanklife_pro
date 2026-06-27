@@ -36,6 +36,15 @@ from services.round_length import (
 from services.round_summary import build_round_summary
 from services.balletour import get_balletour_course_id, get_balletour_memberships, get_balletour_series
 from services.physical_holes import physical_hole_filter_values, physical_hole_label
+from services.play_formats import (
+    MATCHPLAY,
+    MATCHPLAY_HOLE_RESULT_LABELS,
+    MATCHPLAY_HOLE_RESULTS,
+    PLAY_FORMAT_LABELS,
+    STROKE_PLAY,
+    is_matchplay_round,
+    normalize_play_format,
+)
 from services.time import format_server_datetime, server_now
 from services.user_notifications import (
     send_balletour_round_finished_notifications,
@@ -126,6 +135,7 @@ def build_course_tee_options(courses):
 
 def new_round_form_state(courses, players):
     selected_course_id = request.form.get("course_id", "").strip()
+    selected_play_format = request.form.get("play_format", STROKE_PLAY).strip() or STROKE_PLAY
     course_tee_options = build_course_tee_options(courses)
     player_hcps = {str(player.id): str(player.default_hcp) for player in players}
     player_genders = {str(player.id): player.gender for player in players}
@@ -159,6 +169,8 @@ def new_round_form_state(courses, players):
         player_hcps=player_hcps,
         player_genders=player_genders,
         selected_round_hole_count=request.form.get("round_hole_count", "").strip(),
+        play_format_options=PLAY_FORMAT_LABELS.items(),
+        selected_play_format=selected_play_format,
     )
 
 
@@ -183,11 +195,13 @@ def _parse_tee(raw_value, course_tees, player_name):
     return selected_tee_id
 
 
-def _create_round(course, round_players_payload, stats_user_id=None, played_hole_count=None):
+def _create_round(course, round_players_payload, stats_user_id=None, played_hole_count=None, play_format=STROKE_PLAY):
     selected_hole_count = played_hole_count or course.hole_count
+    play_format = normalize_play_format(play_format)
     round_obj = Round(
         course_id=course.id,
         status="ongoing",
+        play_format=play_format,
         started_at=server_now(),
         played_hole_count=selected_hole_count,
         stats_user_id=stats_user_id,
@@ -253,6 +267,36 @@ def _round_player_tracks_stats(round_obj, round_player, stats_rp=None):
     if _is_balletour_round(round_obj):
         return True
     return bool(round_player.tracks_stats or (stats_rp and round_player.id == stats_rp.id))
+
+
+def _round_is_matchplay(round_obj):
+    return is_matchplay_round(round_obj)
+
+
+def _parse_matchplay_hole_result(raw_value, player_name):
+    value = (raw_value or "").strip()
+    if not value:
+        return None
+    if value not in MATCHPLAY_HOLE_RESULTS:
+        raise ValueError(f"Ugyldig hullresultat for {player_name}.")
+    return value
+
+
+def _stat_form_has_any_value(round_player, hole, scoped=False):
+    fields = [
+        _stat_field_name("stat_drive", round_player, scoped),
+        _stat_field_name("stat_putts", round_player, scoped),
+        _stat_field_name("stat_last_putt_distance", round_player, scoped),
+    ]
+    if hole.par == 3:
+        fields.extend([
+            _stat_field_name("stat_green_status", round_player, scoped),
+            _stat_field_name("stat_green_horizontal", round_player, scoped),
+            _stat_field_name("stat_green_vertical", round_player, scoped),
+        ])
+    elif hole.par in (4, 5):
+        fields.append(_stat_field_name("stat_fairway", round_player, scoped))
+    return any(request.form.get(field, "").strip() for field in fields)
 
 
 def _round_uses_scoped_stat_fields(round_obj):
@@ -647,7 +691,7 @@ def _current_user_round_player(round_obj):
 
 
 def _after_finish_redirect(round_obj):
-    if _current_user_round_player(round_obj):
+    if _current_user_round_player(round_obj) and not _round_is_matchplay(round_obj):
         return redirect(url_for("golfbox_scores.prepare", round_id=round_obj.id))
     return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
@@ -886,6 +930,7 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
         club.id for club in _club_options_for_round(round_obj)
     } if club_tracking_enabled else None
     scoped_stats = _round_uses_scoped_stat_fields(round_obj)
+    matchplay_round = _round_is_matchplay(round_obj)
 
     for rp in round_players:
         raw_value = request.form.get(f"score_{rp.id}", "").strip()
@@ -899,6 +944,10 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
             raise ValueError(f"Fant ikke scorelinje for {rp.player_name_snapshot}.")
 
         entry.strokes = _parse_score_for_hole(raw_value, hole, rp.player_name_snapshot)
+        entry.hole_result = _parse_matchplay_hole_result(
+            request.form.get(f"hole_result_{rp.id}", ""),
+            rp.player_name_snapshot,
+        ) if matchplay_round else None
 
         tracks_stats = _round_player_tracks_stats(round_obj, rp, stats_rp)
 
@@ -910,7 +959,8 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                 allowed_tee_club_ids,
             )
 
-        if tracks_stats:
+        save_optional_stats = tracks_stats and (not matchplay_round or _stat_form_has_any_value(rp, hole, scoped_stats))
+        if save_optional_stats:
             try:
                 _save_score_stat(
                     entry,
@@ -931,9 +981,14 @@ def _missing_hole_choices(round_obj, hole, stats_rp=None, require_scores=True):
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
     balletour_round = _is_balletour_round(round_obj)
     scoped_stats = _round_uses_scoped_stat_fields(round_obj)
+    matchplay_round = _round_is_matchplay(round_obj)
 
     for rp in round_players:
         missing = []
+        if matchplay_round:
+            if not request.form.get(f"hole_result_{rp.id}", "").strip():
+                missing_by_player.append(f"{rp.player_name_snapshot}: hullresultat")
+            continue
         if not request.form.get(f"score_{rp.id}", "").strip():
             if require_scores:
                 missing_by_player.append(f"{rp.player_name_snapshot}: score")
@@ -984,6 +1039,7 @@ def _missing_round_choices(round_obj, stats_rp=None):
     }
     club_tracking_enabled = _round_uses_club_tracking(round_obj)
     balletour_round = _is_balletour_round(round_obj)
+    matchplay_round = _round_is_matchplay(round_obj)
 
     for hole in round_holes(round_obj):
         for rp in round_players:
@@ -994,6 +1050,8 @@ def _missing_round_choices(round_obj, stats_rp=None):
                 hole,
                 tracks_stats,
                 club_required,
+                require_score=not matchplay_round,
+                require_hole_result=matchplay_round,
             )
             if missing:
                 missing_rows.append({
@@ -1091,6 +1149,7 @@ def _previous_hole_history(round_obj, round_players, hole):
             .outerjoin(Club, Club.id == ScoreEntry.tee_club_id)
             .filter(Round.id != round_obj.id)
             .filter(Round.status == "finished")
+            .filter(Round.play_format != MATCHPLAY)
             .filter(RoundPlayer.player_id == rp.player_id)
             .filter(ScoreEntry.strokes.isnot(None))
         )
@@ -1217,6 +1276,11 @@ def new_round():
 
     if request.method == "POST":
         course_id_raw = request.form.get("course_id", "").strip()
+        try:
+            play_format = normalize_play_format(request.form.get("play_format", STROKE_PLAY))
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return new_round_form_state(courses, players)
 
         if not course_id_raw:
             flash("Du må velge bane.", "error")
@@ -1372,6 +1436,7 @@ def new_round():
             course,
             round_players_payload,
             played_hole_count=selected_hole_count,
+            play_format=play_format,
         )
         db.session.commit()
         _send_shanklife_round_started_mail(round_obj)
@@ -1734,6 +1799,8 @@ def round_hole(round_id, hole_number):
         hole_images=hole_images,
         image_tag_choices=_round_image_tag_choices(round_obj),
         is_balletour_scoring_page=_is_balletour_round(round_obj),
+        is_matchplay_round=_round_is_matchplay(round_obj),
+        matchplay_hole_result_labels=MATCHPLAY_HOLE_RESULT_LABELS,
         admin_edit_mode=admin_edit_mode,
         score_entry_editable=round_obj.status == "ongoing" or admin_edit_mode,
         played_hole_count=played_hole_count,
@@ -2018,6 +2085,16 @@ def round_score(round_id):
                         flash(f"{message} ({rp.player_name_snapshot}, hull {hole})", "error")
                         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
+                if _round_is_matchplay(round_obj):
+                    try:
+                        entry.hole_result = _parse_matchplay_hole_result(
+                            request.form.get(f"hole_result_{rp.id}_{hole}", ""),
+                            rp.player_name_snapshot,
+                        )
+                    except ValueError as exc:
+                        flash(str(exc), "error")
+                        return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+
         was_ongoing = round_obj.status == "ongoing"
         if action == "finish":
             missing_round_choices = _missing_round_choices(round_obj, stats_rp)
@@ -2048,6 +2125,7 @@ def round_score(round_id):
         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
     score_map = {}
+    hole_result_map = {}
     totals = {}
     received_strokes_map = {}
     playing_handicap_map = {}
@@ -2091,6 +2169,7 @@ def round_score(round_id):
         }
 
         player_scores = {}
+        player_hole_results = {}
         out_total = 0
         in_total = 0
         grand_total = 0
@@ -2099,6 +2178,7 @@ def round_score(round_id):
             entry = entries.get(hole)
             strokes = entry.strokes if entry else None
             player_scores[hole] = strokes
+            player_hole_results[hole] = entry.hole_result if entry else None
             score_entry_id_map.setdefault(rp.id, {})[hole] = entry.id if entry else None
 
             if stats_rp and rp.id == stats_rp.id:
@@ -2113,6 +2193,7 @@ def round_score(round_id):
                     in_total += strokes
 
         score_map[rp.id] = player_scores
+        hole_result_map[rp.id] = player_hole_results
         totals[rp.id] = {
             "out": out_total if played_hole_count >= 9 else grand_total,
             "in": in_total if played_hole_count > 9 else None,
@@ -2164,6 +2245,7 @@ def round_score(round_id):
         },
         round_players=round_players,
         score_map=score_map,
+        hole_result_map=hole_result_map,
         totals=totals,
         tee_length_columns=tee_length_columns,
         playing_handicap_map=playing_handicap_map,
@@ -2179,6 +2261,8 @@ def round_score(round_id):
         last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
         drive_distance_options=DRIVE_DISTANCE_OPTIONS,
         is_balletour_scoring_page=_is_balletour_round(round_obj),
+        is_matchplay_round=_round_is_matchplay(round_obj),
+        matchplay_hole_result_labels=MATCHPLAY_HOLE_RESULT_LABELS,
         current_user_round_player=_current_user_round_player(round_obj),
         round_summary=round_summary,
         weather_summary=_round_weather_summary(round_obj),

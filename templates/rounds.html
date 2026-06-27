@@ -22,7 +22,10 @@
         {% for round in rounds %}
         <tr>
             <td>{{ round.started_at|datetime_local }}</td>
-            <td>{{ round.course.name }}<br><span class="muted">{{ round.played_hole_count or round.course.hole_count }} hull</span></td>
+            <td>
+                {{ round.course.name }}<br>
+                <span class="muted">{{ round.played_hole_count or round.course.hole_count }} hull · {{ play_format_label(round.play_format) }}</span>
+            </td>
             <td>{{ round.status }}</td>
             <td>
                 {% for rp in round.round_players %}

@@ -15,6 +15,13 @@
         {% endfor %}
     </select>
 
+    <label for="play_format">Spilleform</label>
+    <select id="play_format" name="play_format" required>
+        {% for value, label in play_format_options %}
+        <option value="{{ value }}" {% if selected_play_format == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+
     <div id="round-hole-count-field" hidden>
         <label for="round_hole_count">Antall hull</label>
         <select id="round_hole_count" name="round_hole_count" data-selected="{{ selected_round_hole_count }}">

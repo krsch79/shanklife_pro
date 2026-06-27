@@ -13,6 +13,7 @@ from services.balletour import (
     is_balletour_player,
 )
 from services.golfbox import clear_user_golfbox_credentials, golfbox_connection_summary, save_user_golfbox_credentials
+from services.play_formats import MATCHPLAY
 from services.tee_filters import round_player_matches_tee, selected_tee_key, tee_filter_options
 
 profile_bp = Blueprint("profile", __name__)
@@ -61,6 +62,7 @@ def me():
     round_player_query = (
         RoundPlayer.query.filter_by(player_id=player.id)
         .join(Round)
+        .filter(Round.play_format != MATCHPLAY)
         .order_by(Round.started_at.desc())
     )
     round_players = _exclude_balletour_course(round_player_query).all()

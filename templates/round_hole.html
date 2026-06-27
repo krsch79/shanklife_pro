@@ -42,6 +42,9 @@
     <div class="hole-info-strip">
         <div><strong>{{ hole.hole_number }}</strong><span>Hull</span></div>
         <div><strong>{{ hole.par }}</strong><span>Par</span></div>
+        {% if is_matchplay_round %}
+        <div><strong>{{ play_format_label(round.play_format) }}</strong><span>Spilleform</span></div>
+        {% else %}
         <div class="hole-vs-par-cell">
             {% if live_vs_par_rows|length == 1 %}
             <strong
@@ -62,6 +65,7 @@
             {% endif %}
             <span>Score</span>
         </div>
+        {% endif %}
         <div><strong>{{ display_stroke_index }}</strong><span>Index</span></div>
     </div>
 
@@ -80,6 +84,18 @@
                         {% if detail and detail.length %} · {{ detail.length }} m{% endif %}
                     </span>
                 </div>
+
+                {% if is_matchplay_round %}
+                <label class="matchplay-result-field">
+                    <span>Hullresultat</span>
+                    <select name="hole_result_{{ rp.id }}" {% if not score_entry_editable %}disabled{% endif %}>
+                        <option value="" {% if not entry or not entry.hole_result %}selected{% endif %}>—</option>
+                        {% for value, label in matchplay_hole_result_labels.items() %}
+                        <option value="{{ value }}" {% if entry and entry.hole_result == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% endif %}
 
                 {% if show_club or stat_values %}
                 <div class="hole-stat-grid">
@@ -450,8 +466,13 @@
         const playerName = playerNameForRow(row);
         const errors = [];
         const scoreSelect = scoreSelectForRow(row);
+        const holeResultSelect = row.querySelector('select[name^="hole_result_"]');
         const clubSelect = row.querySelector('select[name^="tee_club_"]');
         const statGrid = row.querySelector(".hole-stat-grid");
+
+        if (holeResultSelect) {
+            return holeResultSelect.value ? [] : [`${playerName}: hullresultat mangler.`];
+        }
 
         if (scoreSelect && !scoreSelect.value) {
             return requireScore ? [`${playerName}: score mangler.`] : [];

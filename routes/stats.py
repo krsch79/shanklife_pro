@@ -7,6 +7,7 @@ from extensions import db
 from models import Club, CourseHole, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
 from routes.auth import login_required
 from services.balletour import get_balletour_course_id
+from services.play_formats import MATCHPLAY
 from services.round_length import round_holes
 from services.shanklife_ai_stats import ask_shanklife_stats_ai
 from services.stats_summary import round_score_summary
@@ -167,11 +168,13 @@ def _stats_players():
         db.session.query(User.player_id)
         .join(Round, Round.stats_user_id == User.id)
         .filter(Round.status == "finished")
+        .filter(Round.play_format != MATCHPLAY)
     )
     round_player_query = (
         db.session.query(RoundPlayer.player_id)
         .join(Round)
         .filter(Round.status == "finished")
+        .filter(Round.play_format != MATCHPLAY)
         .filter(RoundPlayer.tracks_stats.is_(True))
     )
     tracked_player_ids = {
@@ -198,6 +201,7 @@ def _tracked_round_players(player):
         RoundPlayer.query.join(Round)
         .outerjoin(User, Round.stats_user_id == User.id)
         .filter(Round.status == "finished")
+        .filter(Round.play_format != MATCHPLAY)
         .filter(RoundPlayer.player_id == player.id)
         .filter(or_(
             RoundPlayer.tracks_stats.is_(True),

@@ -7,6 +7,7 @@ from openai import OpenAI, RateLimitError
 from extensions import db
 from models import Club, Course, CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
 from services.balletour import get_balletour_course_id
+from services.play_formats import MATCHPLAY
 from services.round_length import round_holes
 
 
@@ -42,7 +43,7 @@ def ask_shanklife_stats_ai(prompt, current_user=None):
                         "text": (
                             "Du er Shanklife Pro sin statistikkassistent. Svar på norsk, konkret og praktisk. "
                             "Bruk bare tall og observasjoner i JSON-grunnlaget. Ikke finn opp data. Grunnlaget "
-                            "utelater alle BalleTour/Ballerud-runder. Score-only-runder har scoredata, mens "
+                            "utelater alle BalleTour/Ballerud-runder og matchplay-runder. Score-only-runder har scoredata, mens "
                             "statistikkrunder kan ha putting, GIR, fairway og køllevalg. Skill mellom baner og "
                             "teer når det påvirker analysen. Hvis spørsmålet nevner en bane eller tee, prioriter "
                             "den delen av grunnlaget. Oppgi tydelig når datamengden er liten eller et felt mangler."
@@ -134,7 +135,7 @@ def build_shanklife_stats_context(prompt="", current_user=None):
             "finished_round_players": len(round_players),
             "scored_holes": len(rows),
             "rounds_with_detailed_stats": sum(1 for round_player in round_players if _tracks_stats(round_player)),
-            "note": "Alle BalleTour/Ballerud-runder er utelatt.",
+            "note": "Alle BalleTour/Ballerud-runder og matchplay-runder er utelatt.",
         },
         "players": players[:MAX_PLAYERS],
         "courses": courses[:MAX_COURSES],
@@ -146,6 +147,7 @@ def _finished_shanklife_round_players():
     query = (
         RoundPlayer.query.join(Round)
         .filter(Round.status == "finished")
+        .filter(Round.play_format != MATCHPLAY)
         .filter(~Round.course.has(Course.name.ilike("%Ballerud%")))
         .order_by(Round.started_at.desc(), RoundPlayer.id.asc())
     )

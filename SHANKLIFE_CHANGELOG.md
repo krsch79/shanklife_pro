@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.18] - 2026-06-27
+- Legger til spilleform ved opprettelse av Shanklife-runder, med slagspill som standard og Matchplay som nytt valg.
+- Matchplay-runder får eget hullresultat per spiller og hull, med valgene Vunnet, Tapt og Delt, uten krav om score- eller statistikkfelt.
+- Holder matchplay-runder utenfor samlet Shanklife-statistikk og AI-statistikk, og merker runde 47 som matchplay.
+
 ## [1.9.17] - 2026-06-26
 - Hindrer at vanlige deployer sender versjonsvarsler på e-post, med mindre varsling eksplisitt slås på for den deployen.
 
