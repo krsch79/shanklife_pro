@@ -59,6 +59,7 @@ from services.balletour_mcp import (
 )
 from services.course_forms import merge_imported_ratings_into_tees
 from services.course_importer import allowed_file, analyze_scorecard_with_openai, analyze_slope_table_with_openai
+from services.golfbox import sync_user_golfbox_handicap
 from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
 from services.play_formats import (
     MATCHPLAY_HOLE_RESULTS,
@@ -908,6 +909,13 @@ def login():
     user = User.query.filter_by(username=username).first()
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": {"code": "invalid_credentials", "message": "Feil brukernavn eller passord."}}), 401
+
+    if not is_balletour_player(user):
+        try:
+            sync_user_golfbox_handicap(user)
+        except ValueError as exc:
+            db.session.rollback()
+            current_app.logger.warning("GolfBox handicap-sync feilet for API-bruker %s: %s", user.id, exc)
 
     session.clear()
     session["user_id"] = user.id

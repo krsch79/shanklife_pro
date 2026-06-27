@@ -1,12 +1,13 @@
 from functools import wraps
 import hashlib
 
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
 from models import BalleTourInvitation, Player, SeriesPlayer, User
 from services.balletour import get_balletour_series, is_balletour_player
+from services.golfbox import sync_user_golfbox_handicap
 from services.time import server_now
 
 auth_bp = Blueprint("auth", __name__)
@@ -42,6 +43,13 @@ def login():
         if not user or not check_password_hash(user.password_hash, password):
             flash("Feil brukernavn eller passord.", "error")
             return render_template("login.html", username=username)
+
+        if not is_balletour_player(user):
+            try:
+                sync_user_golfbox_handicap(user)
+            except ValueError as exc:
+                db.session.rollback()
+                current_app.logger.warning("GolfBox handicap-sync feilet for bruker %s: %s", user.id, exc)
 
         session.clear()
         session["user_id"] = user.id

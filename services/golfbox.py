@@ -157,8 +157,47 @@ def save_user_golfbox_credentials(user, username, password):
     user.golfbox_member_number = identity.get("member_number")
     user.golfbox_memberships_json = json.dumps(memberships, ensure_ascii=False)
     user.golfbox_credentials_updated_at = server_now()
+    _apply_golfbox_hcp_to_player(user, identity.get("hcp"))
     _replace_golfbox_favorites(user, favorites)
     return identity
+
+
+def sync_user_golfbox_handicap(user):
+    credentials = _credentials_for_user(user)
+    if not credentials:
+        return {
+            "status": "skipped",
+            "message": "GolfBox-innlogging mangler.",
+            "hcp": None,
+            "updated": False,
+        }
+
+    try:
+        with httpx.Client(
+            follow_redirects=True,
+            timeout=20,
+            headers={"User-Agent": "Mozilla/5.0"},
+        ) as client:
+            frontpage_html = _login(client, credentials)
+    except httpx.HTTPError as exc:
+        raise ValueError(f"Kunne ikke hente handicap fra GolfBox: {exc}") from exc
+
+    identity = _parse_identity(frontpage_html)
+    if identity.get("player_name"):
+        user.golfbox_player_name = identity.get("player_name")
+    if identity.get("club_name"):
+        user.golfbox_home_club_name = identity.get("club_name")
+    if identity.get("member_number"):
+        user.golfbox_member_number = identity.get("member_number")
+    user.golfbox_credentials_updated_at = server_now()
+    updated = _apply_golfbox_hcp_to_player(user, identity.get("hcp"))
+    db.session.commit()
+    return {
+        "status": "ok",
+        "message": "",
+        "hcp": identity.get("hcp"),
+        "updated": updated,
+    }
 
 
 def clear_user_golfbox_credentials(user):
@@ -524,7 +563,7 @@ def _parse_grid_slots(html_text, requested_date, start_time, end_time, player_co
 def _parse_identity(frontpage_html):
     text = " ".join(re.sub(r"<[^>]+>", " ", frontpage_html).split())
     identity_matches = re.findall(
-        r"(?P<name>[A-ZÆØÅ][A-Za-zÆØÅæøå.'-]+(?:\s+[A-ZÆØÅ][A-Za-zÆØÅæøå.'-]+){1,4})\s*\|\s*(?P<club>[^|]{2,80}?)\s*\|\s*(?P<member>\d{1,5}-\d{1,8})\s*\|\s*HCP",
+        r"(?P<name>[A-ZÆØÅ][A-Za-zÆØÅæøå.'-]+(?:\s+[A-ZÆØÅ][A-Za-zÆØÅæøå.'-]+){1,4})\s*\|\s*(?P<club>[^|]{2,80}?)\s*\|\s*(?P<member>\d{1,5}-\d{1,8})\s*\|\s*HCP\s*:?\s*(?P<hcp>[+-]?\d{1,3}(?:[,.]\d{1,2})?)?",
         text,
     )
     if not identity_matches:
@@ -532,13 +571,37 @@ def _parse_identity(frontpage_html):
             "player_name": None,
             "club_name": None,
             "member_number": None,
+            "hcp": None,
         }
-    name, club, member_number = identity_matches[-1]
+    name, club, member_number, hcp_raw = identity_matches[-1]
     return {
         "player_name": html.unescape(name).strip(),
         "club_name": html.unescape(club).strip(),
         "member_number": member_number.strip(),
+        "hcp": _parse_golfbox_hcp(hcp_raw),
     }
+
+
+def _parse_golfbox_hcp(raw_value):
+    raw_value = (raw_value or "").strip().replace(",", ".")
+    if not raw_value:
+        return None
+    try:
+        value = float(raw_value)
+    except ValueError:
+        return None
+    if value < -20 or value > 60:
+        return None
+    return round(value, 1)
+
+
+def _apply_golfbox_hcp_to_player(user, hcp):
+    if hcp is None or not user or not getattr(user, "player", None):
+        return False
+    if round(float(user.player.default_hcp or 0), 1) == round(float(hcp), 1):
+        return False
+    user.player.default_hcp = round(float(hcp), 1)
+    return True
 
 
 def _fetch_memberships(client, frontpage_html):
@@ -569,6 +632,7 @@ def _fetch_memberships(client, frontpage_html):
                     "club_guid": club["club_guid"],
                     "member_number": identity["member_number"],
                     "player_name": identity.get("player_name"),
+                    "hcp": identity.get("hcp"),
                 }
             )
     if original_club_guid:

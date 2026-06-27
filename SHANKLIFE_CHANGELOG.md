@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.19] - 2026-06-27
+- Henter oppdatert handicap fra GolfBox når Shanklife-spillere logger inn, og oppdaterer spillerens standard-HCP automatisk.
+- Oppdaterer også lagret GolfBox-identitet med siste klubb, medlemsnummer og navn ved samme synk.
+
 ## [1.9.18] - 2026-06-27
 - Legger til spilleform ved opprettelse av Shanklife-runder, med slagspill som standard og Matchplay som nytt valg.
 - Matchplay-runder får eget hullresultat per spiller og hull, med valgene Vunnet, Tapt og Delt, uten krav om score- eller statistikkfelt.
