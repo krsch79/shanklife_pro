@@ -195,6 +195,14 @@ def sync_user_golfbox_handicap(user):
     user.golfbox_credentials_updated_at = server_now()
     updated = _apply_golfbox_hcp_to_player(user, identity.get("hcp"))
     db.session.commit()
+    current_app.logger.info(
+        "GolfBox handicap-sync fullført for bruker %s: klubb=%s medlemsnummer=%s hcp=%s oppdatert=%s",
+        user.id,
+        identity.get("club_name"),
+        identity.get("member_number"),
+        identity.get("hcp"),
+        updated,
+    )
     return {
         "status": "ok",
         "message": "",
@@ -564,7 +572,7 @@ def _parse_grid_slots(html_text, requested_date, start_time, end_time, player_co
 
 
 def _parse_identity(frontpage_html):
-    text = " ".join(re.sub(r"<[^>]+>", " ", frontpage_html).split())
+    text = html.unescape(" ".join(re.sub(r"<[^>]+>", " ", frontpage_html).split()))
     identity_matches = re.findall(
         r"(?P<name>[A-ZÆØÅ][A-Za-zÆØÅæøå.'-]+(?:\s+[A-ZÆØÅ][A-Za-zÆØÅæøå.'-]+){1,4})\s*\|\s*(?P<club>[^|]{2,80}?)\s*\|\s*(?P<member>\d{1,5}-\d{1,8})\s*\|\s*HCP\s*:?\s*(?P<hcp>[+-]?\d{1,3}(?:[,.]\d{1,2})?)?",
         text,

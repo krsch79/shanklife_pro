@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.21] - 2026-07-01
+- Retter GolfBox-HCP-synk for BalleTour-brukere når GolfBox sender HCP med HTML-kodet mellomrom.
+- Logger vellykket GolfBox-HCP-synk, slik at det blir enklere å se hvilken HCP som ble lest fra GolfBox.
+
 ## [1.9.20] - 2026-07-01
 - Henter GolfBox-handicap ved innlogging for BalleTour-brukere med lagret GolfBox-innlogging.
 - Viser HCP i GolfBox AI-boksen sammen med navn, klubb og medlemsnummer.
