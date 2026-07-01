@@ -44,12 +44,11 @@ def login():
             flash("Feil brukernavn eller passord.", "error")
             return render_template("login.html", username=username)
 
-        if not is_balletour_player(user):
-            try:
-                sync_user_golfbox_handicap(user)
-            except ValueError as exc:
-                db.session.rollback()
-                current_app.logger.warning("GolfBox handicap-sync feilet for bruker %s: %s", user.id, exc)
+        try:
+            sync_user_golfbox_handicap(user)
+        except ValueError as exc:
+            db.session.rollback()
+            current_app.logger.warning("GolfBox handicap-sync feilet for bruker %s: %s", user.id, exc)
 
         session.clear()
         session["user_id"] = user.id

@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.20] - 2026-07-01
+- Henter GolfBox-handicap ved innlogging for alle brukere med lagret GolfBox-innlogging, også brukere som har BalleTour-tilgang.
+- Gjør GolfBox-HCP-tolkingen mer robust for ulike GolfBox-format med kolon, pluss/minus og komma.
+
 ## [1.9.19] - 2026-06-27
 - Henter oppdatert handicap fra GolfBox når Shanklife-spillere logger inn, og oppdaterer spillerens standard-HCP automatisk.
 - Oppdaterer også lagret GolfBox-identitet med siste klubb, medlemsnummer og navn ved samme synk.

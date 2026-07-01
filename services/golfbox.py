@@ -74,12 +74,14 @@ def user_has_golfbox_credentials(user):
 
 def golfbox_connection_summary(user):
     memberships = _user_memberships(user)
+    hcp = round(float(user.player.default_hcp), 1) if user and getattr(user, "player", None) else None
     if not user_has_golfbox_credentials(user):
         return {
             "connected": False,
             "player_name": None,
             "club_name": None,
             "member_number": None,
+            "hcp": hcp,
             "username": None,
             "memberships": [],
         }
@@ -88,6 +90,7 @@ def golfbox_connection_summary(user):
         "player_name": user.golfbox_player_name,
         "club_name": user.golfbox_home_club_name,
         "member_number": user.golfbox_member_number,
+        "hcp": hcp,
         "username": user.golfbox_username,
         "memberships": memberships,
     }
@@ -574,11 +577,14 @@ def _parse_identity(frontpage_html):
             "hcp": None,
         }
     name, club, member_number, hcp_raw = identity_matches[-1]
+    hcp = _parse_golfbox_hcp(hcp_raw)
+    if hcp is None:
+        hcp = _parse_golfbox_hcp_from_text(text, member_number)
     return {
         "player_name": html.unescape(name).strip(),
         "club_name": html.unescape(club).strip(),
         "member_number": member_number.strip(),
-        "hcp": _parse_golfbox_hcp(hcp_raw),
+        "hcp": hcp,
     }
 
 
@@ -593,6 +599,24 @@ def _parse_golfbox_hcp(raw_value):
     if value < -20 or value > 60:
         return None
     return round(value, 1)
+
+
+def _parse_golfbox_hcp_from_text(text, member_number):
+    if not text or not member_number:
+        return None
+    escaped_member = re.escape(member_number)
+    match = re.search(
+        rf"{escaped_member}\s*\|\s*HCP\s*:?\s*(?P<hcp>[+-]?\d{{1,3}}(?:[,.]\d{{1,2}})?)",
+        text,
+        re.IGNORECASE,
+    )
+    if not match:
+        match = re.search(
+            r"\bHCP\s*:?\s*(?P<hcp>[+-]?\d{1,3}(?:[,.]\d{1,2})?)",
+            text,
+            re.IGNORECASE,
+        )
+    return _parse_golfbox_hcp(match.group("hcp")) if match else None
 
 
 def _apply_golfbox_hcp_to_player(user, hcp):

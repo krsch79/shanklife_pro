@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.20] - 2026-07-01
+- Henter GolfBox-handicap ved innlogging for BalleTour-brukere med lagret GolfBox-innlogging.
+- Viser HCP i GolfBox AI-boksen sammen med navn, klubb og medlemsnummer.
+
 ## [1.9.15] - 2026-06-26
 - Bruker spillerens standardkølle automatisk i iPhone-scoreføringen når et nytt BalleTour-hull åpnes.
 - Fjerner lagre-knappen fra siste hull i iPhone-scoreføringen, slik at siste steg bare er å fullføre runden.

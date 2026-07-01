@@ -910,12 +910,11 @@ def login():
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": {"code": "invalid_credentials", "message": "Feil brukernavn eller passord."}}), 401
 
-    if not is_balletour_player(user):
-        try:
-            sync_user_golfbox_handicap(user)
-        except ValueError as exc:
-            db.session.rollback()
-            current_app.logger.warning("GolfBox handicap-sync feilet for API-bruker %s: %s", user.id, exc)
+    try:
+        sync_user_golfbox_handicap(user)
+    except ValueError as exc:
+        db.session.rollback()
+        current_app.logger.warning("GolfBox handicap-sync feilet for API-bruker %s: %s", user.id, exc)
 
     session.clear()
     session["user_id"] = user.id

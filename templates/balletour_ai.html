@@ -18,6 +18,9 @@
         {% if golfbox_connection.member_number %}
         <span>Medlemsnummer {{ golfbox_connection.member_number }}</span>
         {% endif %}
+        {% if golfbox_connection.hcp is not none %}
+        <span>HCP {{ "%.1f"|format(golfbox_connection.hcp) }}</span>
+        {% endif %}
         {% else %}
         <strong>GolfBox er ikke koblet til</strong>
         <a href="{{ url_for('balletour.me') }}">Legg inn innlogging på Min side</a>
