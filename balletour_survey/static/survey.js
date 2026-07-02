@@ -1,13 +1,21 @@
 const BALLERUD_CENTER = [59.9148, 10.5886];
 const map = L.map("map").setView(BALLERUD_CENTER, 17);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
     maxZoom: 21,
-    attribution: "&copy; OpenStreetMap",
+    attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
 }).addTo(map);
 
 const gpsStatus = document.querySelector("#gpsStatus");
 const accuracyStatus = document.querySelector("#accuracyStatus");
+const gpsIndicator = document.querySelector("#gpsIndicator");
+const gpsPermission = document.querySelector("#gpsPermission");
+const gpsCoordinates = document.querySelector("#gpsCoordinates");
+const gpsAltitude = document.querySelector("#gpsAltitude");
+const gpsSpeed = document.querySelector("#gpsSpeed");
+const gpsHeading = document.querySelector("#gpsHeading");
+const gpsTimestamp = document.querySelector("#gpsTimestamp");
+const gpsSatellites = document.querySelector("#gpsSatellites");
 const locateButton = document.querySelector("#locateButton");
 const sampleButton = document.querySelector("#sampleButton");
 const clearDraftButton = document.querySelector("#clearDraftButton");
@@ -50,20 +58,25 @@ clearDraftButton.addEventListener("click", clearDraft);
 geometryInput.addEventListener("change", refreshDraft);
 featureForm.addEventListener("submit", saveDraft);
 
+setGpsState("off", "GPS av", "Trykk Start GPS");
+refreshPermissionStatus();
 loadFeatures();
 
 function startGps() {
     if (!window.isSecureContext) {
+        setGpsState("blocked", "GPS blokkert", "GPS krever HTTPS");
         gpsStatus.textContent = "GPS krever HTTPS. Åpne https://survey.shanklife.no";
         return;
     }
     if (!navigator.geolocation) {
+        setGpsState("blocked", "GPS mangler", "Nettleseren støtter ikke GPS");
         gpsStatus.textContent = "GPS støttes ikke i denne nettleseren";
         return;
     }
     if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
     }
+    setGpsState("starting", "GPS starter", "Venter på posisjon");
     gpsStatus.textContent = "Starter GPS...";
     watchId = navigator.geolocation.watchPosition(handlePosition, handleGpsError, {
         enableHighAccuracy: true,
@@ -76,8 +89,10 @@ function handlePosition(position) {
     currentPosition = position;
     const latlng = [position.coords.latitude, position.coords.longitude];
     const accuracy = Math.round(position.coords.accuracy * 10) / 10;
+    setGpsState("on", "GPS på", `+-${accuracy} m`);
     gpsStatus.textContent = "GPS aktiv";
     accuracyStatus.textContent = `+-${accuracy} m`;
+    updateGpsDetails(position);
     sampleButton.disabled = false;
 
     if (!currentMarker) {
@@ -103,11 +118,57 @@ function handlePosition(position) {
 
 function handleGpsError(error) {
     if (error.code === error.PERMISSION_DENIED) {
+        setGpsState("blocked", "GPS blokkert", "Posisjon er ikke tillatt");
         gpsStatus.textContent = "Posisjon er blokkert. Åpne siden i Safari/Chrome og tillat posisjon for survey.shanklife.no.";
     } else {
+        setGpsState("blocked", "GPS-feil", error.message || "Kunne ikke hente GPS");
         gpsStatus.textContent = error.message || "Kunne ikke hente GPS";
     }
     sampleButton.disabled = true;
+    refreshPermissionStatus();
+}
+
+function setGpsState(state, label, detail) {
+    gpsIndicator.dataset.state = state;
+    gpsIndicator.textContent = label;
+    accuracyStatus.textContent = detail;
+}
+
+async function refreshPermissionStatus() {
+    if (!navigator.permissions || !navigator.permissions.query) {
+        gpsPermission.textContent = "Ukjent";
+        return;
+    }
+    try {
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        gpsPermission.textContent = permissionLabel(status.state);
+        status.onchange = () => {
+            gpsPermission.textContent = permissionLabel(status.state);
+        };
+    } catch (error) {
+        gpsPermission.textContent = "Ukjent";
+    }
+}
+
+function permissionLabel(state) {
+    if (state === "granted") return "Tillatt";
+    if (state === "prompt") return "Spør ved bruk";
+    if (state === "denied") return "Blokkert";
+    return "Ukjent";
+}
+
+function updateGpsDetails(position) {
+    const coords = position.coords;
+    gpsCoordinates.textContent = `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`;
+    gpsAltitude.textContent = coords.altitude === null ? "Ikke tilgjengelig" : `${Math.round(coords.altitude * 10) / 10} m`;
+    gpsSpeed.textContent = coords.speed === null ? "Ikke tilgjengelig" : `${Math.round(coords.speed * 3.6 * 10) / 10} km/t`;
+    gpsHeading.textContent = coords.heading === null ? "Ikke tilgjengelig" : `${Math.round(coords.heading)} grader`;
+    gpsTimestamp.textContent = new Date(position.timestamp).toLocaleTimeString("no-NO", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
+    gpsSatellites.textContent = "Ikke tilgjengelig i nettleser";
 }
 
 function addDraftPoint() {

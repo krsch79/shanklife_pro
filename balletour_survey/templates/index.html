@@ -12,6 +12,7 @@
         <section class="map-panel">
             <div id="map"></div>
             <div class="status-bar">
+                <span id="gpsIndicator" class="gps-pill" data-state="off">GPS av</span>
                 <span id="gpsStatus">GPS ikke startet</span>
                 <span id="accuracyStatus">-</span>
             </div>
@@ -28,6 +29,40 @@
                 <button id="sampleButton" type="button" disabled>Legg til punkt</button>
                 <button id="clearDraftButton" type="button" class="secondary">Tøm kladd</button>
             </div>
+
+            <section>
+                <h2>GPS-data</h2>
+                <div class="gps-details">
+                    <div class="gps-detail">
+                        <span>Tillatelse</span>
+                        <strong id="gpsPermission">Ukjent</strong>
+                    </div>
+                    <div class="gps-detail">
+                        <span>Koordinater</span>
+                        <strong id="gpsCoordinates">Ikke målt</strong>
+                    </div>
+                    <div class="gps-detail">
+                        <span>Høyde</span>
+                        <strong id="gpsAltitude">Ikke målt</strong>
+                    </div>
+                    <div class="gps-detail">
+                        <span>Fart</span>
+                        <strong id="gpsSpeed">Ikke målt</strong>
+                    </div>
+                    <div class="gps-detail">
+                        <span>Retning</span>
+                        <strong id="gpsHeading">Ikke målt</strong>
+                    </div>
+                    <div class="gps-detail">
+                        <span>Siste signal</span>
+                        <strong id="gpsTimestamp">Ikke målt</strong>
+                    </div>
+                    <div class="gps-detail">
+                        <span>Satellitter</span>
+                        <strong id="gpsSatellites">Ikke tilgjengelig i nettleser</strong>
+                    </div>
+                </div>
+            </section>
 
             <form id="featureForm">
                 <label>

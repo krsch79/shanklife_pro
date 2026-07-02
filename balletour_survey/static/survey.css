@@ -8,6 +8,8 @@
     --accent: #116149;
     --accent-dark: #0b4635;
     --danger: #a6422a;
+    --warning: #b7791f;
+    --ok: #127a4b;
 }
 
 * {
@@ -46,6 +48,7 @@ body {
     z-index: 500;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: 8px;
     padding: 10px 12px;
     border: 1px solid rgba(23, 32, 26, 0.12);
@@ -53,6 +56,48 @@ body {
     background: rgba(255, 255, 255, 0.94);
     font-size: 14px;
     font-weight: 650;
+}
+
+.gps-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: #e9eee9;
+    color: var(--ink);
+    font-weight: 850;
+}
+
+.gps-pill::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    margin-right: 7px;
+    border-radius: 50%;
+    background: #7b857d;
+}
+
+.gps-pill[data-state="starting"]::before {
+    background: var(--warning);
+}
+
+.gps-pill[data-state="on"] {
+    background: #e3f5ec;
+    color: #0d4f31;
+}
+
+.gps-pill[data-state="on"]::before {
+    background: var(--ok);
+}
+
+.gps-pill[data-state="blocked"] {
+    background: #f8e7e1;
+    color: #722f1e;
+}
+
+.gps-pill[data-state="blocked"]::before {
+    background: var(--danger);
 }
 
 .controls {
@@ -91,6 +136,34 @@ h1 {
 
 h2 {
     font-size: 16px;
+}
+
+.gps-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.gps-detail {
+    display: grid;
+    gap: 3px;
+    min-height: 58px;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfdfb;
+}
+
+.gps-detail span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.gps-detail strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 14px;
 }
 
 form,
@@ -212,5 +285,9 @@ button.danger {
         min-height: auto;
         border-left: 0;
         border-top: 1px solid var(--line);
+    }
+
+    .gps-details {
+        grid-template-columns: 1fr;
     }
 }

@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.27] - 2026-07-02
+- Bytter GPS Survey til satellittkart og viser tydeligere GPS-status, posisjonstillatelse og tilgjengelige GPS-detaljer som koordinater, høyde, fart, retning og siste signal.
+
 ## [1.9.26] - 2026-07-02
 - Legger til en separat BalleTour GPS Survey-app for å måle opp Ballerud med mobil-GPS, lagre punkter, linjer og områder i egen databasetabell og eksportere målingene som GeoJSON.
 - Gjør GPS Survey tydeligere når nettleseren blokkerer posisjonstilgang, og sender en eksplisitt geolocation-policy for survey-domenet.
