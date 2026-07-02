@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="no">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BalleTour GPS Survey</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='survey.css') }}">
+</head>
+<body>
+    <main class="app-shell">
+        <section class="map-panel">
+            <div id="map"></div>
+            <div class="status-bar">
+                <span id="gpsStatus">GPS ikke startet</span>
+                <span id="accuracyStatus">-</span>
+            </div>
+        </section>
+
+        <section class="controls" aria-label="Oppmålingskontroller">
+            <div class="top-row">
+                <h1>BalleTour GPS Survey</h1>
+                <a class="export-link" href="/api/export.geojson">GeoJSON</a>
+            </div>
+
+            <div class="button-row">
+                <button id="locateButton" type="button">Start GPS</button>
+                <button id="sampleButton" type="button" disabled>Legg til punkt</button>
+                <button id="clearDraftButton" type="button" class="secondary">Tøm kladd</button>
+            </div>
+
+            <form id="featureForm">
+                <label>
+                    Navn
+                    <input id="nameInput" name="name" maxlength="160" placeholder="Hull 3 tee" required>
+                </label>
+                <div class="form-grid">
+                    <label>
+                        Type
+                        <select id="typeInput" name="feature_type">
+                            <option value="tee">Tee</option>
+                            <option value="basket">Kurv</option>
+                            <option value="green">Green</option>
+                            <option value="fairway">Fairway</option>
+                            <option value="ob">OB</option>
+                            <option value="path">Sti</option>
+                            <option value="hazard">Hinder</option>
+                            <option value="sign">Skilt</option>
+                            <option value="other">Annet</option>
+                        </select>
+                    </label>
+                    <label>
+                        Hull
+                        <input id="holeInput" name="hole_number" type="number" min="1" max="18" inputmode="numeric">
+                    </label>
+                </div>
+                <label>
+                    Geometri
+                    <select id="geometryInput" name="geometry_type">
+                        <option value="Point">Punkt</option>
+                        <option value="LineString">Linje</option>
+                        <option value="Polygon">Område</option>
+                    </select>
+                </label>
+                <label>
+                    Notat
+                    <textarea id="notesInput" name="notes" rows="2" maxlength="1000"></textarea>
+                </label>
+                <button id="saveButton" type="submit" disabled>Lagre måling</button>
+                <p id="draftStatus" class="muted">Ingen kladdpunkter ennå.</p>
+            </form>
+
+            <section>
+                <h2>Lagrede målinger</h2>
+                <div id="featureList" class="feature-list"></div>
+            </section>
+        </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='survey.js') }}"></script>
+</body>
+</html>

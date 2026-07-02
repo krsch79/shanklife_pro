@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.26] - 2026-07-02
+- Legger til en separat BalleTour GPS Survey-app for å måle opp Ballerud med mobil-GPS, lagre punkter, linjer og områder i egen databasetabell og eksportere målingene som GeoJSON.
+
 ## [1.9.25] - 2026-07-02
 - Viser antall og prosent for birdies eller bedre, par, bogeys og dobbelbogey eller verre på spillerens BalleTour-statistikkside.
 
