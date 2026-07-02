@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.23] - 2026-07-02
+- Legger til knappen «Book tiden» på hver ledige GolfBox-tid i AI-chatten.
+- Lar brukeren velge hvem som skal bookes inn etter at en ledig tid er valgt, med støtte for «bare meg», navn og medlemsnummer før vanlig bookingbekreftelse.
+
 ## [1.9.22] - 2026-07-02
 - Gjør GolfBox AI mer logisk ved åpne ledighetsspørsmål: spørsmål uten oppgitt antall spillere tolkes nå som én ledig plass, mens eksplisitte antall fortsatt respekteres.
 

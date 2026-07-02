@@ -2221,6 +2221,104 @@ def _booking_confirmation_result(availability_result, interpretation, user):
     return availability_result
 
 
+def start_golfbox_slot_booking(slot_payload, user=None):
+    slot = _slot_from_payload(slot_payload)
+    interpretation = slot_payload.get("interpretation") if isinstance(slot_payload, dict) else {}
+    if not isinstance(interpretation, dict):
+        interpretation = {}
+    if _interpretation_has_player_details(interpretation):
+        return _booking_confirmation_for_slot(slot, interpretation, user)
+    return _slot_booking_player_question(slot, interpretation)
+
+
+def continue_golfbox_slot_booking(slot_payload, player_prompt, user=None):
+    slot = _slot_from_payload(slot_payload)
+    prompt = " ".join((player_prompt or "").strip().split())
+    if not prompt:
+        return _slot_booking_player_question(slot, slot_payload.get("interpretation") if isinstance(slot_payload, dict) else {})
+
+    interpretation_prompt = f"Book {slot['course']} {slot['date']} kl {slot['time']} for {prompt}"
+    interpretation = _interpret_prompt_with_openai(interpretation_prompt, user)
+    interpretation["intent"] = "create_booking"
+    interpretation["courses"] = [slot["course"]]
+    interpretation["date"] = slot["date"]
+    interpretation["time_from"] = slot["time"]
+    interpretation["time_to"] = _time_after(_parse_time(slot["time"], "booking_time"), minutes=30)
+    if _solo_booking_prompt(prompt.lower()) and not interpretation.get("member_numbers") and not interpretation.get("player_names"):
+        interpretation["include_current_user"] = True
+        interpretation["players"] = 1
+    return _booking_confirmation_for_slot(slot, interpretation, user)
+
+
+def _slot_from_payload(slot_payload):
+    if not isinstance(slot_payload, dict):
+        raise ValueError("Fant ikke valgt GolfBox-tid.")
+    slot = {
+        "course": str(slot_payload.get("course") or "").strip(),
+        "date": str(slot_payload.get("date") or "").strip(),
+        "time": str(slot_payload.get("time") or "").strip(),
+        "available_spots": int(slot_payload.get("available_spots") or 0),
+        "club_guid": str(slot_payload.get("club_guid") or "").strip(),
+        "resource_guid": str(slot_payload.get("resource_guid") or "").strip(),
+    }
+    if not slot["course"] or not slot["date"] or not slot["time"] or not slot["club_guid"] or not slot["resource_guid"]:
+        raise ValueError("Den valgte GolfBox-tiden mangler nødvendig informasjon.")
+    _parse_date(slot["date"])
+    _parse_time(slot["time"], "booking_time")
+    return slot
+
+
+def _interpretation_has_player_details(interpretation):
+    return bool(
+        interpretation.get("include_current_user")
+        or interpretation.get("player_names")
+        or interpretation.get("member_numbers")
+    )
+
+
+def _slot_booking_player_question(slot, interpretation=None):
+    result = {
+        "intent": "create_booking",
+        "status": "slot_booking_players_required",
+        "message": (
+            f"Hvem skal bookes inn på {slot['course']} {slot['date']} kl. {slot['time']}? "
+            "Skriv «bare meg», eller skriv navn/medlemsnummer på de som skal med, for eksempel "
+            "«meg og 65-2560»."
+        ),
+        "slot": slot,
+        "pending_slot_booking": {
+            **slot,
+            "interpretation": interpretation or {},
+        },
+        "available_slots": [],
+    }
+    return _attach_interpretation_method(
+        result,
+        source="local_rules",
+        detail="Brukeren valgte en konkret ledig GolfBox-tid, og må velge spillere før booking kan bekreftes.",
+    )
+
+
+def _booking_confirmation_for_slot(slot, interpretation, user):
+    players = max(1, min(4, int(interpretation.get("players") or 1)))
+    result = {
+        "intent": "create_booking",
+        "status": "ok",
+        "course": slot["course"],
+        "date": slot["date"],
+        "time_from": slot["time"],
+        "time_to": _time_after(_parse_time(slot["time"], "booking_time"), minutes=30),
+        "players": players,
+        "booking_enabled": True,
+        "available_slots": [slot],
+        "interpretation": interpretation,
+    }
+    return _attach_interpretation_method(
+        _booking_confirmation_result(result, interpretation, user),
+        interpretation=interpretation,
+    )
+
+
 def _scheduled_booking_result(interpretation, prompt, user):
     if not _credentials_for_user(user):
         return {

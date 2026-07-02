@@ -27,11 +27,13 @@ from services.user_notifications import send_balletour_round_started_notificatio
 from services.golfbox import (
     cancel_golfbox_booking,
     cancel_golfbox_scheduled_booking,
+    continue_golfbox_slot_booking,
     golfbox_booking_history,
     golfbox_booking_history_detail,
     golfbox_connection_summary,
     golfbox_favorites_summary,
     process_golfbox_prompt,
+    start_golfbox_slot_booking,
     sync_golfbox_favorites,
     upcoming_golfbox_bookings,
     upcoming_golfbox_scheduled_bookings,
@@ -1086,21 +1088,26 @@ def ai_tools():
         chat_messages = session.get("golfbox_ai_chat", [])
         pending_booking = session.get("golfbox_pending_booking")
         pending_cancel = session.get("golfbox_pending_cancel")
+        pending_slot_booking = session.get("golfbox_pending_slot_booking")
         prompt = request.form.get("prompt", "").strip()
         if request.method == "GET":
             chat_messages = []
             pending_booking = None
             pending_cancel = None
+            pending_slot_booking = None
             session.pop("golfbox_ai_chat", None)
             session.pop("golfbox_pending_booking", None)
             session.pop("golfbox_pending_cancel", None)
+            session.pop("golfbox_pending_slot_booking", None)
         if request.method == "POST":
             if request.form.get("action") == "clear":
                 chat_messages = []
                 pending_booking = None
                 pending_cancel = None
+                pending_slot_booking = None
                 session.pop("golfbox_pending_booking", None)
                 session.pop("golfbox_pending_cancel", None)
+                session.pop("golfbox_pending_slot_booking", None)
             elif request.form.get("action") == "sync_favorites":
                 try:
                     favorites = sync_golfbox_favorites(g.current_user)
@@ -1163,30 +1170,77 @@ def ai_tools():
                     session.pop("golfbox_pending_booking", None)
                 else:
                     chat_messages.append({"role": "assistant", "error": "Jeg fant ingen booking som venter på bekreftelse."})
+            elif request.form.get("action") == "book_available_slot":
+                try:
+                    interpretation = json.loads(request.form.get("interpretation", "{}") or "{}")
+                except json.JSONDecodeError:
+                    interpretation = {}
+                slot_payload = {
+                    "course": request.form.get("course", "").strip(),
+                    "date": request.form.get("date", "").strip(),
+                    "time": request.form.get("time", "").strip(),
+                    "available_spots": request.form.get("available_spots", "").strip(),
+                    "club_guid": request.form.get("club_guid", "").strip(),
+                    "resource_guid": request.form.get("resource_guid", "").strip(),
+                    "interpretation": interpretation,
+                }
+                try:
+                    prompt_result = start_golfbox_slot_booking(slot_payload, g.current_user)
+                    if prompt_result.get("status") == "slot_booking_players_required":
+                        pending_slot_booking = prompt_result.get("pending_slot_booking")
+                        session["golfbox_pending_slot_booking"] = pending_slot_booking
+                        pending_booking = None
+                        pending_cancel = None
+                        session.pop("golfbox_pending_booking", None)
+                        session.pop("golfbox_pending_cancel", None)
+                    elif prompt_result.get("status") == "confirmation_required":
+                        pending_booking = prompt_result.get("pending_booking")
+                        session["golfbox_pending_booking"] = pending_booking
+                        pending_slot_booking = None
+                        session.pop("golfbox_pending_slot_booking", None)
+                    chat_messages.append({"role": "assistant", "result": prompt_result})
+                except ValueError as exc:
+                    chat_messages.append({"role": "assistant", "error": str(exc)})
             elif prompt:
                 chat_messages.append({"role": "user", "text": prompt})
                 try:
-                    prompt_result = process_golfbox_prompt(
-                        prompt,
-                        user=g.current_user,
-                        pending_booking=pending_booking,
-                        pending_cancel=pending_cancel,
-                    )
+                    if pending_slot_booking:
+                        prompt_result = continue_golfbox_slot_booking(pending_slot_booking, prompt, g.current_user)
+                    else:
+                        prompt_result = process_golfbox_prompt(
+                            prompt,
+                            user=g.current_user,
+                            pending_booking=pending_booking,
+                            pending_cancel=pending_cancel,
+                        )
                     if prompt_result.get("status") == "confirmation_required":
                         pending_booking = prompt_result.get("pending_booking")
                         session["golfbox_pending_booking"] = pending_booking
                         pending_cancel = None
+                        pending_slot_booking = None
+                        session.pop("golfbox_pending_cancel", None)
+                        session.pop("golfbox_pending_slot_booking", None)
+                    elif prompt_result.get("status") == "slot_booking_players_required":
+                        pending_slot_booking = prompt_result.get("pending_slot_booking")
+                        session["golfbox_pending_slot_booking"] = pending_slot_booking
+                        pending_booking = None
+                        pending_cancel = None
+                        session.pop("golfbox_pending_booking", None)
                         session.pop("golfbox_pending_cancel", None)
                     elif prompt_result.get("status") == "cancel_confirmation_required":
                         pending_cancel = prompt_result.get("pending_cancel")
                         session["golfbox_pending_cancel"] = pending_cancel
                         pending_booking = None
+                        pending_slot_booking = None
                         session.pop("golfbox_pending_booking", None)
+                        session.pop("golfbox_pending_slot_booking", None)
                     elif prompt_result.get("status") in {"booking_created", "booking_failed", "payment_required", "scheduled_booking_created", "recurring_booking_created", "watch_booking_created", "booking_cancelled"}:
                         pending_booking = None
                         pending_cancel = None
+                        pending_slot_booking = None
                         session.pop("golfbox_pending_booking", None)
                         session.pop("golfbox_pending_cancel", None)
+                        session.pop("golfbox_pending_slot_booking", None)
                     chat_messages.append({"role": "assistant", "result": prompt_result})
                 except ValueError as exc:
                     chat_messages.append({"role": "assistant", "error": str(exc)})

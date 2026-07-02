@@ -256,6 +256,7 @@
                                                 <th>Dato</th>
                                                 <th>Ledige plasser</th>
                                                 <th>Bane</th>
+                                                <th></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -265,6 +266,18 @@
                                                 <td>{{ slot.date }}</td>
                                                 <td>{{ slot.available_spots }}</td>
                                                 <td>{{ slot.course }}</td>
+                                                <td>
+                                                    <form method="post" class="inline-form">
+                                                        <input type="hidden" name="course" value="{{ slot.course }}">
+                                                        <input type="hidden" name="date" value="{{ slot.date }}">
+                                                        <input type="hidden" name="time" value="{{ slot.time }}">
+                                                        <input type="hidden" name="available_spots" value="{{ slot.available_spots }}">
+                                                        <input type="hidden" name="club_guid" value="{{ slot.club_guid }}">
+                                                        <input type="hidden" name="resource_guid" value="{{ slot.resource_guid }}">
+                                                        <input type="hidden" name="interpretation" value="{{ result.interpretation|default({})|tojson|forceescape }}">
+                                                        <button type="submit" name="action" value="book_available_slot" class="button compact-button">Book tiden</button>
+                                                    </form>
+                                                </td>
                                             </tr>
                                             {% endfor %}
                                         </tbody>
