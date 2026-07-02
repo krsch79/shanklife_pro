@@ -653,6 +653,19 @@ def _save_shot_measurements(entry, raw_json):
     db.session.flush()
     for row in rows:
         db.session.add(ShotMeasurement(score_entry_id=entry.id, **row))
+    return rows
+
+
+def _map_first_shot_to_drive_distance(entry, shot_rows):
+    if not shot_rows:
+        return
+    distance_m = int(round(shot_rows[0]["distance_m"]))
+    stat = entry.detailed_stat
+    if not stat:
+        stat = ScoreStat(score_entry_id=entry.id)
+        db.session.add(stat)
+        db.session.flush()
+    stat.drive_distance_m = distance_m
 
 
 def _round_uses_club_tracking(round_obj):
@@ -1008,7 +1021,8 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
 
         if tracks_stats and not balletour_round:
             try:
-                _save_shot_measurements(entry, request.form.get(f"shot_measurements_{rp.id}", ""))
+                shot_rows = _save_shot_measurements(entry, request.form.get(f"shot_measurements_{rp.id}", ""))
+                _map_first_shot_to_drive_distance(entry, shot_rows)
             except ValueError as exc:
                 message = str(exc) or "Ugyldig GPS-måling."
                 raise ValueError(f"{message} ({rp.player_name_snapshot})") from exc

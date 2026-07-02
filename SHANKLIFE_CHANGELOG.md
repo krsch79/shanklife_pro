@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.30] - 2026-07-02
+- Mapper første GPS-målte slag på et hull til feltet for utslagslengde, mens senere GPS-målte slag fortsatt lagres som egne frittstående slag.
+
 ## [1.9.29] - 2026-07-02
 - Viser fortløpende omtrentlig GPS-avstand fra startpunktet mens et slag måles i Shanklife-scoreføringen.
 

@@ -508,6 +508,8 @@
         const button = panel.querySelector("[data-shot-measure-button]");
         const status = panel.querySelector("[data-shot-measurement-status]");
         const list = panel.querySelector("[data-shot-measurement-list]");
+        const row = panel.closest(".hole-player-row");
+        const driveDistanceSelect = row ? row.querySelector("select[data-drive-distance]") : null;
         const editable = panel.dataset.editable === "true";
         let measurements = [];
         let pendingStart = null;
@@ -545,6 +547,7 @@
                     deleteButton.textContent = "Slett";
                     deleteButton.addEventListener("click", () => {
                         measurements.splice(index, 1);
+                        syncFirstShotToDriveDistance();
                         syncInput();
                         render();
                     });
@@ -556,6 +559,29 @@
 
         function setStatus(message) {
             if (status) status.textContent = message;
+        }
+
+        function syncFirstShotToDriveDistance() {
+            if (!driveDistanceSelect) {
+                return;
+            }
+            if (!measurements.length) {
+                if (driveDistanceSelect.dataset.gpsDriveMapped === "true") {
+                    driveDistanceSelect.value = "";
+                    driveDistanceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                    delete driveDistanceSelect.dataset.gpsDriveMapped;
+                }
+                return;
+            }
+            const driveDistance = Math.round(measurements[0].distance_m);
+            const value = String(driveDistance);
+            if (!Array.from(driveDistanceSelect.options).some((option) => option.value === value)) {
+                const option = new Option(`${driveDistance} m`, value);
+                driveDistanceSelect.add(option);
+            }
+            driveDistanceSelect.value = value;
+            driveDistanceSelect.dataset.gpsDriveMapped = "true";
+            driveDistanceSelect.dispatchEvent(new Event("change", { bubbles: true }));
         }
 
         function stopLiveDistanceWatch() {
@@ -611,6 +637,7 @@
                 stopLiveDistanceWatch();
                 pendingStart = null;
                 button.textContent = "Mål slag";
+                syncFirstShotToDriveDistance();
                 syncInput();
                 render();
                 setStatus(`Slaget ble målt til ${formatShotDistance(distance)}.`);
@@ -625,6 +652,7 @@
         button?.addEventListener("click", handleMeasureClick);
         document.getElementById("hole-entry-form")?.addEventListener("submit", stopLiveDistanceWatch);
         syncInput();
+        syncFirstShotToDriveDistance();
         render();
     }
 
