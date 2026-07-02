@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.25] - 2026-07-02
+- Viser antall og prosent for birdies eller bedre, par, bogeys og dobbelbogey eller verre på spillerens BalleTour-statistikkside.
+
 ## [1.9.24] - 2026-07-02
 - Retter visningen av «Book tiden»-knappen slik at den også vises på den vanlige listen over ledige GolfBox-tider.
 

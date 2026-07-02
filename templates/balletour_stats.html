@@ -48,6 +48,10 @@
     <div class="stat-card"><strong>{{ stats.avg_putts if stats.avg_putts is not none else "-" }}</strong><span>Putter</span></div>
     <div class="stat-card"><strong>{{ stats.avg_last_putt_distance if stats.avg_last_putt_distance is not none else "-" }}{% if stats.avg_last_putt_distance is not none %} m{% endif %}</strong><span>Gjennomsnittelig lengde på siste putt</span></div>
     <div class="stat-card"><strong>{{ stats.avg_putt_meters_per_round if stats.avg_putt_meters_per_round is not none else "-" }}{% if stats.avg_putt_meters_per_round is not none %} m{% endif %}</strong><span>Meter siste putter pr runde</span></div>
+    <div class="stat-card"><strong>{{ stats.birdies_or_better }}{% if stats.birdies_or_better_percent is not none %} · {{ stats.birdies_or_better_percent }}%{% endif %}</strong><span>Birdies eller bedre</span></div>
+    <div class="stat-card"><strong>{{ stats.pars }}{% if stats.pars_percent is not none %} · {{ stats.pars_percent }}%{% endif %}</strong><span>Par</span></div>
+    <div class="stat-card"><strong>{{ stats.bogeys }}{% if stats.bogeys_percent is not none %} · {{ stats.bogeys_percent }}%{% endif %}</strong><span>Bogeys</span></div>
+    <div class="stat-card"><strong>{{ stats.double_bogeys_or_worse }}{% if stats.double_bogeys_or_worse_percent is not none %} · {{ stats.double_bogeys_or_worse_percent }}%{% endif %}</strong><span>Dobbelbogey eller verre</span></div>
 </div>
 
 <section>

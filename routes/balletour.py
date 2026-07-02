@@ -667,7 +667,9 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
     ]
     birdies_or_better = sum(1 for diff in score_diffs if diff < 0)
     pars = sum(1 for diff in score_diffs if diff == 0)
-    bogeys_or_worse = sum(1 for diff in score_diffs if diff > 0)
+    bogeys = sum(1 for diff in score_diffs if diff == 1)
+    double_bogeys_or_worse = sum(1 for diff in score_diffs if diff >= 2)
+    bogeys_or_worse = bogeys + double_bogeys_or_worse
 
     best_by_hole = {}
     for hole in holes:
@@ -779,7 +781,13 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         "best_round_vs_par": min(completed_totals) - course_par if completed_totals else None,
         "scored_holes": len(scored_entries),
         "birdies_or_better": birdies_or_better,
+        "birdies_or_better_percent": _percent(birdies_or_better, len(scored_entries)),
         "pars": pars,
+        "pars_percent": _percent(pars, len(scored_entries)),
+        "bogeys": bogeys,
+        "bogeys_percent": _percent(bogeys, len(scored_entries)),
+        "double_bogeys_or_worse": double_bogeys_or_worse,
+        "double_bogeys_or_worse_percent": _percent(double_bogeys_or_worse, len(scored_entries)),
         "bogeys_or_worse": bogeys_or_worse,
         "green_counts": green_counts,
         "green_attempts": len(stats_rows),
