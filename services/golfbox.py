@@ -1405,7 +1405,7 @@ def _interpret_prompt_with_openai(prompt, user):
         f"I dag er {today}. Innlogget bruker og lagrede GolfBox-medlemskap: {user_context}. "
         "Tolk golfmelding til JSON: "
         '{"intent":"find_availability|create_booking|cancel_booking|unknown",'
-        '"courses":[],"area":"","players":2,"include_current_user":false,'
+        '"courses":[],"area":"","players":1,"include_current_user":false,'
         '"player_names":[],"member_numbers":[],"member_number_names":{},"watch":false,'
         '"date":"YYYY-MM-DD","time_from":"HH:MM","time_to":"HH:MM",'
         '"execute_at":"","recurrence":{"frequency":"","weekday":"","execute_time":"","play_weekday":"","play_weeks_ahead":0}}. '
@@ -1414,7 +1414,8 @@ def _interpret_prompt_with_openai(prompt, user):
         "Flere baner listes i courses. Kjente korte banenavn: Ballerud, Oslo, Haga, "
         "Bærum, Grini, Asker, Oppegård, Drøbak. Mangler dato: i dag. "
         "Mangler tidsrom: 06:00-22:00. Enkelt klokkeslett: time_from=klokkeslett "
-        "og time_to=30 minutter senere. Mangler spillere: 2. "
+        "og time_to=30 minutter senere. Mangler spillere ved ledighetssøk: 1. "
+        "Mangler spillere ved booking uten medspillere: innlogget bruker. "
         "Hvis brukeren skriver jeg/meg/Kristian om seg selv, sett include_current_user=true, "
         "men ikke legg innlogget bruker i member_numbers. "
         "Medlemsnummer som 65-2560 legges i member_numbers og tilhører medspilleren, ikke innlogget bruker. "
@@ -1502,6 +1503,12 @@ def _normalize_interpretation(data, prompt, user=None):
         players = fallback["players"]
     players = max(1, min(4, players))
     min_players_from_text = len(player_names) + len(member_numbers) + (1 if include_current_user else 0)
+    if (
+        intent == "find_availability"
+        and not _prompt_has_explicit_player_count(prompt_lower)
+        and not min_players_from_text
+    ):
+        players = 1
     if _prompt_has_explicit_player_count(prompt_lower):
         players = max(players, fallback["players"])
     if _solo_booking_prompt(prompt_lower) and min_players_from_text <= 1:
@@ -1556,7 +1563,7 @@ def _fallback_prompt_interpretation(prompt, user=None, detail=None):
         intent = "find_availability"
     courses = _courses_from_prompt(prompt)
     time_from, time_to = _time_window_from_prompt(prompt_lower)
-    players = _players_from_prompt(prompt_lower)
+    players = _players_from_prompt(prompt_lower, default=1 if intent == "find_availability" else 2)
     if _prompt_references_current_user(prompt_lower) and not _prompt_has_explicit_player_count(prompt_lower):
         players = 1 + len(_member_numbers_from_prompt(prompt_lower))
     return {
@@ -3315,11 +3322,11 @@ def _booking_player_labels(players, user=None, club_name=None):
     return labels
 
 
-def _players_from_prompt(prompt_lower):
+def _players_from_prompt(prompt_lower, default=2):
     match = re.search(r"(\d+)\s*(person|personer|spiller|spillere)", prompt_lower)
     if match:
         return int(match.group(1))
-    return 2
+    return default
 
 
 def _date_from_prompt(prompt_lower):

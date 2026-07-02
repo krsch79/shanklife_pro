@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.22] - 2026-07-02
+- Gjør GolfBox AI mer logisk ved åpne ledighetsspørsmål: spørsmål uten oppgitt antall spillere tolkes nå som én ledig plass, mens eksplisitte antall fortsatt respekteres.
+
 ## [1.9.21] - 2026-07-01
 - Retter GolfBox-HCP-synk for BalleTour-brukere når GolfBox sender HCP med HTML-kodet mellomrom.
 - Logger vellykket GolfBox-HCP-synk, slik at det blir enklere å se hvilken HCP som ble lest fra GolfBox.
