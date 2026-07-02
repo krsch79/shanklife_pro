@@ -29,6 +29,11 @@ def create_app(database_url=None):
     init_database(engine)
     app.config["SURVEY_ENGINE"] = engine
 
+    @app.after_request
+    def allow_survey_geolocation(response):
+        response.headers["Permissions-Policy"] = "geolocation=(self)"
+        return response
+
     @app.get("/")
     def index():
         return render_template("index.html")

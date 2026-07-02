@@ -53,6 +53,10 @@ featureForm.addEventListener("submit", saveDraft);
 loadFeatures();
 
 function startGps() {
+    if (!window.isSecureContext) {
+        gpsStatus.textContent = "GPS krever HTTPS. Åpne https://survey.shanklife.no";
+        return;
+    }
     if (!navigator.geolocation) {
         gpsStatus.textContent = "GPS støttes ikke i denne nettleseren";
         return;
@@ -98,7 +102,11 @@ function handlePosition(position) {
 }
 
 function handleGpsError(error) {
-    gpsStatus.textContent = error.message || "Kunne ikke hente GPS";
+    if (error.code === error.PERMISSION_DENIED) {
+        gpsStatus.textContent = "Posisjon er blokkert. Åpne siden i Safari/Chrome og tillat posisjon for survey.shanklife.no.";
+    } else {
+        gpsStatus.textContent = error.message || "Kunne ikke hente GPS";
+    }
     sampleButton.disabled = true;
 }
 
