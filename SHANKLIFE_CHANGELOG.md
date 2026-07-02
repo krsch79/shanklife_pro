@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.28] - 2026-07-02
+- Legger til frivillig GPS-måling av slag i Shanklife-scoreføringen, der spilleren kan lagre startpunkt, stoppunkt, lengde og koordinater for ett eller flere slag per hull.
+- Lagrer GPS-målte slag separat fra eksisterende statistikkfelt, slik at målingene ikke blir påkrevd ved vanlig scoreføring eller fullføring av runden.
+
 ## [1.9.21] - 2026-07-01
 - Retter GolfBox-HCP-synk når GolfBox sender HCP med HTML-kodet mellomrom, slik at oppdatert handicap faktisk lagres ved innlogging.
 - Logger vellykket GolfBox-HCP-synk med klubb, medlemsnummer, HCP og om spillerens handicap ble oppdatert.

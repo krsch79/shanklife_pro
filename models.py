@@ -474,6 +474,12 @@ class ScoreEntry(db.Model):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    shot_measurements = db.relationship(
+        "ShotMeasurement",
+        back_populates="score_entry",
+        cascade="all, delete-orphan",
+        order_by="ShotMeasurement.shot_number",
+    )
 
     __table_args__ = (
         db.UniqueConstraint(
@@ -495,6 +501,32 @@ class ScoreStat(db.Model):
     last_putt_distance_m = db.Column(db.Float, nullable=True)
 
     score_entry = db.relationship("ScoreEntry", back_populates="detailed_stat")
+
+
+class ShotMeasurement(db.Model):
+    __tablename__ = "shot_measurements"
+
+    id = db.Column(db.Integer, primary_key=True)
+    score_entry_id = db.Column(db.Integer, db.ForeignKey("score_entries.id"), nullable=False)
+    shot_number = db.Column(db.Integer, nullable=False)
+    start_lat = db.Column(db.Float, nullable=False)
+    start_lng = db.Column(db.Float, nullable=False)
+    start_accuracy_m = db.Column(db.Float, nullable=True)
+    end_lat = db.Column(db.Float, nullable=False)
+    end_lng = db.Column(db.Float, nullable=False)
+    end_accuracy_m = db.Column(db.Float, nullable=True)
+    distance_m = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+
+    score_entry = db.relationship("ScoreEntry", back_populates="shot_measurements")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "score_entry_id",
+            "shot_number",
+            name="uq_score_entry_shot_number",
+        ),
+    )
 
 
 class Club(db.Model):

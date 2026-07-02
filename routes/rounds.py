@@ -21,6 +21,7 @@ from models import (
     RoundPlayer,
     ScoreEntry,
     ScoreStat,
+    ShotMeasurement,
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
@@ -45,6 +46,7 @@ from services.play_formats import (
     is_matchplay_round,
     normalize_play_format,
 )
+from services.shot_measurements import parse_shot_measurements
 from services.time import format_server_datetime, server_now
 from services.user_notifications import (
     send_balletour_round_finished_notifications,
@@ -623,6 +625,36 @@ def _save_score_stat(
         stat.last_putt_distance_m = last_putt_distance
 
 
+def _shot_measurement_view_values(entry):
+    if not entry:
+        return []
+    return [
+        {
+            "shot_number": measurement.shot_number,
+            "distance_m": round(measurement.distance_m, 1),
+            "start": {
+                "lat": measurement.start_lat,
+                "lng": measurement.start_lng,
+                "accuracy_m": measurement.start_accuracy_m,
+            },
+            "end": {
+                "lat": measurement.end_lat,
+                "lng": measurement.end_lng,
+                "accuracy_m": measurement.end_accuracy_m,
+            },
+        }
+        for measurement in entry.shot_measurements
+    ]
+
+
+def _save_shot_measurements(entry, raw_json):
+    rows = parse_shot_measurements(raw_json)
+    ShotMeasurement.query.filter_by(score_entry_id=entry.id).delete(synchronize_session=False)
+    db.session.flush()
+    for row in rows:
+        db.session.add(ShotMeasurement(score_entry_id=entry.id, **row))
+
+
 def _round_uses_club_tracking(round_obj):
     if round_obj.stats_user_id:
         return True
@@ -972,6 +1004,13 @@ def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
                 )
             except ValueError as exc:
                 message = str(exc) or "Ugyldig statistikk."
+                raise ValueError(f"{message} ({rp.player_name_snapshot})") from exc
+
+        if tracks_stats and not balletour_round:
+            try:
+                _save_shot_measurements(entry, request.form.get(f"shot_measurements_{rp.id}", ""))
+            except ValueError as exc:
+                message = str(exc) or "Ugyldig GPS-måling."
                 raise ValueError(f"{message} ({rp.player_name_snapshot})") from exc
 
 
@@ -1762,11 +1801,14 @@ def round_hole(round_id, hole_number):
     scoped_stats_fields = _round_uses_scoped_stat_fields(round_obj)
 
     stats_values_by_player = {}
+    shot_measurements_by_player = {}
     for rp in round_players:
         if not _round_player_tracks_stats(round_obj, rp, stats_rp):
             continue
         entry = score_entries.get(rp.id)
         stats_values_by_player[rp.id] = _stat_view_values(entry.detailed_stat if entry else None)
+        if not _is_balletour_round(round_obj):
+            shot_measurements_by_player[rp.id] = _shot_measurement_view_values(entry)
     stats_values = stats_values_by_player.get(stats_rp.id if stats_rp else None, {})
     clubs = _club_options_for_round(round_obj) if club_tracking_enabled else []
     hole_images = (
@@ -1788,6 +1830,7 @@ def round_hole(round_id, hole_number):
         stats_values=stats_values,
         score_options=score_options,
         stats_values_by_player=stats_values_by_player,
+        shot_measurements_by_player=shot_measurements_by_player,
         scoped_stats_fields=scoped_stats_fields,
         last_putt_distance_options=LAST_PUTT_DISTANCE_OPTIONS,
         drive_distance_options=DRIVE_DISTANCE_OPTIONS,
