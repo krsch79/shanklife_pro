@@ -16,6 +16,7 @@ const draftStatus = document.querySelector("#draftStatus");
 const featureForm = document.querySelector("#featureForm");
 const featureList = document.querySelector("#featureList");
 const geometryInput = document.querySelector("#geometryInput");
+const featuresUrl = document.body.dataset.featuresUrl || "/api/features";
 
 let watchId = null;
 let currentPosition = null;
@@ -183,7 +184,7 @@ async function saveDraft(event) {
     };
 
     saveButton.disabled = true;
-    const response = await fetch("/api/features", {
+    const response = await fetch(featuresUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -201,7 +202,7 @@ async function saveDraft(event) {
 }
 
 async function loadFeatures() {
-    const response = await fetch("/api/features");
+    const response = await fetch(featuresUrl);
     const data = await response.json();
     const features = data.features || [];
     savedLayer.clearLayers();
@@ -232,7 +233,7 @@ function renderFeatureList(features) {
     featureList.querySelectorAll("[data-delete-id]").forEach((button) => {
         button.addEventListener("click", async () => {
             const id = button.getAttribute("data-delete-id");
-            await fetch(`/api/features/${id}`, { method: "DELETE" });
+            await fetch(`${featuresUrl}/${id}`, { method: "DELETE" });
             await loadFeatures();
         });
     });

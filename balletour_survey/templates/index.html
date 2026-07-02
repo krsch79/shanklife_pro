@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='survey.css') }}">
 </head>
-<body>
+<body data-features-url="{{ url_for('api_features') }}">
     <main class="app-shell">
         <section class="map-panel">
             <div id="map"></div>
@@ -20,7 +20,7 @@
         <section class="controls" aria-label="Oppmålingskontroller">
             <div class="top-row">
                 <h1>BalleTour GPS Survey</h1>
-                <a class="export-link" href="/api/export.geojson">GeoJSON</a>
+                <a class="export-link" href="{{ url_for('api_export_geojson') }}">GeoJSON</a>
             </div>
 
             <div class="button-row">
