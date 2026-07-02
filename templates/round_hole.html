@@ -511,6 +511,7 @@
         const editable = panel.dataset.editable === "true";
         let measurements = [];
         let pendingStart = null;
+        let watchId = null;
 
         try {
             measurements = JSON.parse(input.value || "[]");
@@ -557,6 +558,33 @@
             if (status) status.textContent = message;
         }
 
+        function stopLiveDistanceWatch() {
+            if (watchId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+            watchId = null;
+        }
+
+        function startLiveDistanceWatch() {
+            stopLiveDistanceWatch();
+            if (!navigator.geolocation || !pendingStart) {
+                return;
+            }
+            watchId = navigator.geolocation.watchPosition((position) => {
+                if (!pendingStart) return;
+                const current = positionToPoint(position);
+                const distance = distanceMeters(pendingStart, current);
+                const accuracyText = current.accuracy_m ? ` · GPS ±${current.accuracy_m} m` : "";
+                setStatus(`Ca. ${formatShotDistance(distance)} fra startpunktet${accuracyText}. Trykk igjen der ballen stoppet.`);
+            }, () => {
+                setStatus("Startpunkt lagret. Klarer ikke å oppdatere avstand fortløpende akkurat nå.");
+            }, {
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 0,
+            });
+        }
+
         async function handleMeasureClick() {
             if (!editable || !button) return;
             button.disabled = true;
@@ -567,6 +595,7 @@
                     pendingStart = positionToPoint(position);
                     button.textContent = "Lagre stopp";
                     setStatus("Startpunkt lagret. Trykk igjen der ballen stoppet.");
+                    startLiveDistanceWatch();
                     return;
                 }
 
@@ -579,6 +608,7 @@
                     end,
                     distance_m: distance,
                 });
+                stopLiveDistanceWatch();
                 pendingStart = null;
                 button.textContent = "Mål slag";
                 syncInput();
@@ -593,6 +623,7 @@
         }
 
         button?.addEventListener("click", handleMeasureClick);
+        document.getElementById("hole-entry-form")?.addEventListener("submit", stopLiveDistanceWatch);
         syncInput();
         render();
     }
