@@ -48,7 +48,7 @@ class GpsDriveMappingTests(unittest.TestCase):
                 round_id=round_obj.id,
                 player_id=player.id,
                 player_name_snapshot=player.name,
-                hcp_at_round=10,
+                hcp_for_round=10,
                 tracks_stats=True,
             )
             self.db.session.add(round_player)
