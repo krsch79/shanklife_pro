@@ -2,7 +2,7 @@
 {% block title %}Slagkart hull {{ shot_map.hole.hole_number }} - {{ round.course.name }}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQKf6cc4Wc4QhZl5Qp6LxP7b6Gq5c0A=" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.12.0/dist/maplibre-gl.css">
 {% endblock %}
 
 {% block content %}
@@ -105,27 +105,22 @@
     </div>
 </section>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/maplibre-gl@5.12.0/dist/maplibre-gl.js"></script>
 <script>
 (function () {
     const mapElement = document.getElementById("shot-map");
     if (!mapElement) return;
 
     const data = JSON.parse(mapElement.dataset.shotMap || "{}");
-    const map = L.map(mapElement, { scrollWheelZoom: false });
-    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 19,
-        attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-    }).addTo(map);
-
-    const bounds = [];
+    const coordinates = [];
     const playerColors = ["#38bdf8", "#a78bfa", "#f472b6", "#34d399", "#fde047", "#fb7185"];
+    const features = [];
 
-    function latLng(point) {
-        return [point.lat, point.lng];
+    function lngLat(point) {
+        return [point.lng, point.lat];
     }
 
-    function popupText(player, shot) {
+    function popupHtml(player, shot) {
         return `<strong>${player.player_name}</strong><br>Slag ${shot.number}: ${shot.distance_label}<br>${shot.source_label}<br>${shot.detail || ""}`;
     }
 
@@ -133,38 +128,145 @@
         const color = playerColors[playerIndex % playerColors.length];
         player.shots.forEach((shot) => {
             if (!shot.start || !shot.end) return;
-            const start = latLng(shot.start);
-            const end = latLng(shot.end);
-            bounds.push(start, end);
+            const start = lngLat(shot.start);
+            const end = lngLat(shot.end);
+            coordinates.push(start, end);
             const isGps = shot.source === "gps";
-            const line = L.polyline([start, end], {
-                color: isGps ? color : "#f97316",
-                weight: isGps ? 5 : 4,
-                opacity: isGps ? 0.95 : 0.9,
-                dashArray: isGps ? null : "8 8",
-            }).addTo(map);
-            line.bindPopup(popupText(player, shot));
-            L.circleMarker(start, {
-                radius: 6,
-                color: "#ffffff",
-                weight: 2,
-                fillColor: isGps ? color : "#f97316",
-                fillOpacity: 1,
-            }).addTo(map).bindPopup(`${player.player_name}<br>Slag ${shot.number} start`);
-            L.circleMarker(end, {
-                radius: 7,
-                color: isGps ? color : "#f97316",
-                weight: 3,
-                fillColor: "#ffffff",
-                fillOpacity: 0.95,
-            }).addTo(map).bindPopup(popupText(player, shot));
+            const sourceColor = isGps ? color : "#f97316";
+            features.push({
+                type: "Feature",
+                geometry: { type: "LineString", coordinates: [start, end] },
+                properties: {
+                    color: sourceColor,
+                    source: shot.source,
+                    popup: popupHtml(player, shot),
+                },
+            });
         });
     });
 
-    if (bounds.length) {
-        map.fitBounds(bounds, { padding: [36, 36], maxZoom: 18 });
+    if (!coordinates.length) return;
+
+    function bearing(start, end) {
+        const toRadians = (degrees) => degrees * Math.PI / 180;
+        const toDegrees = (radians) => radians * 180 / Math.PI;
+        const lon1 = toRadians(start[0]);
+        const lon2 = toRadians(end[0]);
+        const lat1 = toRadians(start[1]);
+        const lat2 = toRadians(end[1]);
+        const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2)
+            - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+        return (toDegrees(Math.atan2(y, x)) + 360) % 360;
     }
-    setTimeout(() => map.invalidateSize(), 100);
+
+    function boundsFromCoordinates(points) {
+        return points.reduce((bounds, coordinate) => bounds.extend(coordinate), new maplibregl.LngLatBounds(points[0], points[0]));
+    }
+
+    function centerOf(points) {
+        const totals = points.reduce((acc, coordinate) => {
+            acc.lng += coordinate[0];
+            acc.lat += coordinate[1];
+            return acc;
+        }, { lng: 0, lat: 0 });
+        return [totals.lng / points.length, totals.lat / points.length];
+    }
+
+    function zoomForVisibleMeters(centerLat, visibleMeters) {
+        const earthCircumference = 40075016.686;
+        const height = Math.max(mapElement.clientHeight || 420, 1);
+        const metersPerPixel = visibleMeters / height;
+        return Math.log2((Math.cos(centerLat * Math.PI / 180) * earthCircumference) / (metersPerPixel * 512));
+    }
+
+    const lineBearing = bearing(features[0].geometry.coordinates[0], features[0].geometry.coordinates[1]);
+    const mapBearing = lineBearing;
+    const center = centerOf(coordinates);
+    const map = new maplibregl.Map({
+        container: mapElement,
+        style: {
+            version: 8,
+            sources: {
+                esriWorldImagery: {
+                    type: "raster",
+                    tiles: ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+                    tileSize: 256,
+                    attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+                },
+            },
+            layers: [{
+                id: "esri-world-imagery",
+                type: "raster",
+                source: "esriWorldImagery",
+            }],
+        },
+        center,
+        zoom: zoomForVisibleMeters(center[1], 400),
+        bearing: mapBearing,
+        pitch: 0,
+    });
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "top-right");
+
+    map.on("load", () => {
+        map.addSource("shots", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features },
+        });
+        map.addLayer({
+            id: "shot-lines-estimated",
+            type: "line",
+            source: "shots",
+            filter: ["==", ["get", "source"], "estimated"],
+            paint: {
+                "line-color": ["get", "color"],
+                "line-width": 4,
+                "line-opacity": 0.92,
+                "line-dasharray": [1.8, 1.4],
+            },
+        });
+        map.addLayer({
+            id: "shot-lines-gps",
+            type: "line",
+            source: "shots",
+            filter: ["==", ["get", "source"], "gps"],
+            paint: {
+                "line-color": ["get", "color"],
+                "line-width": 5,
+                "line-opacity": 0.96,
+            },
+        });
+
+        data.players.forEach((player, playerIndex) => {
+            const color = playerColors[playerIndex % playerColors.length];
+            player.shots.forEach((shot) => {
+                if (!shot.start || !shot.end) return;
+                const isGps = shot.source === "gps";
+                const sourceColor = isGps ? color : "#f97316";
+                [
+                    { point: shot.start, label: `${player.player_name}<br>Slag ${shot.number} start`, className: "shot-map-marker start" },
+                    { point: shot.end, label: popupHtml(player, shot), className: "shot-map-marker end" },
+                ].forEach((markerInfo) => {
+                    const element = document.createElement("span");
+                    element.className = `${markerInfo.className} ${shot.source}`;
+                    element.style.setProperty("--shot-color", sourceColor);
+                    new maplibregl.Marker({ element, rotationAlignment: "map" })
+                        .setLngLat(lngLat(markerInfo.point))
+                        .setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(markerInfo.label))
+                        .addTo(map);
+                });
+            });
+        });
+
+        const bounds = boundsFromCoordinates(coordinates);
+        map.fitBounds(bounds, {
+            padding: 46,
+            bearing: mapBearing,
+            maxZoom: zoomForVisibleMeters(center[1], 400),
+            duration: 0,
+        });
+        map.setBearing(mapBearing);
+    });
 })();
 </script>
 {% endblock %}

@@ -1221,7 +1221,8 @@ input.submit-is-loading {
 
 .shot-map {
     width: 100%;
-    min-height: 66vh;
+    height: min(66vh, 760px);
+    min-height: 430px;
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
@@ -1283,6 +1284,27 @@ input.submit-is-loading {
 .shot-map-shot-row small {
     grid-column: 1 / -1;
     color: var(--muted);
+}
+
+.shot-map-marker {
+    display: block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid var(--shot-color, #38bdf8);
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.35);
+}
+
+.shot-map-marker.start {
+    width: 13px;
+    height: 13px;
+    background: var(--shot-color, #38bdf8);
+    border-color: #fff;
+}
+
+.shot-map-marker.estimated {
+    border-style: dashed;
 }
 
 .score-final-field {
@@ -2848,6 +2870,15 @@ th {
         font-size: 0.88rem;
     }
 
+    .shanklife-scoring-header .container {
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+
+    .shanklife-scoring-header nav {
+        display: none;
+    }
+
     .balletour-header .container {
         grid-template-columns: auto minmax(0, 1fr);
         gap: 6px;
@@ -2946,7 +2977,8 @@ th {
     }
 
     .shot-map {
-        min-height: 58vh;
+        height: min(58dvh, calc(100dvh - 220px));
+        min-height: 320px;
     }
 
     .shot-map-shot-row {

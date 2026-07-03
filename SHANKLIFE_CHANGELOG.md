@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.33] - 2026-07-03
+- Skjuler toppmenyen på mobil ved scoreføring i Shanklife, slik at hullføringen får mer plass.
+- Flytter GPS-målte slag under scorefeltet og åpner «Mål slag» først når GPS-presisjonen er 5 meter eller bedre.
+- Forbedrer slagkart på mobil med mer kompakt kart, automatisk tettere zoom rundt slagsporet og rotasjon slik at første slag vises fra sør mot nord.
+
 ## [1.9.32] - 2026-07-03
 - Legger til slagkart for fullførte Shanklife-runder, med hull-for-hull-visning på satellittkart.
 - Viser GPS-målte slag som faktiske kartlinjer og manuelle/estimerte utslag med egen stiplet farge, slik at datagrunnlaget er tydelig.
