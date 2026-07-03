@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.31] - 2026-07-03
+- Retter en feil der lagring av første GPS-målte slag kunne gi serverfeil fordi utslagslengde-mappingen opprettet en ekstra statistikkrad for samme hull.
+
 ## [1.9.30] - 2026-07-02
 - Mapper første GPS-målte slag på et hull til feltet for utslagslengde, mens senere GPS-målte slag fortsatt lagres som egne frittstående slag.
 

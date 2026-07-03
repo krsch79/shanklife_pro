@@ -615,7 +615,7 @@ def _save_score_stat(
 
     stat = entry.detailed_stat
     if not stat and any(value is not None for value in (drive_distance, fairway_result, putts, last_putt_distance)):
-        stat = ScoreStat(score_entry_id=entry.id)
+        stat = ScoreStat(score_entry=entry)
         db.session.add(stat)
 
     if stat:
@@ -660,9 +660,10 @@ def _map_first_shot_to_drive_distance(entry, shot_rows):
     if not shot_rows:
         return
     distance_m = int(round(shot_rows[0]["distance_m"]))
-    stat = entry.detailed_stat
+    with db.session.no_autoflush:
+        stat = entry.detailed_stat or ScoreStat.query.filter_by(score_entry_id=entry.id).first()
     if not stat:
-        stat = ScoreStat(score_entry_id=entry.id)
+        stat = ScoreStat(score_entry=entry)
         db.session.add(stat)
         db.session.flush()
     stat.drive_distance_m = distance_m
