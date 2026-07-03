@@ -6,6 +6,7 @@
     <title>{% block title %}Shanklife Pro{% endblock %}</title>
     <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='shanklife-favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head_extra %}{% endblock %}
 </head>
 <body>
     {% set is_balletour_page = request.endpoint and (request.endpoint.startswith('balletour.') or (series is defined and series.name in ['Balletour', 'BalleTour'])) %}

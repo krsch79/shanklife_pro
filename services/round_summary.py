@@ -263,6 +263,7 @@ def build_round_summary(round_obj):
             )
 
     return {
+        "hole_numbers": all_numbers,
         "front_holes": [holes_by_number[number] for number in front_numbers],
         "back_holes": [holes_by_number[number] for number in back_numbers],
         "par_by_hole": par_by_hole,

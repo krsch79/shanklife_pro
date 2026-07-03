@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.32] - 2026-07-03
+- Legger til slagkart for fullførte Shanklife-runder, med hull-for-hull-visning på satellittkart.
+- Viser GPS-målte slag som faktiske kartlinjer og manuelle/estimerte utslag med egen stiplet farge, slik at datagrunnlaget er tydelig.
+
 ## [1.9.31] - 2026-07-03
 - Retter en feil der lagring av første GPS-målte slag kunne gi serverfeil fordi utslagslengde-mappingen opprettet en ekstra statistikkrad for samme hull.
 

@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 from secrets import token_hex
 
@@ -667,6 +668,199 @@ def _map_first_shot_to_drive_distance(entry, shot_rows):
         db.session.add(stat)
         db.session.flush()
     stat.drive_distance_m = distance_m
+
+
+def _distance_label(distance):
+    if distance is None:
+        return "-"
+    value = round(distance, 1)
+    if value == int(value):
+        value = int(value)
+    return f"{value} m"
+
+
+def _destination_point(lat, lng, distance_m, bearing_degrees):
+    radius_m = 6371000
+    angular_distance = distance_m / radius_m
+    bearing = math.radians(bearing_degrees)
+    lat1 = math.radians(lat)
+    lng1 = math.radians(lng)
+
+    lat2 = math.asin(
+        math.sin(lat1) * math.cos(angular_distance)
+        + math.cos(lat1) * math.sin(angular_distance) * math.cos(bearing)
+    )
+    lng2 = lng1 + math.atan2(
+        math.sin(bearing) * math.sin(angular_distance) * math.cos(lat1),
+        math.cos(angular_distance) - math.sin(lat1) * math.sin(lat2),
+    )
+    return {
+        "lat": math.degrees(lat2),
+        "lng": math.degrees(lng2),
+    }
+
+
+def _manual_shot_bearing(hole, stat):
+    base_bearing = 0
+    result = stat.fairway_result if stat else None
+    if hole.par in (4, 5):
+        return {
+            "left": base_bearing - 14,
+            "right": base_bearing + 14,
+        }.get(result, base_bearing)
+
+    _status, directions = _green_stat_parts(result)
+    if "left" in directions:
+        return base_bearing - 14
+    if "right" in directions:
+        return base_bearing + 14
+    return base_bearing
+
+
+def _point_from_measurement(measurement, prefix):
+    return {
+        "lat": getattr(measurement, f"{prefix}_lat"),
+        "lng": getattr(measurement, f"{prefix}_lng"),
+        "accuracy_m": getattr(measurement, f"{prefix}_accuracy_m"),
+    }
+
+
+def _shot_map_all_gps_points(round_obj):
+    points = []
+    for entry in round_obj.score_entries:
+        for measurement in entry.shot_measurements:
+            points.append(_point_from_measurement(measurement, "start"))
+            points.append(_point_from_measurement(measurement, "end"))
+    return points
+
+
+def _average_point(points):
+    if not points:
+        return None
+    return {
+        "lat": sum(point["lat"] for point in points) / len(points),
+        "lng": sum(point["lng"] for point in points) / len(points),
+    }
+
+
+def _shot_map_player_hole(round_player, entry, hole, hole_anchor, round_anchor):
+    stat = entry.detailed_stat if entry else None
+    measurements = sorted(entry.shot_measurements, key=lambda item: item.shot_number) if entry else []
+    shots = []
+    gps_numbers = set()
+
+    for measurement in measurements:
+        gps_numbers.add(measurement.shot_number)
+        shots.append({
+            "number": measurement.shot_number,
+            "source": "gps",
+            "source_label": "GPS",
+            "distance_m": round(measurement.distance_m, 1),
+            "distance_label": _distance_label(measurement.distance_m),
+            "start": _point_from_measurement(measurement, "start"),
+            "end": _point_from_measurement(measurement, "end"),
+            "detail": "Faktisk GPS-måling",
+        })
+
+    if stat and stat.drive_distance_m is not None and 1 not in gps_numbers:
+        anchor = hole_anchor or round_anchor
+        if anchor:
+            start = dict(anchor)
+            bearing = _manual_shot_bearing(hole, stat)
+            end = _destination_point(start["lat"], start["lng"], stat.drive_distance_m, bearing)
+            if not hole_anchor and round_anchor:
+                start = _destination_point(start["lat"], start["lng"], 12 * (hole.hole_number - 1), (hole.hole_number * 37) % 360)
+                end = _destination_point(start["lat"], start["lng"], stat.drive_distance_m, bearing)
+            shots.insert(0, {
+                "number": 1,
+                "source": "estimated",
+                "source_label": "Estimert",
+                "distance_m": stat.drive_distance_m,
+                "distance_label": _distance_label(stat.drive_distance_m),
+                "start": start,
+                "end": end,
+                "detail": _hole_result_label(hole, stat.fairway_result),
+            })
+
+    score = entry.strokes if entry else None
+    return {
+        "round_player_id": round_player.id,
+        "player_name": round_player.player_name_snapshot,
+        "score": score,
+        "score_label": "-" if score is None else str(score),
+        "to_par": score - hole.par if score is not None else None,
+        "to_par_display": _vs_par_display(score - hole.par) if score is not None else "-",
+        "shots": sorted(shots, key=lambda item: item["number"]),
+        "manual_data": {
+            "club": entry.tee_club.name if entry and entry.tee_club else "-",
+            "drive_distance": stat.drive_distance_m if stat and stat.drive_distance_m is not None else None,
+            "result": _hole_result_label(hole, stat.fairway_result if stat else None),
+            "putts": stat.putts if stat and stat.putts is not None else None,
+            "last_putt_distance": stat.last_putt_distance_m if stat and stat.last_putt_distance_m is not None else None,
+        },
+    }
+
+
+def _shot_map_payload(round_obj, hole_number):
+    holes = round_holes(round_obj)
+    holes_by_number = {hole.hole_number: hole for hole in holes}
+    hole = holes_by_number.get(hole_number)
+    if not hole:
+        return None
+
+    all_gps_points = _shot_map_all_gps_points(round_obj)
+    round_anchor = _average_point(all_gps_points)
+    entry_by_player = {
+        entry.round_player_id: entry
+        for entry in ScoreEntry.query.filter_by(round_id=round_obj.id, hole_number=hole_number).all()
+    }
+    hole_points = []
+    for entry in entry_by_player.values():
+        for measurement in entry.shot_measurements:
+            hole_points.append(_point_from_measurement(measurement, "start"))
+            hole_points.append(_point_from_measurement(measurement, "end"))
+    hole_anchor = _average_point(hole_points)
+
+    player_rows = [
+        _shot_map_player_hole(round_player, entry_by_player.get(round_player.id), hole, hole_anchor, round_anchor)
+        for round_player in sorted(round_obj.round_players, key=lambda item: item.id)
+    ]
+    map_points = [
+        point
+        for player in player_rows
+        for shot in player["shots"]
+        for point in (shot["start"], shot["end"])
+    ]
+    holes_with_data = []
+    for candidate in holes:
+        entries = [entry for entry in round_obj.score_entries if entry.hole_number == candidate.hole_number]
+        has_gps = any(entry.shot_measurements for entry in entries)
+        has_manual = any(
+            entry.detailed_stat and entry.detailed_stat.drive_distance_m is not None
+            for entry in entries
+        )
+        holes_with_data.append({
+            "hole_number": candidate.hole_number,
+            "has_gps": has_gps,
+            "has_manual": has_manual,
+        })
+
+    return {
+        "round_id": round_obj.id,
+        "course_name": round_obj.course.name,
+        "hole": {
+            "hole_number": hole.hole_number,
+            "par": hole.par,
+            "stroke_index": round_handicap_stroke_index(round_obj, hole),
+        },
+        "hole_numbers": [hole.hole_number for hole in holes],
+        "holes_with_data": holes_with_data,
+        "players": player_rows,
+        "map_points": map_points,
+        "has_any_gps": bool(all_gps_points),
+        "has_map_points": bool(map_points),
+        "uses_round_anchor": bool(map_points and not hole_anchor and round_anchor),
+    }
 
 
 def _round_uses_club_tracking(round_obj):
@@ -1703,6 +1897,32 @@ def round_detail(round_id):
     if round_obj.status == "finished" and not _is_balletour_round(round_obj):
         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
     return render_template("round_detail.html", round=round_obj)
+
+
+@rounds_bp.route("/rounds/<int:round_id>/shot-map/<int:hole_number>")
+def round_shot_map(round_id, hole_number):
+    round_obj = Round.query.get_or_404(round_id)
+    if round_obj.status != "finished" or _is_balletour_round(round_obj):
+        flash("Slagkart er bare tilgjengelig for fullførte Shanklife-runder.", "error")
+        return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+
+    payload = _shot_map_payload(round_obj, hole_number)
+    if not payload:
+        flash("Ugyldig hullnummer.", "error")
+        first_hole = round_holes(round_obj)[0].hole_number
+        return redirect(url_for("rounds.round_shot_map", round_id=round_obj.id, hole_number=first_hole))
+
+    hole_numbers = payload["hole_numbers"]
+    current_index = hole_numbers.index(hole_number)
+    previous_hole = hole_numbers[current_index - 1] if current_index > 0 else None
+    next_hole = hole_numbers[current_index + 1] if current_index + 1 < len(hole_numbers) else None
+    return render_template(
+        "round_shot_map.html",
+        round=round_obj,
+        shot_map=payload,
+        previous_hole=previous_hole,
+        next_hole=next_hole,
+    )
 
 
 @rounds_bp.route("/rounds/<int:round_id>/continue")

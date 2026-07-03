@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Slagkart hull {{ shot_map.hole.hole_number }} - {{ round.course.name }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQKf6cc4Wc4QhZl5Qp6LxP7b6Gq5c0A=" crossorigin="">
+{% endblock %}
+
+{% block content %}
+<div class="page-title-row round-summary-heading">
+    <div>
+        <p class="muted">Slagkart · Runde {{ round.id }}</p>
+        <h2>{{ round.course.name }} - hull {{ shot_map.hole.hole_number }}</h2>
+        <p class="muted">Par {{ shot_map.hole.par }} · index {{ shot_map.hole.stroke_index }}</p>
+    </div>
+    <div class="button-row compact">
+        <a class="button secondary" href="{{ url_for('rounds.round_score', round_id=round.id) }}">Til scorekort</a>
+        {% if previous_hole %}
+        <a class="button secondary" href="{{ url_for('rounds.round_shot_map', round_id=round.id, hole_number=previous_hole) }}">Forrige hull</a>
+        {% endif %}
+        {% if next_hole %}
+        <a class="button" href="{{ url_for('rounds.round_shot_map', round_id=round.id, hole_number=next_hole) }}">Neste hull</a>
+        {% endif %}
+    </div>
+</div>
+
+<nav class="shot-map-hole-nav" aria-label="Velg hull">
+    {% for row in shot_map.holes_with_data %}
+    <a
+        class="{% if row.hole_number == shot_map.hole.hole_number %}active{% endif %} {% if row.has_gps %}has-gps{% elif row.has_manual %}has-manual{% endif %}"
+        href="{{ url_for('rounds.round_shot_map', round_id=round.id, hole_number=row.hole_number) }}"
+    >
+        {{ row.hole_number }}
+    </a>
+    {% endfor %}
+</nav>
+
+<section class="round-summary-card shot-map-card">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Kart</p>
+            <h3>Hull {{ shot_map.hole.hole_number }}</h3>
+        </div>
+        <div class="shot-map-legend">
+            <span><i class="shot-line-swatch gps"></i> GPS</span>
+            <span><i class="shot-line-swatch estimated"></i> Estimat</span>
+        </div>
+    </div>
+
+    {% if shot_map.has_map_points %}
+    {% if shot_map.uses_round_anchor %}
+    <div class="flash flash-warning">
+        Dette hullet mangler egne GPS-punkter. Estimerte slag tegnes skjematisk rundt kjent GPS-område fra runden, ikke fra verifisert tee/ballposisjon.
+    </div>
+    {% endif %}
+    <div id="shot-map" class="shot-map" data-shot-map='{{ shot_map|tojson|forceescape }}'></div>
+    {% else %}
+    <div class="empty-state">
+        <h3>Ingen kartpunkter for dette hullet ennå</h3>
+        <p>Det finnes ikke GPS-punkter å plassere slagene på kartet med. Manuelle data vises under, men kan ikke tegnes geografisk før minst ett GPS-punkt finnes i runden.</p>
+    </div>
+    {% endif %}
+</section>
+
+<section class="round-statistics-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Slagdetaljer</p>
+            <h3>Hull {{ shot_map.hole.hole_number }}</h3>
+        </div>
+    </div>
+
+    <div class="shot-map-player-grid">
+        {% for player in shot_map.players %}
+        <article class="round-player-statistics shot-map-player-card">
+            <div class="round-player-statistics-header">
+                <div>
+                    <h4>{{ player.player_name }}</h4>
+                    <p class="muted">Score {{ player.score_label }} · {{ player.to_par_display }} mot par</p>
+                </div>
+            </div>
+
+            <dl class="compact-stat-list">
+                <div><dt>Kølle</dt><dd>{{ player.manual_data.club }}</dd></div>
+                <div><dt>Utslagslengde</dt><dd>{% if player.manual_data.drive_distance is not none %}{{ player.manual_data.drive_distance }} m{% else %}-{% endif %}</dd></div>
+                <div><dt>Treff</dt><dd>{{ player.manual_data.result }}</dd></div>
+                <div><dt>Putter</dt><dd>{% if player.manual_data.putts is not none %}{{ player.manual_data.putts }}{% else %}-{% endif %}</dd></div>
+            </dl>
+
+            {% if player.shots %}
+            <div class="shot-map-shot-list">
+                {% for shot in player.shots %}
+                <div class="shot-map-shot-row {{ shot.source }}">
+                    <strong>Slag {{ shot.number }}</strong>
+                    <span>{{ shot.distance_label }}</span>
+                    <span>{{ shot.source_label }}</span>
+                    <small>{{ shot.detail }}</small>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="muted">Ingen GPS- eller utslagslengde-data å tegne for dette hullet.</p>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function () {
+    const mapElement = document.getElementById("shot-map");
+    if (!mapElement) return;
+
+    const data = JSON.parse(mapElement.dataset.shotMap || "{}");
+    const map = L.map(mapElement, { scrollWheelZoom: false });
+    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19,
+        attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    }).addTo(map);
+
+    const bounds = [];
+    const playerColors = ["#38bdf8", "#a78bfa", "#f472b6", "#34d399", "#fde047", "#fb7185"];
+
+    function latLng(point) {
+        return [point.lat, point.lng];
+    }
+
+    function popupText(player, shot) {
+        return `<strong>${player.player_name}</strong><br>Slag ${shot.number}: ${shot.distance_label}<br>${shot.source_label}<br>${shot.detail || ""}`;
+    }
+
+    data.players.forEach((player, playerIndex) => {
+        const color = playerColors[playerIndex % playerColors.length];
+        player.shots.forEach((shot) => {
+            if (!shot.start || !shot.end) return;
+            const start = latLng(shot.start);
+            const end = latLng(shot.end);
+            bounds.push(start, end);
+            const isGps = shot.source === "gps";
+            const line = L.polyline([start, end], {
+                color: isGps ? color : "#f97316",
+                weight: isGps ? 5 : 4,
+                opacity: isGps ? 0.95 : 0.9,
+                dashArray: isGps ? null : "8 8",
+            }).addTo(map);
+            line.bindPopup(popupText(player, shot));
+            L.circleMarker(start, {
+                radius: 6,
+                color: "#ffffff",
+                weight: 2,
+                fillColor: isGps ? color : "#f97316",
+                fillOpacity: 1,
+            }).addTo(map).bindPopup(`${player.player_name}<br>Slag ${shot.number} start`);
+            L.circleMarker(end, {
+                radius: 7,
+                color: isGps ? color : "#f97316",
+                weight: 3,
+                fillColor: "#ffffff",
+                fillOpacity: 0.95,
+            }).addTo(map).bindPopup(popupText(player, shot));
+        });
+    });
+
+    if (bounds.length) {
+        map.fitBounds(bounds, { padding: [36, 36], maxZoom: 18 });
+    }
+    setTimeout(() => map.invalidateSize(), 100);
+})();
+</script>
+{% endblock %}

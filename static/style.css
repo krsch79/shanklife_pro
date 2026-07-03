@@ -1178,6 +1178,113 @@ input.submit-is-loading {
     font-weight: 700;
 }
 
+.shot-map-hole-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 14px;
+}
+
+.shot-map-hole-nav a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.shot-map-hole-nav a.has-gps {
+    border-color: #38bdf8;
+    box-shadow: inset 0 -3px 0 #38bdf8;
+}
+
+.shot-map-hole-nav a.has-manual {
+    border-color: #f97316;
+    box-shadow: inset 0 -3px 0 #f97316;
+}
+
+.shot-map-hole-nav a.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.shot-map-card {
+    margin-bottom: 18px;
+}
+
+.shot-map {
+    width: 100%;
+    min-height: 66vh;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #dbeafe;
+}
+
+.shot-map-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    color: var(--muted);
+    font-weight: 800;
+}
+
+.shot-line-swatch {
+    display: inline-block;
+    width: 34px;
+    height: 0;
+    margin-right: 4px;
+    border-top: 4px solid #38bdf8;
+    vertical-align: middle;
+}
+
+.shot-line-swatch.estimated {
+    border-top-color: #f97316;
+    border-top-style: dashed;
+}
+
+.shot-map-player-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.shot-map-shot-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.shot-map-shot-row {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    gap: 8px 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-left: 5px solid #38bdf8;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.shot-map-shot-row.estimated {
+    border-left-color: #f97316;
+    background: #fff7ed;
+}
+
+.shot-map-shot-row small {
+    grid-column: 1 / -1;
+    color: var(--muted);
+}
+
 .score-final-field {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 84px;
@@ -2836,6 +2943,18 @@ th {
     .shot-measurement-item {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .shot-map {
+        min-height: 58vh;
+    }
+
+    .shot-map-shot-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .shot-map-shot-row span:last-of-type {
+        grid-column: 1 / -1;
     }
 
     .hole-nav {

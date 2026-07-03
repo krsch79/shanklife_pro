@@ -78,6 +78,7 @@
         {% if current_user_round_player and not is_matchplay_round %}
         <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
         {% endif %}
+        <a class="button secondary" href="{{ url_for('rounds.round_shot_map', round_id=round.id, hole_number=round_summary.hole_numbers[0]) }}">Slagkart</a>
         <a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Alle runder</a>
     </div>
 </div>
