@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.37] - 2026-07-03
+- Retter innsending av score til GolfBox slik at handicap-tellende runder sendes med riktig tellende-flagg og ikke havner som «Ikke tellende» hos markør.
+
 ## [1.9.36] - 2026-07-03
 - Endrer teksten «Score på hullet» til «Score» i Shanklife-scoreføringen.
 

@@ -1275,7 +1275,10 @@ def _form_inputs(page_html):
             continue
         if input_type in {"checkbox", "radio"} and "checked" not in attrs.lower():
             continue
-        form_data[name] = _attr_value(attrs, "value")
+        value = _attr_value(attrs, "value")
+        if input_type in {"checkbox", "radio"} and value == "":
+            value = "on"
+        form_data[name] = value
     return form_data
 
 

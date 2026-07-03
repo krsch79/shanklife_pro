@@ -1,9 +1,23 @@
 import unittest
 
+from services.golfbox import _form_inputs
 from services.golfbox_scores import _best_course, _normalize_api_option
 
 
 class GolfBoxScoreSubmissionTests(unittest.TestCase):
+    def test_form_inputs_send_checked_checkbox_without_value_as_on(self):
+        page_html = """
+            <input type="checkbox" name="chk_IsCounting" checked="checked">
+            <input type="checkbox" name="chk_UnknownCourse">
+            <input type="checkbox" name="chk_InputHoleScores" checked="checked" value="yes">
+        """
+
+        form_data = _form_inputs(page_html)
+
+        self.assertEqual(form_data["chk_IsCounting"], "on")
+        self.assertEqual(form_data["chk_InputHoleScores"], "yes")
+        self.assertNotIn("chk_UnknownCourse", form_data)
+
     def test_best_course_matches_local_golfbane_to_golfbox_gk_name(self):
         courses = [
             {"course_name": "Åpen Ballrenne morgen", "course_guid": "ballrenne"},

@@ -144,6 +144,7 @@ def _build_score_form_data(client, form_page, round_player, payload, marker_guid
     form_data["rdo_RoundType"] = "2"
     form_data["fld_HolesPlayed"] = str(payload["hole_count"])
     form_data["fld_MarkerMemberGUID"] = marker_guid
+    form_data["chk_IsCounting"] = "on"
     form_data["chk_InputHoleScores"] = "on"
     form_data["fld_TotalStrokes"] = str(payload["total"])
 
