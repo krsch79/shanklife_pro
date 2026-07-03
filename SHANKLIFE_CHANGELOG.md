@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.36] - 2026-07-03
+- Endrer teksten «Score på hullet» til «Score» i Shanklife-scoreføringen.
+
 ## [1.9.35] - 2026-07-03
 - Komprimerer boksen for GPS-målte slag i Shanklife-scoreføringen ved å fjerne overskrift, hjelpetekst og tomtekst.
 - Lar «Mål slag»-knappen vise GPS-status direkte og først bli aktiv når presisjonen er 5 meter eller bedre.
