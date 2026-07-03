@@ -213,27 +213,18 @@
                     data-shot-measurement-panel
                     data-player-name="{{ rp.player_name_snapshot }}"
                     data-editable="{{ score_entry_editable|tojson }}"
-                >
+                    >
                     <input
                         type="hidden"
                         name="shot_measurements_{{ rp.id }}"
                         value="{{ shot_measurements|tojson|forceescape }}"
                         data-shot-measurements-input
                     >
-                    <div class="shot-measurement-header">
-                        <div>
-                            <strong>GPS-målte slag</strong>
-                            <span>Start ved ballen, stopp der den endte.</span>
-                        </div>
-                        {% if score_entry_editable %}
-                        <button type="button" class="button secondary compact-button" data-shot-measure-button disabled>
-                            Mål slag
-                        </button>
-                        {% endif %}
-                    </div>
-                    <div class="shot-measurement-status muted" data-shot-measurement-status>
-                        {% if score_entry_editable %}Venter på GPS-presisjon på 5 meter eller bedre.{% else %}Lagrede GPS-målinger.{% endif %}
-                    </div>
+                    {% if score_entry_editable %}
+                    <button type="button" class="button secondary compact-button shot-measurement-button" data-shot-measure-button disabled>
+                        Venter på GPS
+                    </button>
+                    {% endif %}
                     <div class="shot-measurement-list" data-shot-measurement-list></div>
                 </div>
                 {% endif %}
@@ -520,6 +511,15 @@
                 timeout: 20000,
                 maximumAge: 0,
             });
+            navigator.geolocation.getCurrentPosition((position) => {
+                latestPosition = position;
+                latestError = null;
+                notify();
+            }, () => {}, {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0,
+            });
         }
 
         return {
@@ -542,7 +542,6 @@
     function initializeShotMeasurements(panel) {
         const input = panel.querySelector("[data-shot-measurements-input]");
         const button = panel.querySelector("[data-shot-measure-button]");
-        const status = panel.querySelector("[data-shot-measurement-status]");
         const list = panel.querySelector("[data-shot-measurement-list]");
         const row = panel.closest(".hole-player-row");
         const driveDistanceSelect = row ? row.querySelector("select[data-drive-distance]") : null;
@@ -552,6 +551,7 @@
         let watchId = null;
         let isSavingPoint = false;
         let lastAccuracyPoint = null;
+        let liveDistance = null;
 
         try {
             measurements = JSON.parse(input.value || "[]");
@@ -566,10 +566,6 @@
         function render() {
             list.replaceChildren();
             if (!measurements.length) {
-                const empty = document.createElement("span");
-                empty.className = "muted";
-                empty.textContent = "Ingen GPS-målte slag ennå.";
-                list.appendChild(empty);
                 return;
             }
             measurements.forEach((measurement, index) => {
@@ -595,25 +591,26 @@
             });
         }
 
-        function setStatus(message) {
-            if (status) status.textContent = message;
-        }
-
-        function gpsReadyText(point) {
+        function waitingGpsText(point) {
             if (!point) {
-                return "Venter på GPS-presisjon på 5 meter eller bedre.";
+                return "Venter på GPS";
             }
-            if (point.accuracy_m !== null && point.accuracy_m <= 5) {
-                return `GPS klar · presisjon ±${point.accuracy_m} m.`;
-            }
-            const accuracyText = point.accuracy_m !== null ? `nå ±${point.accuracy_m} m` : "ingen presisjon ennå";
-            return `Venter på bedre GPS (${accuracyText}). Knappen åpnes ved ±5 m eller bedre.`;
+            return point.accuracy_m !== null ? `Venter på GPS - nå ${point.accuracy_m} m` : "Venter på GPS";
         }
 
         function syncMeasureButton() {
             if (!button || !editable) return;
             const hasGoodPoint = lastAccuracyPoint && lastAccuracyPoint.accuracy_m !== null && lastAccuracyPoint.accuracy_m <= 5;
             button.disabled = isSavingPoint || !hasGoodPoint;
+            if (isSavingPoint) {
+                button.textContent = "Lagrer GPS...";
+            } else if (!hasGoodPoint) {
+                button.textContent = waitingGpsText(lastAccuracyPoint);
+            } else if (pendingStart) {
+                button.textContent = liveDistance === null ? "Lagre stopp" : `Lagre stopp · ${formatShotDistance(liveDistance)}`;
+            } else {
+                button.textContent = "Mål slag";
+            }
         }
 
         function syncFirstShotToDriveDistance() {
@@ -655,11 +652,9 @@
                 if (!pendingStart) return;
                 const current = positionToPoint(position);
                 const distance = distanceMeters(pendingStart, current);
-                const accuracyText = current.accuracy_m ? ` · GPS ±${current.accuracy_m} m` : "";
-                setStatus(`Ca. ${formatShotDistance(distance)} fra startpunktet${accuracyText}. Trykk igjen der ballen stoppet.`);
-            }, () => {
-                setStatus("Startpunkt lagret. Klarer ikke å oppdatere avstand fortløpende akkurat nå.");
-            }, {
+                liveDistance = distance;
+                syncMeasureButton();
+            }, () => {}, {
                 enableHighAccuracy: true,
                 timeout: 20000,
                 maximumAge: 0,
@@ -670,7 +665,6 @@
             if (!editable || !button) return;
             const precisePoint = gpsAccuracyTracker.getGoodPoint();
             if (!precisePoint) {
-                setStatus(gpsReadyText(lastAccuracyPoint));
                 syncMeasureButton();
                 return;
             }
@@ -679,9 +673,9 @@
             try {
                 if (!pendingStart) {
                     pendingStart = precisePoint;
-                    button.textContent = "Lagre stopp";
-                    setStatus("Startpunkt lagret. Trykk igjen der ballen stoppet.");
+                    liveDistance = null;
                     startLiveDistanceWatch();
+                    syncMeasureButton();
                     return;
                 }
 
@@ -694,14 +688,14 @@
                 });
                 stopLiveDistanceWatch();
                 pendingStart = null;
-                button.textContent = "Mål slag";
+                liveDistance = null;
                 syncFirstShotToDriveDistance();
                 syncInput();
                 render();
-                setStatus(`Slaget ble målt til ${formatShotDistance(distance)}.`);
             } catch (error) {
-                const message = error && error.message ? error.message : "Kunne ikke hente GPS-posisjon.";
-                setStatus(message);
+                if (button) {
+                    button.textContent = error && error.message ? error.message : "Kunne ikke hente GPS";
+                }
             } finally {
                 isSavingPoint = false;
                 syncMeasureButton();
@@ -711,13 +705,10 @@
         if (editable && button) {
             gpsAccuracyTracker.subscribe((point, error) => {
                 lastAccuracyPoint = point;
-                syncMeasureButton();
-                if (!pendingStart && !measurements.length) {
-                    const message = error && error.message ? error.message : gpsReadyText(point);
-                    setStatus(message);
-                } else if (!pendingStart) {
-                    setStatus(gpsReadyText(point));
+                if (error && button) {
+                    button.textContent = error.message || "GPS utilgjengelig";
                 }
+                syncMeasureButton();
             });
         }
 

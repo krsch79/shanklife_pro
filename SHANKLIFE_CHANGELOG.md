@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.35] - 2026-07-03
+- Komprimerer boksen for GPS-målte slag i Shanklife-scoreføringen ved å fjerne overskrift, hjelpetekst og tomtekst.
+- Lar «Mål slag»-knappen vise GPS-status direkte og først bli aktiv når presisjonen er 5 meter eller bedre.
+- Starter høy-presisjons GPS-vakt med en gang scoreføringssiden åpnes, slik at posisjonen holdes varm mens spilleren fører score.
+
 ## [1.9.34] - 2026-07-03
 - Gjør innsending av score til GolfBox mer robust ved å foreslå og kreve bekreftelse av GolfBox-klubb, bane og tee før score sendes.
 - Forbedrer GolfBox-banematching slik at lokale banenavn som «Drøbak golfbane» kan matches mot GolfBox-navn som «Drøbak Golfklubb» og «Drøbak GK 18 hull».

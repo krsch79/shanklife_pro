@@ -1132,10 +1132,15 @@ input.submit-is-loading {
 
 .shot-measurement-panel {
     grid-column: 1 / -1;
-    padding: 10px 12px;
+    padding: 8px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: #f8fafc;
+}
+
+.shot-measurement-button {
+    width: 100%;
+    min-height: 46px;
 }
 
 .shot-measurement-header {
