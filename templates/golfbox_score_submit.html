@@ -40,6 +40,47 @@
 </section>
 
 <section class="form-card">
+    <h3>GolfBox-bane</h3>
+    {% if course_lookup_error %}
+    <p class="flash flash-error">{{ course_lookup_error }}</p>
+    {% elif course_suggestions %}
+    <p class="muted">Bekreft hvilken klubb, bane og tee scoren skal sendes til i GolfBox.</p>
+    <div class="golfbox-course-options">
+        {% for option in course_suggestions %}
+        {% set course_key = option.club_guid ~ "|" ~ option.course_guid ~ "|" ~ option.tee_guid %}
+        <label class="option-card">
+            <input
+                type="radio"
+                name="golfbox_course_choice_display"
+                value="{{ course_key }}"
+                data-golfbox-course-choice
+                data-club-guid="{{ option.club_guid }}"
+                data-course-guid="{{ option.course_guid }}"
+                data-tee-guid="{{ option.tee_guid }}"
+                {% if selected_course_key == course_key or (not selected_course_key and loop.first) %}checked{% endif %}
+            >
+            <span>
+                <strong>{{ option.club_name }} · {{ option.course_name }}</strong>
+                <small>
+                    Tee {{ option.tee_name }}
+                    · Par {{ option.course_par }}
+                    · CR {{ "%.1f"|format(option.course_rating) }}
+                    · Slope {{ option.slope }}
+                    · {{ "Tellende" if option.is_hcp_qualifying else "Ikke tellende i GolfBox" }}
+                </small>
+            </span>
+        </label>
+        {% endfor %}
+    </div>
+    {% if course_suggestions|length > 1 %}
+    <p class="flash flash-warning">Flere mulige GolfBox-baner ble funnet. Velg riktig rad før du sender.</p>
+    {% endif %}
+    {% else %}
+    <p class="flash flash-error">Fant ingen GolfBox-bane/tee som passer denne runden. Kontroller banenavn og tee, eller prøv igjen senere.</p>
+    {% endif %}
+</section>
+
+<section class="form-card">
     <h3>Markør</h3>
     <form method="post" class="settings-grid">
         <div>
@@ -71,12 +112,16 @@
                             <input type="hidden" name="marker_guid" value="{{ marker.guid }}">
                             <input type="hidden" name="marker_name" value="{{ marker.name }}">
                             <input type="hidden" name="marker_club" value="{{ marker.club }}">
+                            <input type="hidden" name="golfbox_course_key" value="" data-golfbox-course-key-input>
+                            <input type="hidden" name="golfbox_club_guid" value="" data-golfbox-club-guid-input>
+                            <input type="hidden" name="golfbox_course_guid" value="" data-golfbox-course-guid-input>
+                            <input type="hidden" name="golfbox_tee_guid" value="" data-golfbox-tee-guid-input>
                             <button
                                 type="submit"
                                 name="action"
                                 value="submit"
                                 class="button"
-                                {% if not golfbox_connection.connected or not payload.complete %}disabled{% endif %}
+                                {% if not golfbox_connection.connected or not payload.complete or not course_suggestions %}disabled{% endif %}
                                 onclick="return confirm('Sende scorekortet til GolfBox med {{ marker.name }} som markør?');"
                             >
                                 {{ "Send på nytt" if submission.status == "submitted" else "Bruk og send" }}
@@ -120,4 +165,37 @@
         </table>
     </div>
 </section>
+<script>
+(function () {
+    function selectedCourse() {
+        return document.querySelector("[data-golfbox-course-choice]:checked");
+    }
+
+    function syncCourseInputs() {
+        const selected = selectedCourse();
+        document.querySelectorAll("form.inline-form").forEach((form) => {
+            const keyInput = form.querySelector("[data-golfbox-course-key-input]");
+            const clubInput = form.querySelector("[data-golfbox-club-guid-input]");
+            const courseInput = form.querySelector("[data-golfbox-course-guid-input]");
+            const teeInput = form.querySelector("[data-golfbox-tee-guid-input]");
+            if (!selected) {
+                if (keyInput) keyInput.value = "";
+                if (clubInput) clubInput.value = "";
+                if (courseInput) courseInput.value = "";
+                if (teeInput) teeInput.value = "";
+                return;
+            }
+            if (keyInput) keyInput.value = selected.value;
+            if (clubInput) clubInput.value = selected.dataset.clubGuid || "";
+            if (courseInput) courseInput.value = selected.dataset.courseGuid || "";
+            if (teeInput) teeInput.value = selected.dataset.teeGuid || "";
+        });
+    }
+
+    document.querySelectorAll("[data-golfbox-course-choice]").forEach((input) => {
+        input.addEventListener("change", syncCourseInputs);
+    });
+    syncCourseInputs();
+})();
+</script>
 {% endblock %}

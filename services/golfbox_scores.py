@@ -64,7 +64,7 @@ def search_marker(user, query):
     return _parse_marker_search_results(response.text)
 
 
-def submit_score(round_player, user, marker_guid, marker_name, marker_club):
+def submit_score(round_player, user, marker_guid, marker_name, marker_club, course_selection=None):
     payload = round_player_score_payload(round_player)
     if not payload["complete"]:
         raise ValueError("Alle hullscorer må være fylt ut før runden kan sendes til GolfBox.")
@@ -76,7 +76,7 @@ def submit_score(round_player, user, marker_guid, marker_name, marker_club):
     credentials = _credentials_or_error(user)
     with _golfbox_client() as client:
         form_page = _load_score_form(client, credentials)
-        form_data = _build_score_form_data(client, form_page, round_player, payload, marker_guid)
+        form_data = _build_score_form_data(client, form_page, round_player, payload, marker_guid, course_selection=course_selection)
         matched_course_name = form_data.pop("_matched_course_name", None)
         matched_tee_name = form_data.pop("_matched_tee_name", None)
         submit_response = client.post(
@@ -120,7 +120,17 @@ def _load_score_form(client, credentials):
     return {"url": response.url, "html": response.text}
 
 
-def _build_score_form_data(client, form_page, round_player, payload, marker_guid):
+def score_course_suggestions(user, round_player):
+    payload = round_player_score_payload(round_player)
+    credentials = _credentials_or_error(user)
+    with _golfbox_client() as client:
+        form_page = _load_score_form(client, credentials)
+        form_data = _form_inputs(form_page["html"])
+        form_data.update(_selected_form_values(form_page["html"]))
+        return _course_suggestions(client, form_data, payload)
+
+
+def _build_score_form_data(client, form_page, round_player, payload, marker_guid, course_selection=None):
     page_html = form_page["html"]
     form_data = _form_inputs(page_html)
     form_data.update(_selected_form_values(page_html))
@@ -137,7 +147,7 @@ def _build_score_form_data(client, form_page, round_player, payload, marker_guid
     form_data["chk_InputHoleScores"] = "on"
     form_data["fld_TotalStrokes"] = str(payload["total"])
 
-    match = _match_golfbox_course_and_tee(client, form_data, round_player, payload)
+    match = _match_golfbox_course_and_tee(client, form_data, round_player, payload, course_selection=course_selection)
     form_data["fld_Club"] = match["club_guid"]
     form_data["fld_Course"] = match["course_guid"]
     form_data["fld_Tee"] = match["tee_guid"]
@@ -159,18 +169,61 @@ def _build_score_form_data(client, form_page, round_player, payload, marker_guid
     return form_data
 
 
-def _match_golfbox_course_and_tee(client, form_data, round_player, payload):
+def _match_golfbox_course_and_tee(client, form_data, round_player, payload, course_selection=None):
+    suggestions = _course_suggestions(client, form_data, payload, course_selection=course_selection)
+    if course_selection:
+        match = suggestions[0] if suggestions else None
+        if not match:
+            raise ValueError("Bekreftet GolfBox-bane kunne ikke valideres. Velg klubb og bane på nytt.")
+        return match
+    if len(suggestions) == 1:
+        return suggestions[0]
+    if suggestions:
+        raise ValueError("Bekreft hvilken GolfBox-klubb og bane scoren skal sendes til før innsending.")
+    raise ValueError(f"Fant ikke bane i GolfBox for {payload['course_name']}.")
+
+
+def _course_suggestions(client, form_data, payload, course_selection=None):
     score_date = _score_date_for_api(payload["played_at"] or server_now())
     clubs = _service_call(client, action="GetClubs", countryISO="NO", Club_GUID=form_data.get("fld_Club", ""), lcid="1044")
-    club = _best_option(clubs, _club_search_name(payload["course_name"]))
-    if not club:
-        raise ValueError(f"Fant ikke klubb i GolfBox for banen {payload['course_name']}.")
+    selected_club_guid = (course_selection or {}).get("club_guid", "").strip("{}")
+    selected_course_guid = (course_selection or {}).get("course_guid", "").strip("{}")
+    selected_tee_guid = (course_selection or {}).get("tee_guid", "").strip("{}")
 
-    courses = _service_call(client, action="GetCourses", ScoreDate=score_date, Club_GUID=club["value"])
-    course = _best_course(courses, payload["course_name"], payload["hole_count"])
-    if not course:
-        raise ValueError(f"Fant ikke bane i GolfBox for {payload['course_name']}.")
+    if selected_club_guid:
+        club_candidates = [club for club in clubs if _same_guid(club.get("value"), selected_club_guid)]
+    else:
+        club_candidates = _best_club_candidates(clubs, payload["course_name"])
 
+    suggestions = []
+    for club in club_candidates[:5]:
+        courses = _service_call(client, action="GetCourses", ScoreDate=score_date, Club_GUID=club["value"])
+        if selected_course_guid:
+            course_candidates = [course for course in courses if _same_guid(course.get("course_guid"), selected_course_guid)]
+        else:
+            course_candidates = _best_course_candidates(courses, payload["course_name"], payload["hole_count"])
+        for course in course_candidates[:4]:
+            tee = _matched_tee(client, form_data, score_date, course, payload, selected_tee_guid=selected_tee_guid)
+            if not tee:
+                continue
+            stats = _service_call(
+                client,
+                action="UpdateStats",
+                ScoreDate=score_date,
+                Course_GUID=course["course_guid"],
+                Member_GUID=_member_guid(form_data),
+                Tee_GUID=tee["value"],
+            )
+            data = stats[0] if isinstance(stats, list) and stats else stats
+            if not isinstance(data, dict):
+                continue
+            suggestions.append(_course_match(club, course, tee, data, payload))
+            if course_selection:
+                return suggestions
+    return suggestions
+
+
+def _matched_tee(client, form_data, score_date, course, payload, selected_tee_guid=None):
     tees = _service_call(
         client,
         action="GetTees",
@@ -178,27 +231,19 @@ def _match_golfbox_course_and_tee(client, form_data, round_player, payload):
         Course_GUID=course["course_guid"],
         Tee_GUID=form_data.get("fld_Tee", ""),
     )
+    if selected_tee_guid:
+        return next((tee for tee in tees if _same_guid(tee.get("value"), selected_tee_guid)), None)
     tee = _best_option(
         [item for item in tees if (item.get("Gender") or item.get("gender") or "").lower() in ("", "male")],
         payload["tee_name"],
     ) or _best_option(tees, payload["tee_name"])
-    if not tee:
-        raise ValueError(f"Fant ikke utslagssted i GolfBox for tee {payload['tee_name'] or 'ukjent'}.")
+    return tee
 
-    stats = _service_call(
-        client,
-        action="UpdateStats",
-        ScoreDate=score_date,
-        Course_GUID=course["course_guid"],
-        Member_GUID=form_data.get("fld_MemberGUID", ""),
-        Tee_GUID=tee["value"],
-    )
-    data = stats[0] if isinstance(stats, list) and stats else stats
-    if not isinstance(data, dict):
-        raise ValueError("GolfBox returnerte ikke baneverdier for valgt tee.")
 
+def _course_match(club, course, tee, data, payload):
     return {
         "club_guid": club["value"],
+        "club_name": club["text"],
         "course_guid": course["course_guid"],
         "course_name": course["course_name"],
         "tee_guid": tee["value"],
@@ -209,6 +254,15 @@ def _match_golfbox_course_and_tee(client, form_data, round_player, payload):
         "slope": int(data.get("Slope") or 113),
         "playing_handicap": _playing_handicap_from_stats(data, payload["hcp"]),
     }
+
+
+def _member_guid(form_data):
+    return (
+        form_data.get("fld_PlayerMemberGUID")
+        or form_data.get("fld_MemberGUID")
+        or form_data.get("Member_GUID")
+        or ""
+    ).strip("{}")
 
 
 def _service_call(client, **params):
@@ -240,7 +294,7 @@ def _normalize_api_option(row):
     if row.get("Course_GUID"):
         normalized["course_guid"] = str(row["Course_GUID"]).strip("{}")
         normalized["course_name"] = str(row.get("Course_Name") or "").strip()
-        normalized["is_hcp_qualifying"] = bool(row.get("Course_isHcpQualifying", True))
+        normalized["is_hcp_qualifying"] = _truthy(row.get("Course_isHcpQualifying", True))
     return normalized
 
 
@@ -309,9 +363,41 @@ def _best_option(options, requested):
 
 
 def _best_course(courses, requested, hole_count):
+    candidates = _best_course_candidates(courses, requested, hole_count)
+    return candidates[0] if candidates else None
+
+
+def _best_club_candidates(clubs, requested):
+    scored = [
+        (_name_match_score(club.get("text"), _club_search_name(requested), club=True), club)
+        for club in clubs
+    ]
+    matches = [item for score, item in sorted(scored, key=lambda row: row[0], reverse=True) if score > 0]
+    return matches[:5]
+
+
+def _best_course_candidates(courses, requested, hole_count):
     hole_text = f"{hole_count} hull"
-    matching_holes = [course for course in courses if hole_text in _normalize_name(course.get("course_name"))]
-    return _best_option(matching_holes, requested) or _best_option(courses, requested)
+    normalized_hole_text = _normalize_name(hole_text)
+    matching_holes = [
+        course
+        for course in courses
+        if normalized_hole_text in _normalize_name(course.get("course_name"))
+    ]
+    if len(matching_holes) == 1:
+        return matching_holes
+
+    source = matching_holes or courses
+    scored = []
+    for course in source:
+        score = _name_match_score(course.get("course_name"), requested)
+        if normalized_hole_text in _normalize_name(course.get("course_name")):
+            score += 35
+        if "ballrenne" in _normalize_name(course.get("course_name")):
+            score -= 30
+        scored.append((score, course))
+    matches = [item for score, item in sorted(scored, key=lambda row: row[0], reverse=True) if score > 0]
+    return matches[:6]
 
 
 def _club_search_name(course_name):
@@ -321,6 +407,59 @@ def _club_search_name(course_name):
 
 def _normalize_name(value):
     return re.sub(r"\s+", " ", re.sub(r"[^0-9a-zæøå]+", " ", (value or "").lower())).strip()
+
+
+def _name_words(value, club=False):
+    words = set(_normalize_name(value).split())
+    aliases = {
+        "golfbane": "golf",
+        "golfklubb": "golf",
+        "gk": "golf",
+        "golfclub": "golf",
+        "club": "golf",
+    }
+    expanded = set()
+    for word in words:
+        expanded.add(aliases.get(word, word))
+    ignored = {"hull", "golf"} if not club else {"golf"}
+    return {word for word in expanded if len(word) > 1 and word not in ignored}
+
+
+def _name_match_score(option_name, requested, club=False):
+    option_key = _normalize_name(option_name)
+    requested_key = _normalize_name(requested)
+    if not option_key or not requested_key:
+        return 0
+    if option_key == requested_key:
+        return 120
+    score = 0
+    if requested_key in option_key or option_key in requested_key:
+        score += 80
+    option_words = _name_words(option_name, club=club)
+    requested_words = _name_words(requested, club=club)
+    overlap = option_words & requested_words
+    if overlap:
+        score += 30 * len(overlap)
+    if requested_words and requested_words.issubset(option_words):
+        score += 40
+    if option_words and option_words.issubset(requested_words):
+        score += 25
+    return score
+
+
+def _same_guid(left, right):
+    return str(left or "").strip("{}").lower() == str(right or "").strip("{}").lower()
+
+
+def _truthy(value):
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    if text in {"false", "0", "no", "nei"}:
+        return False
+    if text in {"true", "1", "yes", "ja"}:
+        return True
+    return bool(value)
 
 
 def _score_date_for_api(value):

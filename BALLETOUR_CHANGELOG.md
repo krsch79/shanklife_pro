@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.34] - 2026-07-03
+- Gjør innsending av score til GolfBox mer robust ved å foreslå og kreve bekreftelse av GolfBox-klubb, bane og tee før score sendes.
+- Bruker riktig GolfBox-medlems-GUID ved henting av baneverdier, slik at innsendte runder får riktigere handicap-/tellende-grunnlag.
+
 ## [1.9.27] - 2026-07-02
 - Bytter GPS Survey til satellittkart og viser tydeligere GPS-status, posisjonstillatelse og tilgjengelige GPS-detaljer som koordinater, høyde, fart, retning og siste signal.
 
