@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.38] - 2026-07-06
+- Retter GolfBox AI slik at automatiske bookinger bruker brukerens medlemskap i klubben som bookes, når brukeren har flere GolfBox-medlemskap.
+- Gjør betalingskontrollen mer presis, slik at Haga-bookinger med pris 0 ikke stoppes bare fordi GolfBox-siden inneholder generelle betalingstekster.
+
 ## [1.9.37] - 2026-07-03
 - Retter innsending av score til GolfBox slik at handicap-tellende runder sendes med riktig tellende-flagg og ikke havner som «Ikke tellende» hos markør.
 

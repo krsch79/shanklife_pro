@@ -4,7 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from services.golfbox import (
+    _booking_response_requires_payment,
     _parse_member_number_lookup,
+    _player_memberships_for_booking_course,
     _resolve_requested_member_memberships,
     _scheduled_pending_booking,
     confirm_golfbox_booking,
@@ -93,6 +95,43 @@ class GolfBoxScheduledBookingTests(unittest.TestCase):
 
         resolve_course.assert_called_once_with(credentials.return_value, "Haga")
         self.assertEqual(book_slot.call_args.args[5:7], ("haga-club", "haga-course"))
+
+    def test_booking_uses_current_users_membership_for_requested_course(self):
+        user = SimpleNamespace(
+            username="kristian",
+            player=SimpleNamespace(name="Kristian Schiander"),
+            golfbox_player_name="Kristian Schiander",
+            golfbox_member_number="65-110",
+            golfbox_home_club_name="Ballerud Golfklubb",
+            golfbox_memberships_json=(
+                '[{"club_name":"Haga Golfklubb","club_guid":"{haga-guid}",'
+                '"member_number":"308-5930","player_name":"Kristian Schiander"},'
+                '{"club_name":"Ballerud Golfklubb","club_guid":"{ballerud-guid}",'
+                '"member_number":"65-110","player_name":"Kristian Schiander"}]'
+            ),
+        )
+        players = [{"player_name": "Kristian Schiander", "member_number": "65-110", "club_name": "Ballerud Golfklubb"}]
+
+        memberships = _player_memberships_for_booking_course(user, "Haga Golfklubb - Haga Golf Hovedbane", players)
+
+        self.assertEqual(memberships[0]["member_number"], "308-5930")
+        self.assertEqual(memberships[0]["club_name"], "Haga Golfklubb")
+        self.assertEqual(memberships[0]["club_guid"], "{haga-guid}")
+
+    def test_payment_detection_ignores_zero_price_booking_page(self):
+        page_html = """
+            <input type="hidden" name="hidden_BookingPrice_0" value="0">
+            <input type="hidden" name="hidden_ExtraPrice_0" value="0">
+            <script>function payAndConfirm(){}</script>
+            <p>Pris pr bestilling 0. Registrer betalingsmåte ved behov.</p>
+        """
+
+        self.assertFalse(_booking_response_requires_payment(page_html))
+
+    def test_payment_detection_stops_positive_price_booking_page(self):
+        page_html = '<input type="hidden" name="hidden_BookingPrice_0" value="250">'
+
+        self.assertTrue(_booking_response_requires_payment(page_html))
 
 
 if __name__ == "__main__":

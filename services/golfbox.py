@@ -1029,6 +1029,7 @@ def _membership_for_user(user, club_name=None):
                 "player_name": membership.get("player_name") or user.player.name,
                 "member_number": membership["member_number"],
                 "club_name": membership["club_name"],
+                "club_guid": membership.get("club_guid"),
             }
     home_club_key = _normalize_name(user.golfbox_home_club_name)
     if user.golfbox_member_number and _club_names_match(requested_club_key, home_club_key):
@@ -1142,6 +1143,7 @@ def _name_matches(candidate, requested):
 
 def _book_slot(credentials, user, booking_date, booking_time, player_memberships, club_guid, resource_guid, course_name):
     booking_start = f"{booking_date.strftime('%Y%m%d')}T{booking_time.strftime('%H%M%S')}"
+    player_memberships = _player_memberships_for_booking_course(user, course_name, player_memberships)
     with httpx.Client(
         follow_redirects=True,
         timeout=30,
@@ -1217,6 +1219,48 @@ def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_me
     )
 
 
+def _player_memberships_for_booking_course(user, course_name, player_memberships):
+    memberships = [dict(membership) for membership in (player_memberships or []) if membership]
+    preferred = _membership_for_user(user, course_name)
+    if not preferred:
+        return memberships
+    if not memberships:
+        return [preferred]
+    if not _membership_represents_user(user, memberships[0]):
+        return memberships
+    merged = dict(memberships[0])
+    for key, value in preferred.items():
+        if value:
+            merged[key] = value
+    memberships[0] = merged
+    return memberships
+
+
+def _membership_represents_user(user, membership):
+    if not user or not membership:
+        return False
+    if membership.get("is_current_user"):
+        return True
+    member_number = (membership.get("member_number") or "").strip()
+    user_member_numbers = {
+        (item.get("member_number") or "").strip()
+        for item in _user_memberships(user)
+        if (item.get("member_number") or "").strip()
+    }
+    user_golfbox_member_number = (getattr(user, "golfbox_member_number", "") or "").strip()
+    if user_golfbox_member_number:
+        user_member_numbers.add(user_golfbox_member_number)
+    if member_number and member_number in user_member_numbers:
+        return True
+    user_name = (
+        getattr(getattr(user, "player", None), "name", None)
+        or getattr(user, "golfbox_player_name", "")
+        or getattr(user, "username", "")
+        or ""
+    )
+    return _name_matches(membership.get("player_name") or "", user_name)
+
+
 def _validate_booking_window(page_html, user, player_memberships, course_name, selected_identity=None):
     page_text = " ".join(re.sub(r"<[^>]+>", " ", page_html).split())
     if "Tiden er låst" in page_text:
@@ -1243,10 +1287,7 @@ def _validate_booking_window(page_html, user, player_memberships, course_name, s
             "message": f"GolfBox viser ikke riktig medlemsnummer for {course_name}. Jeg stoppet bookingen.",
             "available_slots": [],
         }
-    prices = [
-        int(value)
-        for value in re.findall(r'name="hidden_BookingPrice_\d+(?:_9Hole)?" value="(\d+)"', page_html)
-    ]
+    prices = _booking_prices(page_html)
     if any(price > 0 for price in prices):
         return {
             "intent": "create_booking",
@@ -1258,9 +1299,19 @@ def _validate_booking_window(page_html, user, player_memberships, course_name, s
 
 
 def _booking_response_requires_payment(page_html):
+    prices = _booking_prices(page_html)
+    if prices:
+        return any(price > 0 for price in prices)
     page_text = " ".join(re.sub(r"<[^>]+>", " ", page_html).split()).lower()
-    payment_words = ("registrer betalingsmåte", "betaling", "payandconfirm", "greenfee")
+    payment_words = ("betal nå", "bekreft og betal", "betaling påkrevd", "payment required")
     return any(word in page_text for word in payment_words)
+
+
+def _booking_prices(page_html):
+    return [
+        int(value)
+        for value in re.findall(r'name="hidden_(?:Booking|Extra)Price_\d+(?:_9Hole)?" value="(\d+)"', page_html)
+    ]
 
 
 def _form_inputs(page_html):
