@@ -673,7 +673,6 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
 
     best_by_hole = {}
     average_by_hole = {}
-    score_count_by_hole = {}
     score_distribution_by_hole = {}
     for hole in holes:
         values = [
@@ -681,7 +680,6 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
             if entry.hole_number == hole.hole_number
         ]
         diffs = [score - hole.par for score in values]
-        score_count_by_hole[hole.hole_number] = len(values)
         best_by_hole[hole.hole_number] = min(values) if values else None
         average_by_hole[hole.hole_number] = round(sum(values) / len(values), 2) if values else None
         score_distribution_by_hole[hole.hole_number] = {
@@ -819,7 +817,6 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
             {
                 "hole_number": hole.hole_number,
                 "par": hole.par,
-                "score_count": score_count_by_hole.get(hole.hole_number, 0),
                 "average_score": average_by_hole.get(hole.hole_number),
                 "average_vs_par": (
                     round(average_by_hole[hole.hole_number] - hole.par, 2)

@@ -61,8 +61,6 @@
             <thead>
                 <tr>
                     <th>Hull</th>
-                    <th>Par</th>
-                    <th>Scorer</th>
                     <th>Snittscore</th>
                     <th>Mot par</th>
                     <th>Beste</th>
@@ -76,8 +74,6 @@
                 {% for hole in stats.average_score_by_hole %}
                 <tr>
                     <td>{{ hole.hole_number }}</td>
-                    <td>{{ hole.par }}</td>
-                    <td>{{ hole.score_count }}</td>
                     <td>{{ hole.average_score if hole.average_score is not none else "-" }}</td>
                     <td>
                         {% if hole.average_vs_par is not none %}

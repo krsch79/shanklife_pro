@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.42] - 2026-07-08
+- Fjerner kolonnene Par og Scorer fra snittscore per hull-tabellen.
+
 ## [1.9.41] - 2026-07-08
 - Endrer snittscore per hull-tabellen slik at siste scorefordelingskolonne viser dobbelbogey eller verre.
 
