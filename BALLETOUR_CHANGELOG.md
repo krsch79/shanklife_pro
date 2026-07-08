@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.40] - 2026-07-08
+- Utvider snittscore per hull-tabellen med antall birdies eller bedre, par, bogeys og bogey eller verre per hull.
+
 ## [1.9.39] - 2026-07-08
 - Viser snittscore per hull på BalleTour-statistikksiden for valgt spiller og tee.
 

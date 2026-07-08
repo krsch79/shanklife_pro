@@ -674,14 +674,22 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
     best_by_hole = {}
     average_by_hole = {}
     score_count_by_hole = {}
+    score_distribution_by_hole = {}
     for hole in holes:
         values = [
             entry.strokes for entry in scored_entries
             if entry.hole_number == hole.hole_number
         ]
+        diffs = [score - hole.par for score in values]
         score_count_by_hole[hole.hole_number] = len(values)
         best_by_hole[hole.hole_number] = min(values) if values else None
         average_by_hole[hole.hole_number] = round(sum(values) / len(values), 2) if values else None
+        score_distribution_by_hole[hole.hole_number] = {
+            "birdies_or_better": sum(1 for diff in diffs if diff < 0),
+            "pars": sum(1 for diff in diffs if diff == 0),
+            "bogeys": sum(1 for diff in diffs if diff == 1),
+            "bogeys_or_worse": sum(1 for diff in diffs if diff >= 1),
+        }
 
     stats_query = (
         db.session.query(ScoreStat, ScoreEntry)
@@ -818,6 +826,10 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
                     if average_by_hole.get(hole.hole_number) is not None else None
                 ),
                 "best_score": best_by_hole.get(hole.hole_number),
+                "birdies_or_better": score_distribution_by_hole[hole.hole_number]["birdies_or_better"],
+                "pars": score_distribution_by_hole[hole.hole_number]["pars"],
+                "bogeys": score_distribution_by_hole[hole.hole_number]["bogeys"],
+                "bogeys_or_worse": score_distribution_by_hole[hole.hole_number]["bogeys_or_worse"],
             }
             for hole in holes
         ],
