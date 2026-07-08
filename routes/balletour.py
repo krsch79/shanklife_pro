@@ -688,7 +688,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
             "birdies_or_better": sum(1 for diff in diffs if diff < 0),
             "pars": sum(1 for diff in diffs if diff == 0),
             "bogeys": sum(1 for diff in diffs if diff == 1),
-            "bogeys_or_worse": sum(1 for diff in diffs if diff >= 1),
+            "double_bogeys_or_worse": sum(1 for diff in diffs if diff >= 2),
         }
 
     stats_query = (
@@ -829,7 +829,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
                 "birdies_or_better": score_distribution_by_hole[hole.hole_number]["birdies_or_better"],
                 "pars": score_distribution_by_hole[hole.hole_number]["pars"],
                 "bogeys": score_distribution_by_hole[hole.hole_number]["bogeys"],
-                "bogeys_or_worse": score_distribution_by_hole[hole.hole_number]["bogeys_or_worse"],
+                "double_bogeys_or_worse": score_distribution_by_hole[hole.hole_number]["double_bogeys_or_worse"],
             }
             for hole in holes
         ],
