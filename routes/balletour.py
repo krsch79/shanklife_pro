@@ -672,12 +672,16 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
     bogeys_or_worse = bogeys + double_bogeys_or_worse
 
     best_by_hole = {}
+    average_by_hole = {}
+    score_count_by_hole = {}
     for hole in holes:
         values = [
             entry.strokes for entry in scored_entries
             if entry.hole_number == hole.hole_number
         ]
+        score_count_by_hole[hole.hole_number] = len(values)
         best_by_hole[hole.hole_number] = min(values) if values else None
+        average_by_hole[hole.hole_number] = round(sum(values) / len(values), 2) if values else None
 
     stats_query = (
         db.session.query(ScoreStat, ScoreEntry)
@@ -803,6 +807,20 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
         "green_points": green_points[-160:],
         "green_distribution": green_distribution,
         "best_by_hole": best_by_hole,
+        "average_score_by_hole": [
+            {
+                "hole_number": hole.hole_number,
+                "par": hole.par,
+                "score_count": score_count_by_hole.get(hole.hole_number, 0),
+                "average_score": average_by_hole.get(hole.hole_number),
+                "average_vs_par": (
+                    round(average_by_hole[hole.hole_number] - hole.par, 2)
+                    if average_by_hole.get(hole.hole_number) is not None else None
+                ),
+                "best_score": best_by_hole.get(hole.hole_number),
+            }
+            for hole in holes
+        ],
         "club_rows": [
             {"name": name, "count": count, "avg": round(avg, 2)}
             for name, count, avg in club_rows

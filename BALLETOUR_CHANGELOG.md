@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.39] - 2026-07-08
+- Viser snittscore per hull på BalleTour-statistikksiden for valgt spiller og tee.
+
 ## [1.9.38] - 2026-07-06
 - Retter GolfBox AI slik at automatiske bookinger bruker brukerens medlemskap i klubben som bookes, når brukeren har flere GolfBox-medlemskap.
 - Gjør betalingskontrollen mer presis, slik at Haga-bookinger med pris 0 ikke stoppes bare fordi GolfBox-siden inneholder generelle betalingstekster.
