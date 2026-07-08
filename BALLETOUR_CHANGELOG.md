@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.44] - 2026-07-08
+- Legger tilbake Par-kolonnen som viser antall par per hull, uten å vise hullets par eller antall scorer.
+
 ## [1.9.43] - 2026-07-08
 - Fjerner også Par-kolonnen fra scorefordelingen i snittscore per hull-tabellen.
 
