@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.48] - 2026-07-10
+- Merker 9-hullsrunder med en asterisk i tabellen «Statistikk per runde» og forklarer merkingen rett under tabellen, slik at de er enkle å skille fra 18-hullsrunder uten en ekstra kolonne.
+
 ## [1.9.47] - 2026-07-10
 - Legger til en manuell «Hent fra Garmin»-knapp på fullførte Shanklife-runder som matcher riktig Garmin Golf-runde og henter utslagslengde og køllevalg på par 4- og par 5-hull.
 - Bruker beskyttede Garmin OAuth-tokenfiler utenfor prosjektet, slik at Garmin-passordet ikke lagres i Shanklife eller Git.

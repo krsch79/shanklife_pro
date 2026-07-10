@@ -106,7 +106,7 @@
                         <tbody>
                             {% for row in stats.round_rows %}
                             <tr>
-                                <td><a href="{{ url_for('rounds.round_score', round_id=row.round_id) }}">#{{ row.round_id }}</a><br><span class="muted">{{ row.started_at|datetime_local }}</span></td>
+                                <td><a href="{{ url_for('rounds.round_score', round_id=row.round_id) }}">#{{ row.round_id }}{% if row.holes == 9 %}<sup title="9-hullsrunde" aria-label=" – 9 hull">*</sup>{% endif %}</a><br><span class="muted">{{ row.started_at|datetime_local }}</span></td>
                                 <td>{{ row.course_name }}</td>
                                 <td>{{ row.tee_name }}</td>
                                 <td>{{ row.total if row.total is not none else "-" }}</td>
@@ -127,6 +127,9 @@
                         </tbody>
                     </table>
                 </div>
+                {% if stats.round_rows|selectattr("holes", "equalto", 9)|list %}
+                <p class="muted"><small>* 9-hullsrunde</small></p>
+                {% endif %}
             </div>
         </div>
     </details>
