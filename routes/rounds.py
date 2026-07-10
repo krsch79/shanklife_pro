@@ -14,6 +14,7 @@ from models import (
     Course,
     CourseHole,
     CourseTeeLength,
+    GarminRoundSync,
     Player,
     PlayerHoleDefaultClub,
     Round,
@@ -26,6 +27,7 @@ from models import (
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
+from services.garmin_golf import GarminGolfSyncError, garmin_connection_available, sync_round_from_garmin
 from services.live_score import score_to_par_for_entries
 from services.round_completion import missing_saved_entry_choices, validate_score_putts
 from services.round_length import (
@@ -2511,6 +2513,9 @@ def round_score(round_id):
         template_name = "finished_round_detail.html"
         round_summary = build_round_summary(round_obj)
 
+    current_user_round_player = _current_user_round_player(round_obj)
+    garmin_sync = GarminRoundSync.query.filter_by(round_id=round_obj.id).first()
+
     return render_template(
         template_name,
         round=round_obj,
@@ -2541,7 +2546,51 @@ def round_score(round_id):
         is_balletour_scoring_page=_is_balletour_round(round_obj),
         is_matchplay_round=_round_is_matchplay(round_obj),
         matchplay_hole_result_labels=MATCHPLAY_HOLE_RESULT_LABELS,
-        current_user_round_player=_current_user_round_player(round_obj),
+        current_user_round_player=current_user_round_player,
+        garmin_sync=garmin_sync,
+        garmin_sync_available=(
+            round_obj.status == "finished"
+            and not _is_balletour_round(round_obj)
+            and current_user_round_player is not None
+            and garmin_connection_available(g.get("current_user"))
+        ),
         round_summary=round_summary,
         weather_summary=_round_weather_summary(round_obj),
     )
+
+
+@rounds_bp.route("/rounds/<int:round_id>/garmin-sync", methods=["POST"])
+@login_required
+def garmin_sync(round_id):
+    round_obj = Round.query.get_or_404(round_id)
+    if _is_balletour_round(round_obj) or _round_is_matchplay(round_obj):
+        flash("Garmin-synk er bare tilgjengelig for fullførte Shanklife-runder.", "error")
+        return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+
+    round_player = _current_user_round_player(round_obj)
+    if not round_player:
+        return "Du kan bare hente Garmin-data til dine egne runder.", 403
+
+    try:
+        result = sync_round_from_garmin(round_obj, round_player, g.current_user)
+        db.session.commit()
+    except GarminGolfSyncError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    else:
+        message = (
+            f"Garmin-data hentet: {result['distances_updated']} utslagslengder "
+            f"og {result['clubs_updated']} køllevalg."
+        )
+        if result["unmapped_clubs"]:
+            message += f" {result['unmapped_clubs']} køllevalg manglet en Shanklife-mapping."
+        flash(message, "success")
+        current_app.logger.info(
+            "Garmin-synk fullført: bruker=%s runde=%s scorecard=%s avstander=%s køller=%s",
+            g.current_user.id,
+            round_obj.id,
+            result["scorecard_id"],
+            result["distances_updated"],
+            result["clubs_updated"],
+        )
+    return redirect(url_for("rounds.round_score", round_id=round_obj.id))

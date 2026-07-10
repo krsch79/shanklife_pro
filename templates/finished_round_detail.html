@@ -78,6 +78,11 @@
         {% if current_user_round_player and not is_matchplay_round %}
         <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
         {% endif %}
+        {% if garmin_sync_available and not is_matchplay_round %}
+        <form method="post" action="{{ url_for('rounds.garmin_sync', round_id=round.id) }}" class="inline-form">
+            <button type="submit" class="button">Hent fra Garmin</button>
+        </form>
+        {% endif %}
         <a class="button secondary" href="{{ url_for('rounds.round_shot_map', round_id=round.id, hole_number=round_summary.hole_numbers[0]) }}">Slagkart</a>
         <a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Alle runder</a>
     </div>
@@ -92,6 +97,7 @@
         <div class="round-timing">
             <span><strong>Start:</strong> {{ round.started_at|datetime_local }}</span>
             <span><strong>Fullført:</strong> {{ round.finished_at|datetime_local }}</span>
+            {% if garmin_sync %}<span><strong>Garmin:</strong> synket {{ garmin_sync.synced_at|datetime_local }}</span>{% endif %}
         </div>
     </div>
 

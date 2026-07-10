@@ -396,6 +396,28 @@ class Round(db.Model):
         cascade="all, delete-orphan",
         order_by="RoundImage.uploaded_at",
     )
+    garmin_sync = db.relationship(
+        "GarminRoundSync",
+        back_populates="round",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class GarminRoundSync(db.Model):
+    __tablename__ = "garmin_round_syncs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    round_id = db.Column(db.Integer, db.ForeignKey("rounds.id"), nullable=False, unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    scorecard_id = db.Column(db.BigInteger, nullable=False)
+    matched_course_name = db.Column(db.String(255), nullable=True)
+    distances_updated = db.Column(db.Integer, nullable=False, default=0)
+    clubs_updated = db.Column(db.Integer, nullable=False, default=0)
+    synced_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+
+    round = db.relationship("Round", back_populates="garmin_sync")
+    user = db.relationship("User")
 
 
 class RoundPlayer(db.Model):

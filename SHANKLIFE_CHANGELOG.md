@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.47] - 2026-07-10
+- Legger til en manuell «Hent fra Garmin»-knapp på fullførte Shanklife-runder som matcher riktig Garmin Golf-runde og henter utslagslengde og køllevalg på par 4- og par 5-hull.
+- Bruker beskyttede Garmin OAuth-tokenfiler utenfor prosjektet, slik at Garmin-passordet ikke lagres i Shanklife eller Git.
+
 ## [1.9.46] - 2026-07-10
 - Reorganiserer Shanklife-statistikken med en kort oppsummering øverst og kollapsbare seksjoner for score, utslag og køller, green og innspill samt putting.
 
