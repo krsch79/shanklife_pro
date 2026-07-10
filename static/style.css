@@ -244,8 +244,10 @@ input.submit-is-loading {
 
 @media (prefers-reduced-motion: reduce) {
     .golf-ball,
-    .golf-ball-shadow {
+    .golf-ball-shadow,
+    .stats-section-chevron {
         animation: none;
+        transition: none;
     }
 }
 
@@ -275,6 +277,192 @@ input.submit-is-loading {
 .stat-card span {
     color: var(--muted);
     font-size: 0.88rem;
+}
+
+.stats-page-title {
+    margin-bottom: 10px;
+}
+
+.stats-player-tabs {
+    margin-bottom: 22px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.stats-player-tabs a {
+    flex: 0 0 auto;
+}
+
+.stats-player-heading {
+    margin-bottom: 14px;
+}
+
+.stats-player-heading h3,
+.stats-player-heading p {
+    margin: 0;
+}
+
+.stats-player-heading h3 {
+    font-size: 1.25rem;
+    margin-bottom: 3px;
+}
+
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 28px;
+}
+
+.stats-overview-card {
+    min-height: 84px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.stats-sections {
+    border-top: 1px solid var(--border);
+}
+
+.stats-section {
+    border-bottom: 1px solid var(--border);
+}
+
+.stats-section > summary {
+    display: grid;
+    grid-template-columns: minmax(190px, 1fr) auto 20px;
+    align-items: center;
+    gap: 18px;
+    min-height: 76px;
+    padding: 12px 4px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.stats-section > summary::-webkit-details-marker {
+    display: none;
+}
+
+.stats-section > summary:hover .stats-section-title > strong,
+.stats-section > summary:focus-visible .stats-section-title > strong {
+    color: var(--primary);
+}
+
+.stats-section > summary:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.stats-section-title,
+.stats-section-title > strong,
+.stats-section-title > span {
+    display: block;
+}
+
+.stats-section-title > strong {
+    font-size: 1.05rem;
+}
+
+.stats-section-title > span {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 3px;
+}
+
+.stats-section-glance {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 18px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.stats-section-glance > span,
+.stats-section-glance strong {
+    display: block;
+}
+
+.stats-section-glance > span {
+    min-width: 58px;
+}
+
+.stats-section-glance strong {
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+.stats-section-chevron {
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 160ms ease;
+}
+
+.stats-section[open] .stats-section-chevron {
+    transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.stats-section-content {
+    padding: 4px 4px 24px;
+}
+
+.stats-detail-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    margin-bottom: 22px;
+}
+
+.stats-putting-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 0;
+}
+
+.stats-subsection + .stats-subsection {
+    margin-top: 26px;
+}
+
+.stats-subsection h4,
+.stats-green-layout h4 {
+    margin: 0 0 10px;
+    font-size: 0.98rem;
+}
+
+.stats-green-layout {
+    margin-top: 2px;
+}
+
+.stats-green-layout section {
+    margin: 0;
+}
+
+.stats-green-layout .green-map-header h4,
+.stats-green-layout .green-map-header p {
+    margin-top: 0;
+}
+
+.stats-green-layout .green-map-header h4 {
+    margin-bottom: 4px;
+}
+
+.stats-note {
+    margin-bottom: 0;
+}
+
+.stats-round-table th:first-child,
+.stats-round-table td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--card);
+    z-index: 1;
+}
+
+.stats-round-table thead th:first-child {
+    z-index: 2;
 }
 
 .round-summary-heading {
@@ -3279,6 +3467,46 @@ th {
     }
 
     .balletour-stats-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-overview {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-bottom: 22px;
+    }
+
+    .stats-overview-card {
+        min-height: 78px;
+        padding: 10px;
+    }
+
+    .stats-section > summary {
+        grid-template-columns: minmax(0, 1fr) 18px;
+        gap: 12px;
+        min-height: 72px;
+        padding: 10px 2px;
+    }
+
+    .stats-section-glance {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: flex-start;
+        gap: 24px;
+        white-space: normal;
+        margin-top: -5px;
+    }
+
+    .stats-section-chevron {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .stats-section-content {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .stats-putting-metrics {
         grid-template-columns: 1fr;
     }
 

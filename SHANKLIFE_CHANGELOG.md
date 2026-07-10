@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.46] - 2026-07-10
+- Reorganiserer Shanklife-statistikken med en kort oppsummering øverst og kollapsbare seksjoner for score, utslag og køller, green og innspill samt putting.
+
 ## [1.9.45] - 2026-07-10
 - Viser realistisk snittlengde per kølle i Shanklife-statistikken for utslag på par 4 og 5, med korte miss og unaturlig lange slag filtrert bort fra snittet.
 
