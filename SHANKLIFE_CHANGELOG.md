@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.45] - 2026-07-10
+- Viser realistisk snittlengde per kølle i Shanklife-statistikken for utslag på par 4 og 5, med korte miss og unaturlig lange slag filtrert bort fra snittet.
+
 ## [1.9.37] - 2026-07-03
 - Retter innsending av score til GolfBox slik at handicap-tellende runder sendes med riktig tellende-flagg og ikke havner som «Ikke tellende» hos markør.
 

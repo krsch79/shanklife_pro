@@ -157,19 +157,20 @@
     <h3>Kølle og fairway</h3>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Kølle</th><th>Utslag</th><th>Snittscore</th><th>FW</th><th>Venstre</th><th>Høyre</th></tr></thead>
+            <thead><tr><th>Kølle</th><th>Utslag</th><th>Snittlengde</th><th>Snittscore</th><th>FW</th><th>Venstre</th><th>Høyre</th></tr></thead>
             <tbody>
                 {% for club in stats.club_rows %}
                 <tr>
                     <td>{{ club.name }}</td>
                     <td>{{ club.count }}</td>
+                    <td>{{ club.avg_drive_distance if club.avg_drive_distance is not none else "-" }}{% if club.avg_drive_distance is not none %} m{% endif %}</td>
                     <td>{{ club.avg if club.avg is not none else "-" }}</td>
                     <td>{{ club.fairway_percent if club.fairway_percent is not none else "-" }}{% if club.fairway_percent is not none %}%{% endif %}</td>
                     <td>{{ club.left_percent if club.left_percent is not none else "-" }}{% if club.left_percent is not none %}%{% endif %}</td>
                     <td>{{ club.right_percent if club.right_percent is not none else "-" }}{% if club.right_percent is not none %}%{% endif %}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6">Ingen kølledata for par 4/5.</td></tr>
+                <tr><td colspan="7">Ingen kølledata for par 4/5.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

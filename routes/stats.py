@@ -1,3 +1,4 @@
+import math
 from collections import defaultdict
 
 from flask import Blueprint, flash, g, render_template, request, session
@@ -79,6 +80,37 @@ def _avg(values):
     if not values:
         return None
     return round(sum(values) / len(values), 2)
+
+
+def _normal_drive_distances(values):
+    distances = []
+    for value in values:
+        if value is None:
+            continue
+        try:
+            distance = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(distance) and 30 <= distance <= 360:
+            distances.append(distance)
+
+    distances.sort()
+    total = len(distances)
+    if total >= 10:
+        short_trim = max(1, int(total * 0.2))
+        long_trim = max(1, int(total * 0.1))
+        if short_trim + long_trim < total:
+            return distances[short_trim:total - long_trim]
+    if total >= 5:
+        return distances[1:-1]
+    return distances
+
+
+def _avg_normal_drive_distance(values):
+    distances = _normal_drive_distances(values)
+    if not distances:
+        return None
+    return int(round(sum(distances) / len(distances)))
 
 
 def _green_parts(raw_value):
@@ -377,7 +409,14 @@ def _player_stats(player):
     fairway_attempts = sum(fairway_counts.values())
 
     club_rows = []
-    by_club = defaultdict(lambda: {"count": 0, "strokes": [], "hit": 0, "left": 0, "right": 0})
+    by_club = defaultdict(lambda: {
+        "count": 0,
+        "strokes": [],
+        "drive_distances": [],
+        "hit": 0,
+        "left": 0,
+        "right": 0,
+    })
     club_names = {}
     for stat, entry in tee_rows:
         if not entry.tee_club_id:
@@ -385,6 +424,7 @@ def _player_stats(player):
         bucket = by_club[entry.tee_club_id]
         bucket["count"] += 1
         bucket["strokes"].append(entry.strokes)
+        bucket["drive_distances"].append(stat.drive_distance_m)
         if stat.fairway_result in ("hit", "left", "right"):
             bucket[stat.fairway_result] += 1
     clubs = Club.query.filter(Club.id.in_(by_club.keys())).all() if by_club else []
@@ -394,6 +434,7 @@ def _player_stats(player):
             "name": club_names.get(club_id, "Ukjent"),
             "count": row["count"],
             "avg": _avg(row["strokes"]),
+            "avg_drive_distance": _avg_normal_drive_distance(row["drive_distances"]),
             "fairway_percent": _percent(row["hit"], row["count"]),
             "left_percent": _percent(row["left"], row["count"]),
             "right_percent": _percent(row["right"], row["count"]),
