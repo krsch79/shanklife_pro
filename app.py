@@ -272,6 +272,43 @@ def ensure_physical_hole_identities(app):
             db.session.commit()
 
 
+
+def app_access_for_user(user_id, slug):
+    row = db.session.execute(text("""
+        SELECT user_app_access.has_access, user_app_access.is_app_admin
+        FROM user_app_access
+        JOIN app_registry ON app_registry.id = user_app_access.app_id
+        WHERE user_app_access.user_id = :user_id
+          AND app_registry.slug = :slug
+    """), {"user_id": user_id, "slug": slug}).mappings().first()
+    return {
+        "has_access": bool(row and row["has_access"]),
+        "is_app_admin": bool(row and row["is_app_admin"]),
+    }
+
+
+def required_access_slug():
+    host = (request.host or "").split(":", 1)[0].lower()
+    endpoint = request.endpoint or ""
+    if host == "app.shanklife.no":
+        return "shanklife-app"
+    if endpoint.startswith("balletour.") or request.path.startswith("/balletour"):
+        return "balletour"
+    return "shanklife-pro"
+
+
+def access_denied_response(slug):
+    if (request.endpoint or "").startswith("api."):
+        return jsonify({
+            "error": {
+                "code": "forbidden",
+                "message": f"Du har ikke tilgang til {slug}.",
+            }
+        }), 403
+    return f"Du har ikke tilgang til {slug}.", 403
+
+
+
 def seed_initial_user(app):
     with app.app_context():
         has_admin = User.query.filter_by(is_admin=True).first() is not None
@@ -288,10 +325,13 @@ def seed_initial_user(app):
             )
             db.session.delete(duplicate)
 
-        user = User.query.filter_by(username="Kristian").first()
+        user = (
+            User.query.filter(db.func.lower(User.username) == "kristian").first()
+            or User.query.filter_by(player_id=kristian_s.id).order_by(User.created_at.desc()).first()
+        )
         if not user:
             user = User(
-                username="Kristian",
+                username="kristian",
                 password_hash=generate_password_hash("Kristian"),
                 player_id=kristian_s.id,
                 is_admin=not has_admin,
@@ -311,7 +351,10 @@ def seed_initial_user(app):
             db.session.add(erik)
             db.session.flush()
 
-        erik_user = User.query.filter_by(username="Erik").first()
+        erik_user = (
+            User.query.filter(db.func.lower(User.username) == "erik").first()
+            or User.query.filter_by(player_id=erik.id).order_by(User.created_at.desc()).first()
+        )
         if not erik_user:
             erik_user = User(
                 username="Erik",
@@ -370,8 +413,6 @@ def create_app():
 
     @app.before_request
     def require_login_for_shanklife():
-        if g.get("current_user"):
-            return None
         endpoint = request.endpoint or ""
         public_endpoints = {
             "auth.login",
@@ -384,11 +425,16 @@ def create_app():
             "leaderboard.leaderboard_player_modal",
             "static",
         }
-        if endpoint.startswith("api.") and endpoint not in public_endpoints:
-            return jsonify({"error": {"code": "unauthorized", "message": "Du må logge inn først."}}), 401
         if endpoint in public_endpoints:
             return None
-        return redirect(url_for("auth.login", next=request.path))
+        if not g.get("current_user"):
+            if endpoint.startswith("api."):
+                return jsonify({"error": {"code": "unauthorized", "message": "Du må logge inn først."}}), 401
+            return redirect(url_for("auth.login", next=request.path))
+        slug = required_access_slug()
+        if not app_access_for_user(g.current_user.id, slug)["has_access"]:
+            return access_denied_response(slug)
+        return None
 
     @app.context_processor
     def inject_current_user():

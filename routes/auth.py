@@ -31,14 +31,17 @@ def login_required(view):
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if g.get("current_user"):
-        if is_balletour_player(g.current_user):
-            return redirect(url_for("balletour.me"))
-        return redirect(url_for("profile.me"))
+        return redirect(request.args.get("next") or url_for("main.index"))
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        user = User.query.filter_by(username=username).first()
+        user = (
+            User.query
+            .filter(db.func.lower(User.username) == username.lower())
+            .order_by(User.created_at.desc())
+            .first()
+        )
 
         if not user or not check_password_hash(user.password_hash, password):
             flash("Feil brukernavn eller passord.", "error")
@@ -53,8 +56,7 @@ def login():
         session.clear()
         session["user_id"] = user.id
         flash("Du er logget inn.", "success")
-        default_next = url_for("balletour.me") if is_balletour_player(user) else url_for("profile.me")
-        return redirect(request.args.get("next") or default_next)
+        return redirect(request.args.get("next") or url_for("main.index"))
 
     return render_template("login.html", username="")
 

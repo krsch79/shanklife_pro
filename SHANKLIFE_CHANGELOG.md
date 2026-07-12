@@ -499,3 +499,7 @@ Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTou
 
 ## [1.0.0] - 2026-05-01 11:42
 - Forste versjon av Shanklife Pro lagt i GitHub.
+## [1.9.49] - 2026-07-12
+
+- Flyttet SMTP-avsender til den felles Shanklife-adressen `admin.shanklife@gmail.com`.
+- Gjør maileren i stand til å bruke konfigurert `SMTP_FROM` i stedet for en fast avsenderadresse.

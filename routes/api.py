@@ -75,6 +75,27 @@ from services.weather import fetch_bekkestua_weather, summarize_weather_payload
 from routes.balletour import _send_balletour_round_started_mail
 from routes.rounds import _send_balletour_round_finished_mail
 
+
+
+def _app_access_for_user(user_id, slug):
+    row = db.session.execute(db.text("""
+        SELECT user_app_access.has_access, user_app_access.is_app_admin
+        FROM user_app_access
+        JOIN app_registry ON app_registry.id = user_app_access.app_id
+        WHERE user_app_access.user_id = :user_id
+          AND app_registry.slug = :slug
+    """), {"user_id": user_id, "slug": slug}).mappings().first()
+    return {
+        "has_access": bool(row and row["has_access"]),
+        "is_app_admin": bool(row and row["is_app_admin"]),
+    }
+
+
+def _required_access_slug():
+    host = (request.host or "").split(":", 1)[0].lower()
+    return "shanklife-app" if host == "app.shanklife.no" else "shanklife-pro"
+
+
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
 
@@ -906,9 +927,16 @@ def login():
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
 
-    user = User.query.filter_by(username=username).first()
+    user = (
+        User.query
+        .filter(db.func.lower(User.username) == username.lower())
+        .order_by(User.created_at.desc())
+        .first()
+    )
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": {"code": "invalid_credentials", "message": "Feil brukernavn eller passord."}}), 401
+    if not _app_access_for_user(user.id, _required_access_slug())["has_access"]:
+        return jsonify({"error": {"code": "forbidden", "message": "Du har ikke tilgang til denne appen."}}), 403
 
     try:
         sync_user_golfbox_handicap(user)
