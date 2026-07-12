@@ -1,6 +1,8 @@
 .DS_Store
 ._*
 __pycache__/
+build/
+.deps/
 *.py[cod]
 
 .env
