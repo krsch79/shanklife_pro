@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from services.golfbox import (
     _booking_response_requires_payment,
+    _log_booking_submit_response,
     _parse_member_number_lookup,
     _player_memberships_for_booking_course,
     _resolve_requested_member_memberships,
@@ -132,6 +133,28 @@ class GolfBoxScheduledBookingTests(unittest.TestCase):
         page_html = '<input type="hidden" name="hidden_BookingPrice_0" value="250">'
 
         self.assertTrue(_booking_response_requires_payment(page_html))
+
+    @patch("services.golfbox.LOGGER")
+    def test_booking_response_diagnostics_do_not_log_page_contents(self, logger):
+        response = SimpleNamespace(
+            text=(
+                '<title>GolfBox Player</title>'
+                '<input type="hidden" name="command" value="">'
+                '<button name="cmdSubmit">Lagre</button>'
+                '<div>Personlig medlemsnummer 123-456</div>'
+            ),
+            status_code=200,
+            url=SimpleNamespace(path="/site/my_golfbox/ressources/booking/window.asp"),
+        )
+
+        result = _log_booking_submit_response(response, "20260720T165000")
+
+        self.assertEqual(result["http_status"], 200)
+        self.assertTrue(result["booking_form_present"])
+        self.assertTrue(result["save_button_present"])
+        logged_payload = logger.warning.call_args.args[1]
+        self.assertNotIn("123-456", logged_payload)
+        self.assertNotIn("Personlig", logged_payload)
 
 
 if __name__ == "__main__":

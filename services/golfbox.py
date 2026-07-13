@@ -1,9 +1,12 @@
 import base64
+import hashlib
 import html
 import json
+import logging
 import os
 import re
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import httpx
 from flask import current_app
@@ -36,6 +39,7 @@ OSLO_AREA_COURSES = [
     "Drøbak",
 ]
 WEEKDAY_NAMES = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
+LOGGER = logging.getLogger(__name__)
 
 
 def _secret_bytes():
@@ -1179,6 +1183,7 @@ def _book_slot(credentials, user, booking_date, booking_time, player_memberships
             data=form_data,
         )
         submit_response.raise_for_status()
+        response_diagnostics = _log_booking_submit_response(submit_response, booking_start)
         if _booking_response_requires_payment(submit_response.text):
             _cleanup_booking_lock(client, booking_start, resource_guid)
             return {
@@ -1194,16 +1199,55 @@ def _book_slot(credentials, user, booking_date, booking_time, player_memberships
                 "message": "Starttiden er låst i GolfBox akkurat nå. Prøv igjen om litt.",
                 "available_slots": [],
             }
+        _cleanup_booking_lock(client, booking_start, resource_guid)
     return {
         "intent": "create_booking",
-        "status": "booking_created",
+        "status": "booking_unverified",
         "course": course_name,
         "date": booking_date.isoformat(),
         "time": booking_time.strftime("%H:%M"),
         "players": len(player_memberships or []) or 1,
-        "message": f"Bookingen er sendt til GolfBox for {course_name} {booking_date.isoformat()} kl. {booking_time.strftime('%H:%M')}.",
+        "message": (
+            "GolfBox svarte på bookingforsøket, men Shanklife kunne ikke bekrefte at "
+            "bookingen ble registrert. Ingen gjennomførtmelding er sendt."
+        ),
+        "diagnostic_id": response_diagnostics["response_id"],
         "available_slots": [],
     }
+
+
+def _log_booking_submit_response(response, booking_start):
+    page_html = response.text or ""
+    response_id = hashlib.sha256(page_html.encode("utf-8", errors="replace")).hexdigest()[:16]
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", page_html, re.IGNORECASE | re.DOTALL)
+    title = " ".join(re.sub(r"<[^>]+>", " ", title_match.group(1)).split()) if title_match else ""
+    diagnostics = {
+        "response_id": response_id,
+        "http_status": response.status_code,
+        "path": response.url.path,
+        "title": html.unescape(title)[:120],
+        "html_bytes": len(page_html.encode("utf-8", errors="replace")),
+        "booking_form_present": bool(re.search(r'name=["\']command["\']', page_html, re.IGNORECASE)),
+        "save_button_present": bool(re.search(r'name=["\']cmdSubmit["\']', page_html, re.IGNORECASE)),
+        "locked_message_present": "tiden er låst" in page_html.lower(),
+        "payment_required": _booking_response_requires_payment(page_html),
+    }
+    LOGGER.warning(
+        "GolfBox booking response diagnostics: %s",
+        json.dumps(diagnostics, ensure_ascii=False, sort_keys=True),
+    )
+
+    capture_dir = (os.environ.get("GOLFBOX_DIAGNOSTIC_RESPONSE_DIR") or "").strip()
+    if capture_dir:
+        directory = Path(capture_dir)
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        directory.chmod(0o700)
+        capture_path = directory / f"booking-{booking_start}-{response_id}.html"
+        capture_path.write_text(page_html, encoding="utf-8")
+        capture_path.chmod(0o600)
+        LOGGER.warning("GolfBox diagnostic response captured at %s", capture_path)
+
+    return diagnostics
 
 
 def _book_ballerud_slot(credentials, user, booking_date, booking_time, player_memberships):
@@ -3213,6 +3257,7 @@ BOOKING_STATUS_LABELS = {
     "payment_required": "Stoppet ved betaling",
     "wrong_club": "Stoppet ved feil klubb",
     "wrong_membership": "Stoppet ved medlemskontroll",
+    "booking_unverified": "Ikke bekreftet av GolfBox",
     "no_slot": "Ingen ledig tid",
     "expired": "Utløpt uten booking",
     "cancelled": "Kansellert",

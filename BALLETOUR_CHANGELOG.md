@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.50] - 2026-07-13
+- Logger en sanitert teknisk profil av GolfBox-svaret ved automatiske bookingforsøk, med mulighet for en tilgangsbeskyttet diagnosekopi ved manuell feilsøking.
+- Rapporterer ikke lenger en booking som gjennomført bare fordi GolfBox svarte uten HTTP-feil; uklar respons markeres som ikke bekreftet.
+
 ## [1.9.44] - 2026-07-08
 - Legger tilbake Par-kolonnen som viser antall par per hull, uten å vise hullets par eller antall scorer.
 
