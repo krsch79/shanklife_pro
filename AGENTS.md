@@ -9,6 +9,7 @@
 - For server code changes and deploys, enable maintenance mode before touching the running server and disable it only after deploy and verification are done. Use the app's maintenance flag file/deploy script flow.
 - When deployment or updates require the app process to stop or restart, the static maintenance HTML page must be shown for the whole downtime/restart window.
 - Production runs on a Raspberry Pi at `192.168.50.116`.
+- `/Volumes/Shared/shanklife_pro` is the SMB-mounted production source directory, not an isolated development worktree. Do not edit application code there before maintenance mode. Make code changes in a clean clone under `/tmp`, test and commit there, then let `scripts/deploy.sh` update the production directory while maintenance mode is active.
 - SSH user for the Raspberry Pi is `kristian`; do not store SSH passwords or other secrets in this repository.
 - Default delivery expectation: code changes should be committed, pushed to GitHub, and deployed to the Raspberry Pi unless the user explicitly asks not to deploy.
 - Shanklife Pro is not managed by a `shanklife-pro.service` systemd unit. After deploy, verify the actual `scripts/deploy.sh` runtime: the `/tmp/shanklife_pro_venv/bin/python app.py` process, port `5055`, `/api/v1/health`, and `instance/maintenance.lock` removal.
