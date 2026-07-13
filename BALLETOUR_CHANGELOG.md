@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.51] - 2026-07-13
+- Retter GolfBox-innsendingen slik at JavaScript-tekst i avkrysningsbokser ikke aktiverer søkemodus ved en feil.
+- Etterkontrollerer automatisk booking mot GolfBox «Mine tider», inkludert starttid, bane, innlogget spiller og alle ønskede spillere, før bookingen markeres som gjennomført eller suksesse-post sendes.
+- Oppdager en allerede eksisterende identisk booking før nytt forsøk, slik at omkjøring ikke lager duplikat.
+
 ## [1.9.50] - 2026-07-13
 - Logger en sanitert teknisk profil av GolfBox-svaret ved automatiske bookingforsøk, med mulighet for en tilgangsbeskyttet diagnosekopi ved manuell feilsøking.
 - Rapporterer ikke lenger en booking som gjennomført bare fordi GolfBox svarte uten HTTP-feil; uklar respons markeres som ikke bekreftet.

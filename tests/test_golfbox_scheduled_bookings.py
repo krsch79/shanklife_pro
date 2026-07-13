@@ -1,15 +1,18 @@
 import unittest
-from datetime import date
+from datetime import date, time
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from services.golfbox import (
+    _booking_contains_expected_players,
     _booking_response_requires_payment,
+    _form_inputs,
     _log_booking_submit_response,
     _parse_member_number_lookup,
     _player_memberships_for_booking_course,
     _resolve_requested_member_memberships,
     _scheduled_pending_booking,
+    _verified_booking_in_my_times,
     confirm_golfbox_booking,
 )
 
@@ -133,6 +136,66 @@ class GolfBoxScheduledBookingTests(unittest.TestCase):
         page_html = '<input type="hidden" name="hidden_BookingPrice_0" value="250">'
 
         self.assertTrue(_booking_response_requires_payment(page_html))
+
+    def test_form_parser_does_not_treat_javascript_checked_property_as_checked_attribute(self):
+        page_html = '''
+            <input type="checkbox" name="chkSearchOnly" onclick="searchOnly(this.checked);">
+            <input type="checkbox" name="chkInviteFriends" onclick="inviteFriendsEvent(this.checked);">
+            <input type="checkbox" name="confirmed" value="yes" checked>
+        '''
+
+        form_data = _form_inputs(page_html)
+
+        self.assertNotIn("chkSearchOnly", form_data)
+        self.assertNotIn("chkInviteFriends", form_data)
+        self.assertEqual(form_data["confirmed"], "yes")
+
+    def test_booking_verification_requires_every_expected_player(self):
+        booking = {
+            "player_rows": [
+                {"name": "Kristian Schiander", "member_number": "308-5930"},
+                {"name": "Tollef Schiander", "member_number": "308-1556"},
+            ]
+        }
+
+        self.assertTrue(_booking_contains_expected_players(booking, [
+            {"player_name": "Kristian Schiander", "member_number": "308-5930"},
+            {"player_name": "Tollef Schiander", "member_number": "308-1556"},
+        ]))
+        self.assertFalse(_booking_contains_expected_players(booking, [
+            {"player_name": "Kristian Schiander", "member_number": "308-5930"},
+            {"player_name": "Mangler", "member_number": "308-9999"},
+        ]))
+
+    @patch("services.golfbox._parse_my_times")
+    def test_my_times_verification_requires_exact_owned_booking(self, parse_my_times):
+        parse_my_times.return_value = [{
+            "booking_start": "20260720T165000",
+            "resource_guid": "{haga-course}",
+            "can_cancel": True,
+            "player_rows": [{"name": "Kristian Schiander", "member_number": "308-5930"}],
+        }]
+        response = SimpleNamespace(text="my times", raise_for_status=lambda: None)
+        client = SimpleNamespace(get=lambda _url: response)
+
+        booking = _verified_booking_in_my_times(
+            client,
+            date(2026, 7, 20),
+            time(16, 50),
+            [{"player_name": "Kristian Schiander", "member_number": "308-5930"}],
+            "{HAGA-COURSE}",
+        )
+
+        self.assertIsNotNone(booking)
+
+        parse_my_times.return_value[0]["can_cancel"] = False
+        self.assertIsNone(_verified_booking_in_my_times(
+            client,
+            date(2026, 7, 20),
+            time(16, 50),
+            [{"player_name": "Kristian Schiander", "member_number": "308-5930"}],
+            "{HAGA-COURSE}",
+        ))
 
     @patch("services.golfbox.LOGGER")
     def test_booking_response_diagnostics_do_not_log_page_contents(self, logger):

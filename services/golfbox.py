@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -1157,6 +1158,21 @@ def _book_slot(credentials, user, booking_date, booking_time, player_memberships
         first_membership = (player_memberships or [{}])[0]
         switch_club_guid = first_membership.get("club_guid") or club_guid
         selected_identity = _switch_club(client, switch_club_guid)
+        verified_booking = _verified_booking_in_my_times(
+            client,
+            booking_date,
+            booking_time,
+            player_memberships,
+            resource_guid,
+        )
+        if verified_booking:
+            return _verified_booking_result(
+                course_name,
+                booking_date,
+                booking_time,
+                player_memberships,
+                already_existed=True,
+            )
         window_response = client.get(
             f"{GOLFBOX_BASE_URL}/site/my_golfbox/ressources/booking/window.asp",
             params={
@@ -1193,12 +1209,30 @@ def _book_slot(credentials, user, booking_date, booking_time, player_memberships
                 "available_slots": [],
             }
         if "Tiden er låst" in submit_response.text or "låst" in submit_response.text.lower():
+            _cleanup_booking_lock(client, booking_start, resource_guid)
             return {
                 "intent": "create_booking",
                 "status": "booking_failed",
                 "message": "Starttiden er låst i GolfBox akkurat nå. Prøv igjen om litt.",
                 "available_slots": [],
             }
+        for attempt in range(3):
+            if attempt:
+                time.sleep(1)
+            verified_booking = _verified_booking_in_my_times(
+                client,
+                booking_date,
+                booking_time,
+                player_memberships,
+                resource_guid,
+            )
+            if verified_booking:
+                return _verified_booking_result(
+                    course_name,
+                    booking_date,
+                    booking_time,
+                    player_memberships,
+                )
         _cleanup_booking_lock(client, booking_start, resource_guid)
     return {
         "intent": "create_booking",
@@ -1214,6 +1248,60 @@ def _book_slot(credentials, user, booking_date, booking_time, player_memberships
         "diagnostic_id": response_diagnostics["response_id"],
         "available_slots": [],
     }
+
+
+def _verified_booking_result(course_name, booking_date, booking_time, player_memberships, already_existed=False):
+    if already_existed:
+        message = (
+            f"Bookingen finnes allerede og er bekreftet i GolfBox for {course_name} "
+            f"{booking_date.isoformat()} kl. {booking_time.strftime('%H:%M')}."
+        )
+    else:
+        message = (
+            f"Bookingen er gjennomført og bekreftet i GolfBox for {course_name} "
+            f"{booking_date.isoformat()} kl. {booking_time.strftime('%H:%M')}."
+        )
+    return {
+        "intent": "create_booking",
+        "status": "booking_created",
+        "course": course_name,
+        "date": booking_date.isoformat(),
+        "time": booking_time.strftime("%H:%M"),
+        "players": len(player_memberships or []) or 1,
+        "message": message,
+        "verification_source": "golfbox_my_times",
+        "available_slots": [],
+    }
+
+
+def _verified_booking_in_my_times(client, booking_date, booking_time, player_memberships, resource_guid):
+    response = client.get(f"{GOLFBOX_BASE_URL}{GOLFBOX_MY_TIMES_PATH}")
+    response.raise_for_status()
+    booking_start = f"{booking_date.strftime('%Y%m%d')}T{booking_time.strftime('%H%M%S')}"
+    for booking in _parse_my_times(response.text):
+        if booking.get("booking_start") != booking_start:
+            continue
+        if resource_guid and (booking.get("resource_guid") or "").lower() != resource_guid.lower():
+            continue
+        if not booking.get("can_cancel"):
+            continue
+        if _booking_contains_expected_players(booking, player_memberships):
+            return booking
+    return None
+
+
+def _booking_contains_expected_players(booking, player_memberships):
+    rows = booking.get("player_rows") or []
+    for expected in player_memberships or []:
+        expected_number = (expected.get("member_number") or "").strip()
+        expected_name = (expected.get("player_name") or "").strip()
+        if expected_number:
+            matched = any((row.get("member_number") or "").strip() == expected_number for row in rows)
+        else:
+            matched = any(_name_matches(row.get("name") or "", expected_name) for row in rows)
+        if not matched:
+            return False
+    return True
 
 
 def _log_booking_submit_response(response, booking_start):
@@ -1368,13 +1456,21 @@ def _form_inputs(page_html):
         input_type = (_attr_value(attrs, "type") or "text").lower()
         if input_type in {"button", "submit", "image", "file"}:
             continue
-        if input_type in {"checkbox", "radio"} and "checked" not in attrs.lower():
+        if input_type in {"checkbox", "radio"} and not _has_boolean_attribute(attrs, "checked"):
             continue
         value = _attr_value(attrs, "value")
         if input_type in {"checkbox", "radio"} and value == "":
             value = "on"
         form_data[name] = value
     return form_data
+
+
+def _has_boolean_attribute(attrs, attr_name):
+    return bool(re.search(
+        rf"(?:^|\s){re.escape(attr_name)}(?:\s*=\s*(?:[\"'][^\"']*[\"']|[^\s]+))?(?=\s|$)",
+        attrs or "",
+        re.IGNORECASE,
+    ))
 
 
 def _attr_value(attrs, attr_name):
@@ -3370,7 +3466,10 @@ def _legacy_recurring_history_view(booking, user, include_detail=False):
     if not booking:
         return None
     status = "failed" if booking.last_error_message else (
-        "booking_created" if "sendt til GolfBox" in (booking.last_result_message or "") else "no_slot"
+        "booking_created" if any(
+            marker in (booking.last_result_message or "")
+            for marker in ("sendt til GolfBox", "bekreftet i GolfBox")
+        ) else "no_slot"
     )
     date_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", booking.last_result_message or "")
     play_date = date.fromisoformat(date_match.group(1)) if date_match else _play_date_for_recurring_run(
