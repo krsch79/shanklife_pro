@@ -2,6 +2,13 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.52] - 2026-07-23
+- Gjør Garmin-matching robust når totalscoren er ulik, så en entydig runde fortsatt kan matches på bane, dato, hull, par og starttid, samtidig som scoreavviket vises tydelig.
+- Viser konkrete Garmin-feil som forklarer om avviket gjelder dato, antall hull, bane, starttid eller parrekkefølge.
+- Merker Garmin-synkroniserte runder både på rundedetaljen og i oversikten, og deaktiverer synkeknappen når runden allerede er synkronisert.
+- Lar brukeren velge og synkronisere flere fullførte runder fra oversikten.
+- Forsøker automatisk Garmin-synkronisering når en Shanklife-runde fullføres, uten at en Garmin-feil hindrer selve fullføringen.
+
 ## [1.9.48] - 2026-07-10
 - Merker 9-hullsrunder med en asterisk i tabellen «Statistikk per runde» og forklarer merkingen rett under tabellen, slik at de er enkle å skille fra 18-hullsrunder uten en ekstra kolonne.
 

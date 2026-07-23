@@ -27,7 +27,12 @@ from models import (
 )
 from routes.auth import login_required
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
-from services.garmin_golf import GarminGolfSyncError, garmin_connection_available, sync_round_from_garmin
+from services.garmin_golf import (
+    GarminGolfSyncError,
+    garmin_client_for_user,
+    garmin_connection_available,
+    sync_round_from_garmin,
+)
 from services.live_score import score_to_par_for_entries
 from services.round_completion import missing_saved_entry_choices, validate_score_putts
 from services.round_length import (
@@ -938,6 +943,56 @@ def _after_finish_redirect(round_obj):
     return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
 
+def _garmin_sync_success_message(result):
+    message = (
+        f"Garmin-data hentet: {result['distances_updated']} utslagslengder "
+        f"og {result['clubs_updated']} køllevalg."
+    )
+    if result["unmapped_clubs"]:
+        message += f" {result['unmapped_clubs']} køllevalg manglet en Shanklife-mapping."
+    if result["score_difference"]:
+        message += (
+            f" Merk: totalscoren er {result['local_total']} i Shanklife og "
+            f"{result['garmin_total']} i Garmin."
+        )
+    return message
+
+
+def _try_automatic_garmin_sync(round_obj):
+    current_user = g.get("current_user")
+    round_player = _current_user_round_player(round_obj)
+    if (
+        not current_user
+        or not round_player
+        or _is_balletour_round(round_obj)
+        or _round_is_matchplay(round_obj)
+        or round_obj.garmin_sync
+        or not garmin_connection_available(current_user)
+    ):
+        return
+
+    try:
+        result = sync_round_from_garmin(round_obj, round_player, current_user)
+        db.session.commit()
+    except GarminGolfSyncError as exc:
+        db.session.rollback()
+        flash(f"Automatisk Garmin-synk feilet: {exc}", "error")
+        current_app.logger.warning(
+            "Automatisk Garmin-synk feilet: bruker=%s runde=%s feil=%s",
+            current_user.id,
+            round_obj.id,
+            exc,
+        )
+    else:
+        flash("Automatisk Garmin-synk fullført. " + _garmin_sync_success_message(result), "success")
+        current_app.logger.info(
+            "Automatisk Garmin-synk fullført: bruker=%s runde=%s scorecard=%s",
+            current_user.id,
+            round_obj.id,
+            result["scorecard_id"],
+        )
+
+
 def _send_shanklife_round_started_mail(round_obj):
     if _is_balletour_round(round_obj):
         return
@@ -1514,8 +1569,26 @@ def finished_rounds():
         .order_by(Round.started_at.desc())
         .all()
     )
-    score_cards = [_round_score_card(round_obj) for round_obj in rows]
-    return render_template("finished_rounds.html", score_cards=score_cards, title="Fullførte runder")
+    current_user = g.get("current_user")
+    connection_available = garmin_connection_available(current_user)
+    score_cards = []
+    for round_obj in rows:
+        card = _round_score_card(round_obj)
+        card["current_user_round_player"] = _current_user_round_player(round_obj)
+        card["is_matchplay_round"] = _round_is_matchplay(round_obj)
+        card["can_garmin_sync"] = bool(
+            connection_available
+            and card["current_user_round_player"]
+            and not round_obj.garmin_sync
+            and not card["is_matchplay_round"]
+        )
+        score_cards.append(card)
+    return render_template(
+        "finished_rounds.html",
+        score_cards=score_cards,
+        title="Fullførte runder",
+        garmin_connection_available=connection_available,
+    )
 
 
 @rounds_bp.route("/rounds/new", methods=["GET", "POST"])
@@ -2009,6 +2082,7 @@ def round_hole(round_id, hole_number):
             round_obj.status = "finished"
             round_obj.finished_at = server_now()
             db.session.commit()
+            _try_automatic_garmin_sync(round_obj)
             if _is_balletour_round(round_obj):
                 _send_balletour_round_finished_mail(round_obj)
             else:
@@ -2397,6 +2471,7 @@ def round_score(round_id):
 
         db.session.commit()
         if action == "finish" and was_ongoing:
+            _try_automatic_garmin_sync(round_obj)
             if _is_balletour_round(round_obj):
                 _send_balletour_round_finished_mail(round_obj)
             else:
@@ -2571,6 +2646,10 @@ def garmin_sync(round_id):
     if not round_player:
         return "Du kan bare hente Garmin-data til dine egne runder.", 403
 
+    if round_obj.garmin_sync:
+        flash("Runden er allerede synkronisert med Garmin.", "success")
+        return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+
     try:
         result = sync_round_from_garmin(round_obj, round_player, g.current_user)
         db.session.commit()
@@ -2578,13 +2657,7 @@ def garmin_sync(round_id):
         db.session.rollback()
         flash(str(exc), "error")
     else:
-        message = (
-            f"Garmin-data hentet: {result['distances_updated']} utslagslengder "
-            f"og {result['clubs_updated']} køllevalg."
-        )
-        if result["unmapped_clubs"]:
-            message += f" {result['unmapped_clubs']} køllevalg manglet en Shanklife-mapping."
-        flash(message, "success")
+        flash(_garmin_sync_success_message(result), "success")
         current_app.logger.info(
             "Garmin-synk fullført: bruker=%s runde=%s scorecard=%s avstander=%s køller=%s",
             g.current_user.id,
@@ -2594,3 +2667,70 @@ def garmin_sync(round_id):
             result["clubs_updated"],
         )
     return redirect(url_for("rounds.round_score", round_id=round_obj.id))
+
+
+@rounds_bp.route("/rounds/garmin-sync", methods=["POST"])
+@login_required
+def garmin_bulk_sync():
+    round_ids = []
+    for raw_round_id in request.form.getlist("round_ids"):
+        try:
+            round_id = int(raw_round_id)
+        except (TypeError, ValueError):
+            continue
+        if round_id not in round_ids:
+            round_ids.append(round_id)
+
+    if not round_ids:
+        flash("Velg minst én runde som skal synkroniseres med Garmin.", "error")
+        return redirect(url_for("rounds.finished_rounds"))
+    if len(round_ids) > 50:
+        flash("Du kan synkronisere maksimalt 50 runder om gangen.", "error")
+        return redirect(url_for("rounds.finished_rounds"))
+
+    try:
+        client = garmin_client_for_user(g.current_user)
+    except GarminGolfSyncError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("rounds.finished_rounds"))
+
+    synced = []
+    skipped = []
+    failed = []
+    for round_id in round_ids:
+        round_obj = Round.query.get(round_id)
+        round_player = _current_user_round_player(round_obj) if round_obj else None
+        if not round_obj or _is_balletour_round(round_obj) or _round_is_matchplay(round_obj) or not round_player:
+            skipped.append(f"#{round_id}: ikke en tilgjengelig Shanklife-runde")
+            continue
+        if round_obj.garmin_sync:
+            skipped.append(f"#{round_id}: allerede synkronisert")
+            continue
+        try:
+            result = sync_round_from_garmin(
+                round_obj,
+                round_player,
+                g.current_user,
+                client=client,
+            )
+            db.session.commit()
+        except GarminGolfSyncError as exc:
+            db.session.rollback()
+            failed.append(f"#{round_id}: {exc}")
+        else:
+            synced.append(f"#{round_id}")
+            current_app.logger.info(
+                "Garmin-massesynk fullført: bruker=%s runde=%s scorecard=%s",
+                g.current_user.id,
+                round_id,
+                result["scorecard_id"],
+            )
+
+    if synced:
+        flash(f"Synkronisert med Garmin: {', '.join(synced)}.", "success")
+    if skipped:
+        flash("Hoppet over: " + " | ".join(skipped[:5]), "error")
+    if failed:
+        extra = f" | og {len(failed) - 5} feil til" if len(failed) > 5 else ""
+        flash("Garmin-synk feilet: " + " | ".join(failed[:5]) + extra, "error")
+    return redirect(url_for("rounds.finished_rounds"))

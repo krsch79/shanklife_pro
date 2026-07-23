@@ -82,6 +82,10 @@ def _garmin_client_for_user(user):
     return client
 
 
+def garmin_client_for_user(user):
+    return _garmin_client_for_user(user)
+
+
 def _garmin_summaries(payload):
     if isinstance(payload, list):
         return payload
@@ -133,41 +137,81 @@ def match_garmin_scorecard(round_obj, round_player, payload):
     local_holes = len(round_holes(round_obj))
     local_total = _round_total(round_player)
     local_pars = _round_pars(round_obj)
+    summaries = [
+        summary for summary in _garmin_summaries(payload)
+        if not summary.get("roundInProgress")
+    ]
+    if not summaries:
+        raise GarminGolfSyncError("Garmin Connect returnerte ingen fullførte golfrunder.")
+
+    same_date = []
+    same_holes = []
+    same_course = []
+    close_in_time = []
+    same_pars = []
     candidates = []
 
-    for summary in _garmin_summaries(payload):
-        if summary.get("roundInProgress"):
-            continue
-        if int(summary.get("holesCompleted") or 0) != local_holes:
-            continue
-        if local_total is not None and int(summary.get("strokes") or -1) != local_total:
-            continue
-        garmin_pars = str(summary.get("holePars") or "")
-        if garmin_pars and len(garmin_pars) == len(local_pars) and garmin_pars != local_pars:
-            continue
-
+    for summary in summaries:
         garmin_start = _parse_garmin_start(summary.get("startTime"))
         if not garmin_start or garmin_start.date() != local_start.date():
             continue
-        time_delta = abs(garmin_start - local_start)
-        if time_delta > MAX_START_TIME_DELTA:
+        same_date.append(summary)
+        if int(summary.get("holesCompleted") or 0) != local_holes:
             continue
+        same_holes.append(summary)
 
         garmin_course_tokens = _course_tokens(summary.get("courseName"))
         common_tokens = local_course_tokens & garmin_course_tokens
         if local_course_tokens and garmin_course_tokens and not common_tokens:
             continue
+        same_course.append(summary)
+
+        time_delta = abs(garmin_start - local_start)
+        if time_delta > MAX_START_TIME_DELTA:
+            continue
+        close_in_time.append(summary)
+
+        garmin_pars = str(summary.get("holePars") or "")
+        if garmin_pars and len(garmin_pars) == len(local_pars) and garmin_pars != local_pars:
+            continue
+        same_pars.append(summary)
+
         similarity = len(common_tokens) / max(len(local_course_tokens | garmin_course_tokens), 1)
-        candidates.append((time_delta, -similarity, summary))
+        score_matches = local_total is None or int(summary.get("strokes") or -1) == local_total
+        candidates.append((time_delta, not score_matches, -similarity, summary))
 
     if not candidates:
-        raise GarminGolfSyncError("Fant ingen Garmin-runde som matcher dato, bane, hull og score.")
+        date_text = local_start.strftime("%d.%m.%Y")
+        if not same_date:
+            raise GarminGolfSyncError(f"Garmin har ingen fullført golfrunde på {date_text}.")
+        if not same_holes:
+            found_holes = sorted({int(row.get("holesCompleted") or 0) for row in same_date})
+            found_text = ", ".join(str(value) for value in found_holes if value) or "ukjent"
+            raise GarminGolfSyncError(
+                f"Garmin-rundene {date_text} har {found_text} hull, mens Shanklife-runden har {local_holes}."
+            )
+        if not same_course:
+            found_courses = sorted({(row.get("courseName") or "ukjent bane") for row in same_holes})
+            raise GarminGolfSyncError(
+                f"Fant {local_holes}-hullsrunde på Garmin {date_text}, men banen er "
+                f"{', '.join(found_courses[:3])}; Shanklife har {round_obj.course.name}."
+            )
+        if not close_in_time:
+            raise GarminGolfSyncError(
+                f"Fant riktig bane og dato på Garmin, men starttidspunktet avviker mer enn "
+                f"{int(MAX_START_TIME_DELTA.total_seconds() // 3600)} timer."
+            )
+        if not same_pars:
+            raise GarminGolfSyncError(
+                "Fant riktig bane, dato og antall hull på Garmin, men parrekkefølgen er forskjellig."
+            )
+        raise GarminGolfSyncError("Fant ingen entydig Garmin-runde som matcher denne Shanklife-runden.")
 
-    candidates.sort(key=lambda item: (item[0], item[1]))
+    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
     best = candidates[0]
     if len(candidates) > 1 and abs(candidates[1][0] - best[0]) <= timedelta(minutes=10):
         raise GarminGolfSyncError("Fant flere mulige Garmin-runder. Rundene ligger for tett til å velge trygt.")
-    return best[2]
+    return best[3]
 
 
 def _first_tee_shot(payload, hole_number):
@@ -207,6 +251,8 @@ def sync_round_from_garmin(round_obj, round_player, user, client=None):
         raise GarminGolfSyncError("Runden må være fullført før Garmin-data kan hentes.")
     if round_player.round_id != round_obj.id:
         raise GarminGolfSyncError("Spilleren tilhører ikke denne runden.")
+    if GarminRoundSync.query.filter_by(round_id=round_obj.id).first():
+        raise GarminGolfSyncError("Runden er allerede synkronisert med Garmin.")
 
     client = client or _garmin_client_for_user(user)
     try:
@@ -270,10 +316,19 @@ def sync_round_from_garmin(round_obj, round_player, user, client=None):
     sync_row.clubs_updated = clubs_updated
     sync_row.synced_at = server_now()
 
+    local_total = _round_total(round_player)
+    garmin_total = int(matched.get("strokes") or 0) or None
     return {
         "scorecard_id": int(matched["id"]),
         "course_name": matched.get("courseName") or "",
         "distances_updated": distances_updated,
         "clubs_updated": clubs_updated,
         "unmapped_clubs": unmapped_clubs,
+        "local_total": local_total,
+        "garmin_total": garmin_total,
+        "score_difference": (
+            local_total - garmin_total
+            if local_total is not None and garmin_total is not None
+            else None
+        ),
     }

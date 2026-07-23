@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 
 class FakeGarminClient:
@@ -53,6 +54,27 @@ class GarminGolfTests(unittest.TestCase):
         self.db.session.flush()
         user = self.User(username="garmin_test", password_hash="test", player_id=player.id)
         self.db.session.add(user)
+        self.db.session.flush()
+        self.db.session.execute(self.db.text(
+            "CREATE TABLE IF NOT EXISTS app_registry ("
+            "id INTEGER PRIMARY KEY, slug VARCHAR(80) NOT NULL UNIQUE)"
+        ))
+        self.db.session.execute(self.db.text(
+            "CREATE TABLE IF NOT EXISTS user_app_access ("
+            "user_id INTEGER NOT NULL, app_id INTEGER NOT NULL, "
+            "has_access BOOLEAN NOT NULL DEFAULT 0, is_app_admin BOOLEAN NOT NULL DEFAULT 0, "
+            "PRIMARY KEY (user_id, app_id))"
+        ))
+        self.db.session.execute(
+            self.db.text("INSERT OR IGNORE INTO app_registry (id, slug) VALUES (1, 'shanklife-pro')")
+        )
+        self.db.session.execute(
+            self.db.text(
+                "INSERT OR REPLACE INTO user_app_access "
+                "(user_id, app_id, has_access, is_app_admin) VALUES (:user_id, 1, 1, 0)"
+            ),
+            {"user_id": user.id},
+        )
         self.db.session.add_all([
             self.CourseHole(course_id=course.id, hole_number=1, par=3, stroke_index=3),
             self.CourseHole(course_id=course.id, hole_number=2, par=4, stroke_index=1),
@@ -137,8 +159,8 @@ class GarminGolfTests(unittest.TestCase):
             sync_row = self.GarminRoundSync.query.filter_by(round_id=round_obj.id).one()
             self.assertEqual(sync_row.scorecard_id, 371718841)
 
-    def test_rejects_a_round_with_a_different_score(self):
-        from services.garmin_golf import GarminGolfSyncError, match_garmin_scorecard
+    def test_accepts_unique_round_with_a_different_score(self):
+        from services.garmin_golf import match_garmin_scorecard
 
         with self.app.app_context():
             _user, round_obj, round_player = self._round()
@@ -151,8 +173,126 @@ class GarminGolfTests(unittest.TestCase):
                 "strokes": 13,
                 "roundInProgress": False,
             }]}
-            with self.assertRaisesRegex(GarminGolfSyncError, "matcher dato, bane, hull og score"):
+            matched = match_garmin_scorecard(round_obj, round_player, payload)
+            self.assertEqual(matched["id"], 123)
+
+    def test_explains_when_only_hole_count_differs(self):
+        from services.garmin_golf import GarminGolfSyncError, match_garmin_scorecard
+
+        with self.app.app_context():
+            _user, round_obj, round_player = self._round()
+            payload = {"scorecardSummaries": [{
+                "id": 124,
+                "courseName": "Haga Golfklubb ~ Blue/Red",
+                "startTime": "2026-07-10T10:53:30.000Z",
+                "holesCompleted": 9,
+                "holePars": "345345345",
+                "strokes": 40,
+                "roundInProgress": False,
+            }]}
+            with self.assertRaisesRegex(
+                GarminGolfSyncError,
+                "har 9 hull, mens Shanklife-runden har 3",
+            ):
                 match_garmin_scorecard(round_obj, round_player, payload)
+
+    def test_prevents_second_sync(self):
+        from services.garmin_golf import GarminGolfSyncError, sync_round_from_garmin
+
+        with self.app.app_context():
+            user, round_obj, round_player = self._round()
+            self.db.session.add(self.GarminRoundSync(
+                round_id=round_obj.id,
+                user_id=user.id,
+                scorecard_id=123,
+            ))
+            self.db.session.commit()
+            with self.assertRaisesRegex(GarminGolfSyncError, "allerede synkronisert"):
+                sync_round_from_garmin(round_obj, round_player, user, client=FakeGarminClient({}, {}))
+
+    def test_finished_rounds_shows_status_and_bulk_selection(self):
+        with self.app.app_context():
+            user, round_obj, _round_player = self._round()
+            user_id = user.id
+            round_id = round_obj.id
+
+        client = self.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = user_id
+        with patch("routes.rounds.garmin_connection_available", return_value=True):
+            response = client.get("/rounds/finished")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Ikke synkronisert med Garmin", html)
+        self.assertIn(f'value="{round_id}"', html)
+        self.assertIn("Synkroniser valgte med Garmin", html)
+
+        with self.app.app_context():
+            self.db.session.add(self.GarminRoundSync(
+                round_id=round_id,
+                user_id=user_id,
+                scorecard_id=123,
+            ))
+            self.db.session.commit()
+        with patch("routes.rounds.garmin_connection_available", return_value=True):
+            response = client.get("/rounds/finished")
+        html = response.get_data(as_text=True)
+        self.assertIn("Synkronisert med Garmin", html)
+        self.assertNotIn(f'value="{round_id}"', html)
+
+    def test_bulk_sync_reports_specific_round_failure(self):
+        from services.garmin_golf import GarminGolfSyncError
+
+        with self.app.app_context():
+            user, round_obj, _round_player = self._round()
+            user_id = user.id
+            round_id = round_obj.id
+
+        client = self.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = user_id
+        with (
+            patch("routes.rounds.garmin_client_for_user", return_value=object()),
+            patch(
+                "routes.rounds.sync_round_from_garmin",
+                side_effect=GarminGolfSyncError("Garmin har ingen fullført golfrunde på datoen."),
+            ),
+        ):
+            response = client.post(
+                "/rounds/garmin-sync",
+                data={"round_ids": str(round_id)},
+                follow_redirects=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            f"#{round_id}: Garmin har ingen fullført golfrunde",
+            response.get_data(as_text=True),
+        )
+
+    def test_automatic_sync_runs_when_round_is_finished(self):
+        from flask import g
+        from routes.rounds import _try_automatic_garmin_sync
+
+        with self.app.test_request_context("/"):
+            user, round_obj, _round_player = self._round()
+            g.current_user = user
+            result = {
+                "scorecard_id": 123,
+                "distances_updated": 2,
+                "clubs_updated": 2,
+                "unmapped_clubs": 0,
+                "local_total": 12,
+                "garmin_total": 12,
+                "score_difference": 0,
+            }
+            with (
+                patch("routes.rounds.garmin_connection_available", return_value=True),
+                patch("routes.rounds.sync_round_from_garmin", return_value=result) as sync_mock,
+            ):
+                _try_automatic_garmin_sync(round_obj)
+            sync_mock.assert_called_once_with(round_obj, _round_player, user)
 
 
 if __name__ == "__main__":
