@@ -2,6 +2,12 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.53] - 2026-07-23
+- Gjør «Min side» til en ryddig konto- og innstillingsside med egne seksjoner for spillerprofil, GolfBox og Garmin, varsler og de tre siste rundene.
+- Flytter beregnet golfstatistikk ut av «Min side» og gir en tydelig snarvei til den fullverdige statistikksiden.
+- Legger til «Mine runder» med alle brukerens Shanklife-runder og filtre for status, år, bane, faktisk tee-navn, 9/18 hull og Garmin-status.
+- Viser rundehistorikken som mobilvennlige kort med score, score mot par, spilleform, handicap, synkestatus og relevante handlinger.
+
 ## [1.9.52] - 2026-07-23
 - Gjør Garmin-matching robust når totalscoren er ulik, så en entydig runde fortsatt kan matches på bane, dato, hull, par og starttid, samtidig som scoreavviket vises tydelig.
 - Viser konkrete Garmin-feil som forklarer om avviket gjelder dato, antall hull, bane, starttid eller parrekkefølge.

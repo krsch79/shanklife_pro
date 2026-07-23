@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Mine runder - Shanklife scoring{% endblock %}
+
+{% block content %}
+<div class="page-title-row">
+    <div>
+        <p class="eyebrow">Rundehistorikk</p>
+        <h2>Mine runder</h2>
+        <p class="muted">Pågående og fullførte Shanklife-runder.</p>
+    </div>
+    <div class="button-row compact">
+        <a class="button" href="{{ url_for('rounds.new_stats_round') }}">Ny runde</a>
+        <a class="button secondary" href="{{ url_for('stats.index') }}">Min statistikk</a>
+        <a class="button secondary" href="{{ url_for('profile.me') }}">Min side</a>
+    </div>
+</div>
+
+<section class="round-filter-panel">
+    <form method="get" class="my-round-filters">
+        <div>
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                <option value="">Alle</option>
+                <option value="ongoing" {% if filters.status == "ongoing" %}selected{% endif %}>Pågående</option>
+                <option value="finished" {% if filters.status == "finished" %}selected{% endif %}>Fullførte</option>
+            </select>
+        </div>
+        <div>
+            <label for="year">År</label>
+            <select id="year" name="year">
+                <option value="">Alle</option>
+                {% for year in available_years %}
+                <option value="{{ year }}" {% if filters.year == year %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="course_id">Bane</label>
+            <select id="course_id" name="course_id">
+                <option value="">Alle baner</option>
+                {% for course_id, course_name in available_courses %}
+                <option value="{{ course_id }}" {% if filters.course_id == course_id %}selected{% endif %}>{{ course_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="tee">Tee</label>
+            <select id="tee" name="tee">
+                <option value="">Alle tee</option>
+                {% for tee_name in available_tees %}
+                <option value="{{ tee_name }}" {% if filters.tee == tee_name %}selected{% endif %}>{{ tee_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="holes">Antall hull</label>
+            <select id="holes" name="holes">
+                <option value="">9 og 18 hull</option>
+                <option value="9" {% if filters.holes == 9 %}selected{% endif %}>9 hull</option>
+                <option value="18" {% if filters.holes == 18 %}selected{% endif %}>18 hull</option>
+            </select>
+        </div>
+        <div>
+            <label for="garmin">Garmin</label>
+            <select id="garmin" name="garmin">
+                <option value="">Alle</option>
+                <option value="synced" {% if filters.garmin == "synced" %}selected{% endif %}>Synkronisert</option>
+                <option value="unsynced" {% if filters.garmin == "unsynced" %}selected{% endif %}>Ikke synkronisert</option>
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="button">Filtrer</button>
+            <a class="button secondary" href="{{ url_for('profile.my_rounds') }}">Nullstill</a>
+        </div>
+    </form>
+</section>
+
+<div class="round-result-heading">
+    <p><strong>{{ round_rows|length }}</strong> av {{ total_round_count }} runder</p>
+</div>
+
+<div class="my-round-list">
+    {% for row in round_rows %}
+    <article class="my-round-card">
+        <div class="my-round-main">
+            <div class="my-round-title-row">
+                <div>
+                    <p class="eyebrow">{{ row.round.started_at|datetime_local }}</p>
+                    <h3>{{ row.course.name }}</h3>
+                </div>
+                <div class="my-round-score">
+                    <strong>{{ row.total if row.total is not none else "—" }}</strong>
+                    <span>{% if row.score_to_par is not none %}{{ row.score_to_par_display }} mot par{% else %}Score{% endif %}</span>
+                </div>
+            </div>
+            <div class="my-round-meta">
+                <span>Runde {{ row.round.id }}</span>
+                <span>{{ row.hole_count }} hull</span>
+                <span>{{ row.tee_name }} tee</span>
+                <span>HCP {{ "%.1f"|format(row.round_player.hcp_for_round) }}</span>
+                <span>{{ play_format_label(row.round.play_format) }}</span>
+                <span class="round-status-pill {{ row.round.status }}">{{ row.status_label }}</span>
+                {% if row.garmin_synced %}
+                <span class="garmin-sync-status synced">Synkronisert med Garmin</span>
+                {% elif row.round.status == "finished" and row.round.play_format != "matchplay" %}
+                <span class="garmin-sync-status pending">Ikke synkronisert med Garmin</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="button-row compact my-round-actions">
+            {% if row.can_send_to_golfbox %}
+            <a class="button compact-button" href="{{ url_for('golfbox_scores.prepare', round_id=row.round.id) }}">Send til GolfBox</a>
+            {% endif %}
+            <a
+                class="button secondary compact-button"
+                href="{% if row.round.status == 'ongoing' %}{{ url_for('rounds.continue_round', round_id=row.round.id) }}{% else %}{{ url_for('rounds.round_score', round_id=row.round.id) }}{% endif %}"
+            >
+                {{ "Fortsett" if row.round.status == "ongoing" else "Åpne" }}
+            </a>
+        </div>
+    </article>
+    {% else %}
+    <section class="empty-state-card">
+        <h3>Ingen runder matcher filtrene</h3>
+        <p class="muted">Nullstill filtrene eller velg andre kriterier.</p>
+        <a class="button secondary" href="{{ url_for('profile.my_rounds') }}">Nullstill filtre</a>
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}

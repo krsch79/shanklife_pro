@@ -1,141 +1,191 @@
 {% extends "base.html" %}
 {% block title %}Min side - Shanklife scoring{% endblock %}
 
-{% block content %}
-<div class="page-header">
-    <div>
-        <h2>Min side</h2>
-        <p class="muted">Koblet til spiller: {{ player.name }}</p>
+{% macro round_card(row) %}
+<article class="my-round-card">
+    <div class="my-round-main">
+        <div class="my-round-title-row">
+            <div>
+                <p class="eyebrow">{{ row.round.started_at|datetime_local }}</p>
+                <h4>{{ row.course.name }}</h4>
+            </div>
+            <div class="my-round-score">
+                <strong>{{ row.total if row.total is not none else "—" }}</strong>
+                <span>{% if row.score_to_par is not none %}{{ row.score_to_par_display }} mot par{% else %}Score{% endif %}</span>
+            </div>
+        </div>
+        <div class="my-round-meta">
+            <span>{{ row.hole_count }} hull</span>
+            <span>{{ row.tee_name }} tee</span>
+            <span>{{ play_format_label(row.round.play_format) }}</span>
+            <span class="round-status-pill {{ row.round.status }}">{{ row.status_label }}</span>
+            {% if row.garmin_synced %}<span class="garmin-sync-status synced">Garmin</span>{% endif %}
+        </div>
     </div>
     <div class="button-row compact">
-        <a class="button" href="{{ url_for('rounds.new_stats_round') }}">Ny runde med statistikk</a>
-        <a class="button secondary" href="{{ url_for('profile.notification_settings') }}">E-postvarsler</a>
-        <a class="button secondary" href="{{ url_for('auth.change_password') }}">Endre passord</a>
+        <a
+            class="button secondary compact-button"
+            href="{% if row.round.status == 'ongoing' %}{{ url_for('rounds.continue_round', round_id=row.round.id) }}{% else %}{{ url_for('rounds.round_score', round_id=row.round.id) }}{% endif %}"
+        >
+            {{ "Fortsett" if row.round.status == "ongoing" else "Åpne" }}
+        </a>
+    </div>
+</article>
+{% endmacro %}
+
+{% block content %}
+<div class="page-title-row profile-hero">
+    <div>
+        <p class="eyebrow">Personlig oversikt</p>
+        <h2>Min side</h2>
+        <p class="muted">Konto, integrasjoner og dine siste runder.</p>
+    </div>
+    <div class="button-row compact">
+        <a class="button" href="{{ url_for('rounds.new_stats_round') }}">Ny runde</a>
+        <a class="button secondary" href="{{ url_for('stats.index') }}">Min statistikk</a>
+        <a class="button secondary" href="{{ url_for('profile.my_rounds') }}">Alle mine runder</a>
     </div>
 </div>
 
-<section class="form-card">
-    <h3>GolfBox</h3>
-    {% if golfbox_connection.connected %}
-    <p class="muted">
-        Koblet til {{ golfbox_connection.player_name or golfbox_connection.username }}
-        {% if golfbox_connection.club_name %} · {{ golfbox_connection.club_name }}{% endif %}
-        {% if golfbox_connection.member_number %} · {{ golfbox_connection.member_number }}{% endif %}
-    </p>
-    {% if golfbox_connection.memberships %}
-    <div class="membership-list">
-        {% for membership in golfbox_connection.memberships %}
-        <span>{{ membership.club_name }} · {{ membership.member_number }}</span>
-        {% endfor %}
+<section class="profile-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Konto</p>
+            <h3>Spillerprofil</h3>
+        </div>
     </div>
-    {% endif %}
-    {% else %}
-    <p class="muted">Legg inn GolfBox-innlogging for å bruke GolfBox AI.</p>
-    {% endif %}
-    <form method="post" action="{{ url_for('profile.golfbox_settings') }}" class="settings-grid">
-        <input type="hidden" name="next" value="{{ request.full_path }}">
-        <div>
-            <label for="golfbox_username">GolfBox-brukernavn</label>
-            <input type="text" id="golfbox_username" name="golfbox_username" value="{{ golfbox_connection.username or '' }}" autocomplete="username" required>
+    <div class="profile-account-grid">
+        <div class="profile-info-card">
+            <span>Spiller</span>
+            <strong>{{ player.name }}</strong>
         </div>
-        <div>
-            <label for="golfbox_password">GolfBox-passord</label>
-            <input type="password" id="golfbox_password" name="golfbox_password" autocomplete="current-password" required>
+        <div class="profile-info-card">
+            <span>Handicap</span>
+            <strong>{{ "%.1f"|format(player.default_hcp) }}</strong>
         </div>
-        <div class="button-row compact">
-            <button type="submit" class="button">Lagre GolfBox</button>
-            {% if golfbox_connection.connected %}
-            <button type="submit" name="action" value="clear" class="button secondary" formnovalidate>Fjern</button>
-            {% endif %}
+        <div class="profile-info-card">
+            <span>E-post</span>
+            <strong>{{ current_user.email or "Ikke registrert" }}</strong>
         </div>
-    </form>
+    </div>
 </section>
 
-<div class="tee-tabs">
-    <span class="tee-tabs-label">Tee</span>
-    {% for tee in tee_options %}
-    <a class="{% if selected_tee_key == tee.key %}active{% endif %}" href="{{ url_for('profile.me', tee=tee.key) }}">{{ tee.label }}</a>
-    {% endfor %}
-</div>
-
-<div class="stat-grid">
-    <div class="stat-card"><strong>{{ summary.rounds_played }}</strong><span>Runder spilt</span></div>
-    <div class="stat-card"><strong>{{ summary.finished_rounds }}</strong><span>Fullførte runder</span></div>
-    <div class="stat-card"><strong>{{ summary.avg_round_score if summary.avg_round_score is not none else "—" }}</strong><span>Snittscore</span></div>
-    <div class="stat-card"><strong>{{ summary.avg_par_3 if summary.avg_par_3 is not none else "—" }}</strong><span>Snitt par 3</span></div>
-    <div class="stat-card"><strong>{{ summary.avg_par_4 if summary.avg_par_4 is not none else "—" }}</strong><span>Snitt par 4</span></div>
-    <div class="stat-card"><strong>{{ summary.avg_par_5 if summary.avg_par_5 is not none else "—" }}</strong><span>Snitt par 5</span></div>
-    <div class="stat-card"><strong>{% if summary.gir_percent is not none %}{{ summary.gir_percent }}%{% else %}—{% endif %}</strong><span>GIR</span></div>
-    <div class="stat-card"><strong>{{ summary.tracked_holes }}</strong><span>Hull med statistikk</span></div>
-    <div class="stat-card"><strong>{{ summary.avg_drive_distance if summary.avg_drive_distance is not none else "—" }}</strong><span>Snitt utslag</span></div>
-    <div class="stat-card"><strong>{{ summary.avg_putts if summary.avg_putts is not none else "—" }}</strong><span>Snitt putter</span></div>
-</div>
-
-<div class="form-card fairway-panel">
-    <div class="fairway-panel-header">
+<section class="profile-section">
+    <div class="section-heading">
         <div>
-            <h3>Utslag par 4/5</h3>
-            <p class="muted">{{ fairway_summary.attempts }} registrerte utslag</p>
-        </div>
-        <div class="fairway-metrics">
-            <div><strong>{% if fairway_summary.hit_percent is not none %}{{ fairway_summary.hit_percent }}%{% else %}—{% endif %}</strong><span>Fairway</span></div>
-            <div><strong>{% if fairway_summary.left_percent is not none %}{{ fairway_summary.left_percent }}%{% else %}—{% endif %}</strong><span>Venstre</span></div>
-            <div><strong>{% if fairway_summary.right_percent is not none %}{{ fairway_summary.right_percent }}%{% else %}—{% endif %}</strong><span>Høyre</span></div>
+            <p class="eyebrow">Integrasjoner</p>
+            <h3>Tilkoblede tjenester</h3>
         </div>
     </div>
+    <div class="integration-grid">
+        <article class="integration-card">
+            <div class="integration-card-heading">
+                <div>
+                    <h4>GolfBox</h4>
+                    {% if golfbox_connection.connected %}
+                    <span class="integration-status connected">Tilkoblet</span>
+                    {% else %}
+                    <span class="integration-status disconnected">Ikke tilkoblet</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% if golfbox_connection.connected %}
+            <p class="muted">
+                {{ golfbox_connection.player_name or golfbox_connection.username }}
+                {% if golfbox_connection.club_name %} · {{ golfbox_connection.club_name }}{% endif %}
+            </p>
+            {% if golfbox_connection.memberships %}
+            <div class="membership-list">
+                {% for membership in golfbox_connection.memberships %}
+                <span>{{ membership.club_name }} · {{ membership.member_number }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="muted">Koble til GolfBox for å sende inn fullførte runder.</p>
+            {% endif %}
 
-    <div class="hole-heatmap" aria-label="Fairwaytreff, venstre miss og høyre miss">
-        <div class="heatmap-label left">Venstre</div>
-        <div class="heatmap-label fairway">Fairway</div>
-        <div class="heatmap-label right">Høyre</div>
-        {% for point in fairway_summary.heatmap_points %}
-        <span class="shot-dot {{ point.result }}" style="left: {{ point.x }}%; top: {{ point.y }}%;"></span>
+            <details class="integration-settings">
+                <summary>{{ "Endre GolfBox-tilkobling" if golfbox_connection.connected else "Koble til GolfBox" }}</summary>
+                <form method="post" action="{{ url_for('profile.golfbox_settings') }}" class="settings-grid">
+                    <input type="hidden" name="next" value="{{ request.full_path }}">
+                    <div>
+                        <label for="golfbox_username">GolfBox-brukernavn</label>
+                        <input type="text" id="golfbox_username" name="golfbox_username" value="{{ golfbox_connection.username or '' }}" autocomplete="username" required>
+                    </div>
+                    <div>
+                        <label for="golfbox_password">GolfBox-passord</label>
+                        <input type="password" id="golfbox_password" name="golfbox_password" autocomplete="current-password" required>
+                    </div>
+                    <div class="button-row compact">
+                        <button type="submit" class="button">Lagre GolfBox</button>
+                        {% if golfbox_connection.connected %}
+                        <button type="submit" name="action" value="clear" class="button secondary" formnovalidate>Fjern</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </details>
+        </article>
+
+        <article class="integration-card">
+            <div class="integration-card-heading">
+                <div>
+                    <h4>Garmin Golf</h4>
+                    {% if garmin_connected %}
+                    <span class="integration-status connected">Tilkoblet</span>
+                    {% else %}
+                    <span class="integration-status disconnected">Ikke tilkoblet</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% if garmin_connected %}
+            <p class="muted">Garmin-data synkroniseres automatisk når en runde fullføres.</p>
+            {% if last_garmin_sync %}
+            <p class="integration-detail"><strong>Sist synkronisert:</strong> {{ last_garmin_sync.synced_at|datetime_local }}</p>
+            {% else %}
+            <p class="integration-detail">Ingen runder er synkronisert ennå.</p>
+            {% endif %}
+            {% else %}
+            <p class="muted">Garmin Golf er ikke koblet til denne Shanklife-brukeren.</p>
+            {% endif %}
+            <a class="button secondary compact-button" href="{{ url_for('profile.my_rounds', garmin='unsynced') }}">Se Garmin-status for rundene</a>
+        </article>
+    </div>
+</section>
+
+<section class="profile-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Innstillinger</p>
+            <h3>Konto og varsler</h3>
+        </div>
+    </div>
+    <div class="settings-link-grid">
+        <a class="settings-link-card" href="{{ url_for('profile.notification_settings') }}">
+            <strong>E-postvarsler</strong>
+            <span>Velg hvilke Shanklife- og BalleTour-varsler du vil motta.</span>
+        </a>
+        <a class="settings-link-card" href="{{ url_for('auth.change_password') }}">
+            <strong>Endre passord</strong>
+            <span>Oppdater passordet til Shanklife-kontoen.</span>
+        </a>
+    </div>
+</section>
+
+<section class="profile-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Nylig aktivitet</p>
+            <h3>Mine siste runder</h3>
+        </div>
+        <a class="button secondary compact-button" href="{{ url_for('profile.my_rounds') }}">Se alle {{ total_round_count }}</a>
+    </div>
+    <div class="my-round-list">
+        {% for row in recent_rounds %}
+        {{ round_card(row) }}
+        {% else %}
+        <p>Ingen runder registrert ennå.</p>
         {% endfor %}
     </div>
-</div>
-
-<h3>Mine runder</h3>
-{% if round_players %}
-<div class="table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>Dato</th>
-                <th>Bane</th>
-                <th>Tee</th>
-                <th>Status</th>
-                <th>HCP</th>
-                <th>Score</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for rp in round_players %}
-            {% set entries = rp.score_entries|selectattr("strokes", "ne", none)|list %}
-            <tr>
-                <td>{{ rp.round.started_at|datetime_local }}</td>
-                <td>{{ rp.round.course.name }}</td>
-                <td>{{ rp.selected_tee.name if rp.selected_tee else "—" }}</td>
-                <td>{{ rp.round.status }}</td>
-                <td>{{ "%.1f"|format(rp.hcp_for_round) }}</td>
-                <td>{% if entries %}{{ entries|sum(attribute="strokes") }}{% else %}—{% endif %}</td>
-                <td>
-                    {% if rp.round.status == 'finished' %}
-                    <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=rp.round.id) }}">Send til GolfBox</a>
-                    {% endif %}
-                    <a
-                        class="button secondary"
-                        href="{% if rp.round.status == 'ongoing' %}{{ url_for('rounds.continue_round', round_id=rp.round.id) }}{% else %}{{ url_for('rounds.round_score', round_id=rp.round.id) }}{% endif %}"
-                    >
-                        Åpne
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% else %}
-<p>Ingen runder registrert ennå.</p>
-{% endif %}
+</section>
 {% endblock %}
