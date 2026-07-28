@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.54] - 2026-07-28
+- Ber ikke lenger om GPS-tilgang når scoreføringssiden åpnes. Brukeren aktiverer GPS eksplisitt, og måleknappen blir tilgjengelig når nøyaktigheten er god nok.
+
 ## [1.9.53] - 2026-07-23
 - Gjør «Min side» til en ryddig konto- og innstillingsside med egne seksjoner for spillerprofil, GolfBox og Garmin, varsler og de tre siste rundene.
 - Flytter beregnet golfstatistikk ut av «Min side» og gir en tydelig snarvei til den fullverdige statistikksiden.

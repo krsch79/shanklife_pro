@@ -221,8 +221,8 @@
                         data-shot-measurements-input
                     >
                     {% if score_entry_editable %}
-                    <button type="button" class="button secondary compact-button shot-measurement-button" data-shot-measure-button disabled>
-                        Venter på GPS
+                    <button type="button" class="button secondary compact-button shot-measurement-button" data-shot-measure-button>
+                        Aktiver GPS
                     </button>
                     {% endif %}
                     <div class="shot-measurement-list" data-shot-measurement-list></div>
@@ -485,49 +485,63 @@
         let watchId = null;
         let latestPosition = null;
         let latestError = null;
+        let active = false;
 
         function notify() {
             const point = latestPosition ? positionToPoint(latestPosition) : null;
-            subscribers.forEach((callback) => callback(point, latestError));
+            subscribers.forEach((callback) => callback(point, latestError, active));
         }
 
         function start() {
-            if (watchId !== null || !navigator.geolocation) {
-                if (!navigator.geolocation) {
-                    latestError = new Error("Denne nettleseren støtter ikke GPS-posisjon.");
-                    notify();
-                }
+            if (watchId !== null) {
                 return;
             }
-            watchId = navigator.geolocation.watchPosition((position) => {
-                latestPosition = position;
-                latestError = null;
+
+            active = true;
+            latestError = null;
+            notify();
+            if (!navigator.geolocation) {
+                latestError = new Error("Denne nettleseren støtter ikke GPS-posisjon.");
                 notify();
-            }, (error) => {
+                return;
+            }
+
+            try {
+                watchId = navigator.geolocation.watchPosition((position) => {
+                    latestPosition = position;
+                    latestError = null;
+                    notify();
+                }, (error) => {
+                    latestError = error;
+                    notify();
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 20000,
+                    maximumAge: 0,
+                });
+                navigator.geolocation.getCurrentPosition((position) => {
+                    latestPosition = position;
+                    latestError = null;
+                    notify();
+                }, () => {}, {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0,
+                });
+            } catch (error) {
                 latestError = error;
                 notify();
-            }, {
-                enableHighAccuracy: true,
-                timeout: 20000,
-                maximumAge: 0,
-            });
-            navigator.geolocation.getCurrentPosition((position) => {
-                latestPosition = position;
-                latestError = null;
-                notify();
-            }, () => {}, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0,
-            });
+            }
         }
 
         return {
             subscribe(callback) {
                 subscribers.add(callback);
-                start();
-                callback(latestPosition ? positionToPoint(latestPosition) : null, latestError);
+                callback(latestPosition ? positionToPoint(latestPosition) : null, latestError, active);
                 return () => subscribers.delete(callback);
+            },
+            activate() {
+                start();
             },
             getGoodPoint() {
                 if (!latestPosition) return null;
@@ -552,6 +566,8 @@
         let isSavingPoint = false;
         let lastAccuracyPoint = null;
         let liveDistance = null;
+        let gpsActive = false;
+        let gpsError = null;
 
         try {
             measurements = JSON.parse(input.value || "[]");
@@ -601,6 +617,16 @@
         function syncMeasureButton() {
             if (!button || !editable) return;
             const hasGoodPoint = lastAccuracyPoint && lastAccuracyPoint.accuracy_m !== null && lastAccuracyPoint.accuracy_m <= 5;
+            if (!gpsActive) {
+                button.disabled = false;
+                button.textContent = "Aktiver GPS";
+                return;
+            }
+            if (gpsError && !lastAccuracyPoint) {
+                button.disabled = true;
+                button.textContent = gpsError.code === 1 ? "GPS-tilgang avslått" : "GPS utilgjengelig";
+                return;
+            }
             button.disabled = isSavingPoint || !hasGoodPoint;
             if (isSavingPoint) {
                 button.textContent = "Lagrer GPS...";
@@ -609,7 +635,7 @@
             } else if (pendingStart) {
                 button.textContent = liveDistance === null ? "Lagre stopp" : `Lagre stopp · ${formatShotDistance(liveDistance)}`;
             } else {
-                button.textContent = "Mål slag";
+                button.textContent = "Mål lengde";
             }
         }
 
@@ -663,6 +689,10 @@
 
         async function handleMeasureClick() {
             if (!editable || !button) return;
+            if (!gpsActive) {
+                gpsAccuracyTracker.activate();
+                return;
+            }
             const precisePoint = gpsAccuracyTracker.getGoodPoint();
             if (!precisePoint) {
                 syncMeasureButton();
@@ -703,11 +733,10 @@
         }
 
         if (editable && button) {
-            gpsAccuracyTracker.subscribe((point, error) => {
+            gpsAccuracyTracker.subscribe((point, error, active) => {
                 lastAccuracyPoint = point;
-                if (error && button) {
-                    button.textContent = error.message || "GPS utilgjengelig";
-                }
+                gpsError = error;
+                gpsActive = active;
                 syncMeasureButton();
             });
         }

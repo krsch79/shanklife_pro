@@ -39,12 +39,34 @@ class ApiTests(unittest.TestCase):
             player = Player(name="API Testspiller", default_hcp=12.3, gender="male")
             db.session.add(player)
             db.session.flush()
-            db.session.add(User(
+            user = User(
                 username="api@example.com",
                 password_hash=generate_password_hash("hemmelig"),
                 player_id=player.id,
                 email=None,
+            )
+            db.session.add(user)
+            db.session.flush()
+            db.session.execute(db.text(
+                "CREATE TABLE IF NOT EXISTS app_registry ("
+                "id INTEGER PRIMARY KEY, slug VARCHAR(80) NOT NULL UNIQUE)"
             ))
+            db.session.execute(db.text(
+                "CREATE TABLE IF NOT EXISTS user_app_access ("
+                "user_id INTEGER NOT NULL, app_id INTEGER NOT NULL, "
+                "has_access BOOLEAN NOT NULL DEFAULT 0, is_app_admin BOOLEAN NOT NULL DEFAULT 0, "
+                "PRIMARY KEY (user_id, app_id))"
+            ))
+            db.session.execute(
+                db.text("INSERT OR IGNORE INTO app_registry (id, slug) VALUES (1, 'shanklife-pro')")
+            )
+            db.session.execute(
+                db.text(
+                    "INSERT OR REPLACE INTO user_app_access "
+                    "(user_id, app_id, has_access, is_app_admin) VALUES (:user_id, 1, 1, 0)"
+                ),
+                {"user_id": user.id},
+            )
             db.session.commit()
 
         self.client = self.app.test_client()
