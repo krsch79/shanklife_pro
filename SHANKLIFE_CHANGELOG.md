@@ -2,6 +2,9 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.55] - 2026-07-28
+- Foreslår utslagskølle på et hull når spilleren har registrerte køllevalg fra samme faktiske hull i tidligere fullførte Shanklife-runder.
+
 ## [1.9.54] - 2026-07-28
 - Ber ikke lenger om GPS-tilgang når scoreføringssiden åpnes. Brukeren aktiverer GPS eksplisitt, og måleknappen blir tilgjengelig når nøyaktigheten er god nok.
 

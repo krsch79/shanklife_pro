@@ -1430,6 +1430,52 @@ def _hole_result_label(hole, raw_result):
     }.get(raw_result, raw_result)
 
 
+def _club_suggestion_from_history_rows(rows):
+    by_club = {}
+    for recency, (entry, _round_row, stat, club) in enumerate(rows):
+        if not club or entry.strokes is None:
+            continue
+        bucket = by_club.setdefault(club.id, {
+            "club_id": club.id,
+            "club_name": club.name,
+            "sort_order": club.sort_order,
+            "scores": [],
+            "successful_tee_shots": 0,
+            "first_recency": recency,
+        })
+        bucket["scores"].append(entry.strokes)
+        result = stat.fairway_result if stat else None
+        if result == "hit" or (result and result.startswith("hit:")):
+            bucket["successful_tee_shots"] += 1
+
+    candidates = []
+    for bucket in by_club.values():
+        uses = len(bucket["scores"])
+        candidates.append({
+            **bucket,
+            "uses": uses,
+            "average_score": round(sum(bucket["scores"]) / uses, 1),
+            "success_rate": bucket["successful_tee_shots"] / uses,
+        })
+    if not candidates:
+        return None
+
+    best = min(candidates, key=lambda row: (
+        row["average_score"],
+        -row["uses"],
+        -row["success_rate"],
+        row["first_recency"],
+        row["sort_order"],
+        row["club_name"].lower(),
+    ))
+    return {
+        "club_id": best["club_id"],
+        "club_name": best["club_name"],
+        "uses": best["uses"],
+        "average_score": best["average_score"],
+    }
+
+
 def _previous_hole_history(round_obj, round_players, hole):
     if _is_balletour_round(round_obj):
         return []
@@ -1486,6 +1532,7 @@ def _previous_hole_history(round_obj, round_players, hole):
         ]
         history.append({
             "player": rp,
+            "club_suggestion": _club_suggestion_from_history_rows(rows),
             "summary": {
                 "rounds": len(rows),
                 "avg_score": round(sum(score_values) / len(score_values), 1) if score_values else None,
@@ -2127,6 +2174,12 @@ def round_hole(round_id, hole_number):
         .order_by(RoundImage.uploaded_at.desc())
         .all()
     )
+    previous_hole_history = _previous_hole_history(round_obj, round_players, hole)
+    club_suggestions = {
+        item["player"].id: item["club_suggestion"]
+        for item in (previous_hole_history or {}).get("items", [])
+        if item.get("club_suggestion")
+    }
 
     return render_template(
         "round_hole.html",
@@ -2148,8 +2201,9 @@ def round_hole(round_id, hole_number):
         club_tracking_enabled=club_tracking_enabled,
         clubs=clubs,
         club_defaults=_hole_club_defaults(round_obj, round_players, hole_number) if club_tracking_enabled else {},
+        club_suggestions=club_suggestions,
         player_details=_hole_player_details(round_players, hole_number),
-        previous_hole_history=_previous_hole_history(round_obj, round_players, hole),
+        previous_hole_history=previous_hole_history,
         hole_images=hole_images,
         image_tag_choices=_round_image_tag_choices(round_obj),
         is_balletour_scoring_page=_is_balletour_round(round_obj),

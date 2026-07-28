@@ -100,16 +100,27 @@
                 {% if show_club or stat_values %}
                 <div class="hole-stat-grid">
                     {% if show_club %}
-                    <label class="club-mini-field">
-                        <span>Utslagskølle</span>
-                        {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
-                        <select name="tee_club_{{ rp.id }}" {% if not score_entry_editable %}disabled{% endif %}>
-                            <option value="" {% if not selected_club_id %}selected{% endif %}>—</option>
-                            {% for club in clubs %}
-                            <option value="{{ club.id }}" {% if selected_club_id == club.id %}selected{% endif %}>{{ club.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
+                    <div class="club-field-group">
+                        <label class="club-mini-field">
+                            <span>Utslagskølle</span>
+                            {% set selected_club_id = entry.tee_club_id if entry and entry.tee_club_id else club_defaults.get(rp.id) %}
+                            <select name="tee_club_{{ rp.id }}" {% if not score_entry_editable %}disabled{% endif %}>
+                                <option value="" {% if not selected_club_id %}selected{% endif %}>—</option>
+                                {% for club in clubs %}
+                                <option value="{{ club.id }}" {% if selected_club_id == club.id %}selected{% endif %}>{{ club.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        {% set club_suggestion = club_suggestions.get(rp.id) %}
+                        {% if club_suggestion %}
+                        <p class="club-suggestion" data-club-suggestion>
+                            Forslag: <strong>{{ club_suggestion.club_name }}</strong>
+                            <small>
+                                {{ club_suggestion.uses }} tidligere utslag · snittscore {{ "%.1f"|format(club_suggestion.average_score)|replace(".", ",") }}
+                            </small>
+                        </p>
+                        {% endif %}
+                    </div>
                     {% endif %}
 
                     {% if stat_values %}
