@@ -6,7 +6,7 @@
     {% if admin_edit_mode %}
     <div class="flash flash-warning admin-round-edit-notice">
         <strong>Du redigerer en fullført runde.</strong>
-        Endringer lagres når du går til forrige eller neste hull. Rundens status og fullføringstid beholdes.
+        Endringer lagres når du bytter hull eller velger «Lagre og lukk». Tee-valget gjelder hele runden. Rundens status og fullføringstid beholdes.
     </div>
     {% endif %}
     <div class="hole-entry-top">
@@ -22,7 +22,13 @@
                 Scorekort
             </a>
             {% if admin_edit_mode %}
-            <a class="button secondary compact-button" href="{{ url_for('rounds.round_score', round_id=round.id) }}">Ferdig</a>
+            <button
+                type="submit"
+                name="action"
+                value="save_exit"
+                class="button compact-button"
+                form="hole-entry-form"
+            >Lagre og lukk</button>
             {% endif %}
             {% if round.status == 'ongoing' %}
             <button
@@ -79,10 +85,22 @@
             <div class="hole-player-row {% if stat_values %}with-stats{% endif %} {% if show_club %}with-club{% endif %}">
                 <div class="hole-player-meta">
                     <strong>{{ rp.player_name_snapshot }}</strong>
+                    {% if admin_edit_mode %}
+                    <label class="admin-round-tee-field">
+                        <span>Tee</span>
+                        <select name="selected_tee_{{ rp.id }}" aria-label="Tee for {{ rp.player_name_snapshot }}">
+                            {% for tee in course_tees %}
+                            <option value="{{ tee.id }}" {% if rp.selected_tee_id == tee.id %}selected{% endif %}>{{ tee.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if detail and detail.length %}<small>{{ detail.length }} m på hull {{ hole.hole_number }}</small>{% endif %}
+                    </label>
+                    {% else %}
                     <span>
                         {{ detail.tee_name if detail else "—" }}
                         {% if detail and detail.length %} · {{ detail.length }} m{% endif %}
                     </span>
+                    {% endif %}
                 </div>
 
                 {% if is_matchplay_round %}
@@ -249,6 +267,9 @@
             {% if score_entry_editable %}
             <button type="submit" name="action" value="previous" class="button secondary">Forrige hull</button>
             <button type="submit" name="action" value="next" class="button">Neste hull</button>
+            {% if admin_edit_mode %}
+            <button type="submit" name="action" value="save_exit" class="button admin-save-exit-button">Lagre og lukk</button>
+            {% endif %}
             {% else %}
             <a
                 class="button"
@@ -883,7 +904,7 @@
     form?.addEventListener("submit", (event) => {
         const submitter = event.submitter;
         const adminEditMode = {{ admin_edit_mode|tojson }};
-        const validatedActions = adminEditMode ? ["previous", "next"] : ["next", "finish"];
+        const validatedActions = adminEditMode ? ["previous", "next", "save_exit"] : ["next", "finish"];
         if (!submitter || !validatedActions.includes(submitter.value)) {
             return;
         }

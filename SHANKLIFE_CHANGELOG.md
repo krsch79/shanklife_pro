@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.57] - 2026-08-05
+- Lar administrator endre tee per spiller når en fullført Shanklife-runde redigeres.
+- Validerer at valgt tee tilhører rundens bane, og beholder rundens fullføringsstatus, fullføringstid, score og statistikk.
+- Legger til «Lagre og lukk», slik at endringer på det viste hullet kan lagres direkte før redigeringen avsluttes.
+
 ## [1.9.56] - 2026-08-05
 - Lar deg velge «18 hull», «Første 9» eller «Siste 9» når du starter en runde på en 18-hullsbane.
 - En runde på «Siste 9» starter på hull 10 og bruker hull 10–18 i scoreføring, scorekort, statistikk, handicapindeks og Garmin-matching.

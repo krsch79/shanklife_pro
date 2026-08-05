@@ -1190,6 +1190,31 @@ input.submit-is-loading {
     font-size: 0.78rem;
 }
 
+.admin-round-tee-field {
+    display: grid;
+    grid-template-columns: auto minmax(100px, 180px);
+    align-items: center;
+    gap: 3px 8px;
+    margin: 5px 0 0;
+    max-width: 300px;
+}
+
+.admin-round-tee-field span,
+.admin-round-tee-field small {
+    color: var(--muted);
+    font-size: 0.74rem;
+}
+
+.admin-round-tee-field select {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 8px;
+}
+
+.admin-round-tee-field small {
+    grid-column: 2;
+}
+
 .score-final-field,
 .club-mini-field,
 .hole-stat-grid label {
@@ -1590,6 +1615,10 @@ input.submit-is-loading {
 .hole-nav .button {
     width: 100%;
     text-align: center;
+}
+
+.hole-nav .admin-save-exit-button {
+    grid-column: 1 / -1;
 }
 
 .hole-image-panel {

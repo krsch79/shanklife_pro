@@ -9,6 +9,7 @@ Shanklife Pro er hovedapplikasjonen i Shanklife-økosystemet. Den dekker scoref�
 - `models.py` og `extensions.py` definerer SQLAlchemy-modellen og databasekoblingen.
 - `services/` inneholder domene- og integrasjonslogikk, blant annet GolfBox, Garmin, statistikk, e-post, hemmelighetslagring og varsler.
 - Rundelengde styres av `Round.played_hole_count` og `Round.starting_hole_number`. `services/round_length.py` er felles kilde for hvilke hull en runde omfatter; en 18-hullsbane kan spilles som 18 hull, «Første 9» (1–9) eller «Siste 9» (10–18).
+- Administratorredigering av en fullført Shanklife-runde kan oppdatere både score/statistikk på det viste hullet og `RoundPlayer.selected_tee_id` per spiller. Tee-valget valideres mot rundens bane, gjelder hele runden og lagres ved hullbytte eller «Lagre og lukk», uten å åpne runden eller endre `finished_at`.
 - `templates/` og `static/` inneholder det server-renderte grensesnittet. GPS-måling av slag ligger i `templates/round_hole.html` og aktiveres bare etter en eksplisitt brukerhandling.
 - `scripts/` inneholder deploy, backup, vedlikeholdsserver, planlagte jobber og driftsverktøy.
 - `balletour_survey/` er en separat sideapp med egen README og runtime.

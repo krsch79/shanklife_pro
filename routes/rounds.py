@@ -207,6 +207,18 @@ def _parse_tee(raw_value, course_tees, player_name):
     return selected_tee_id
 
 
+def _parse_admin_round_tee_updates(round_obj):
+    course_tees = {tee.id: tee for tee in round_obj.course.tees}
+    return {
+        round_player.id: _parse_tee(
+            request.form.get(f"selected_tee_{round_player.id}", ""),
+            course_tees,
+            round_player.player_name_snapshot,
+        )
+        for round_player in sorted(round_obj.round_players, key=lambda item: item.id)
+    }
+
+
 def _create_round(
     course,
     round_players_payload,
@@ -2148,7 +2160,7 @@ def round_hole(round_id, hole_number):
             return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
         action = request.form.get("action", "next")
-        if admin_edit_mode and action not in ("previous", "next"):
+        if admin_edit_mode and action not in ("previous", "next", "save_exit"):
             flash("Ugyldig redigeringshandling.", "error")
             return redirect(edit_url(hole_number))
 
@@ -2164,8 +2176,13 @@ def round_hole(round_id, hole_number):
                 return redirect(edit_url(hole_number))
 
         try:
+            tee_updates = _parse_admin_round_tee_updates(round_obj) if admin_edit_mode else {}
             _save_hole_from_form(round_obj, hole_number, stats_rp)
+            for round_player in round_obj.round_players:
+                if round_player.id in tee_updates:
+                    round_player.selected_tee_id = tee_updates[round_player.id]
         except ValueError as exc:
+            db.session.rollback()
             flash(str(exc), "error")
             return redirect(edit_url(hole_number))
 
@@ -2195,6 +2212,10 @@ def round_hole(round_id, hole_number):
             return _after_finish_redirect(round_obj)
 
         db.session.commit()
+
+        if action == "save_exit":
+            flash("Runden er oppdatert.", "success")
+            return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
         current_hole_index = played_hole_numbers.index(hole_number)
         if action == "previous":
@@ -2261,6 +2282,7 @@ def round_hole(round_id, hole_number):
         club_defaults=_hole_club_defaults(round_obj, round_players, hole_number) if club_tracking_enabled else {},
         club_suggestions=club_suggestions,
         player_details=_hole_player_details(round_players, hole_number),
+        course_tees=sorted(course.tees, key=lambda tee: tee.display_order),
         previous_hole_history=previous_hole_history,
         hole_images=hole_images,
         image_tag_choices=_round_image_tag_choices(round_obj),
