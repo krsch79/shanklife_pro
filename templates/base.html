@@ -2,10 +2,17 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f766e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Shanklife">
     <title>{% block title %}Shanklife Pro{% endblock %}</title>
     <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='shanklife-favicon.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% set install_balletour = (request.endpoint and request.endpoint.startswith('balletour.')) or request.path.startswith('/balletour') or request.args.get('next', '').startswith('/balletour') %}
+    <link rel="manifest" href="{{ url_for('web_manifest', app='balletour' if install_balletour else '') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='balletour-icon-180.png' if install_balletour else 'shanklife-icon-180.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.9.58">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
@@ -165,6 +172,13 @@
                 showLoadingPopup();
             });
         }());
+    </script>
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+            });
+        }
     </script>
 </body>
 </html>

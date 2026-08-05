@@ -54,6 +54,7 @@ def login():
             current_app.logger.warning("GolfBox handicap-sync feilet for bruker %s: %s", user.id, exc)
 
         session.clear()
+        session.permanent = True
         session["user_id"] = user.id
         flash("Du er logget inn.", "success")
         return redirect(request.args.get("next") or url_for("main.index"))

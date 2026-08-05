@@ -2,9 +2,10 @@
 # Version: 1.0.0
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, g, jsonify, redirect, request, send_file, session, url_for
+from flask import Flask, g, jsonify, make_response, redirect, request, send_file, session, url_for
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
@@ -301,7 +302,7 @@ def required_access_slug():
 
 def access_denied_response(slug):
     if (request.endpoint or "").startswith("api."):
-        return jsonify({
+        response = jsonify({
             "error": {
                 "code": "forbidden",
                 "message": f"Du har ikke tilgang til {slug}.",
@@ -379,6 +380,11 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["UPLOAD_FOLDER"] = "uploads"
     app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=180)
+    app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 
     db.init_app(app)
 
@@ -412,6 +418,8 @@ def create_app():
     def load_current_user():
         user_id = session.get("user_id")
         g.current_user = User.query.get(user_id) if user_id else None
+        if g.current_user:
+            session.permanent = True
 
     @app.before_request
     def require_login_for_shanklife():
@@ -419,6 +427,8 @@ def create_app():
         public_endpoints = {
             "auth.login",
             "auth.accept_balletour_invitation",
+            "web_manifest",
+            "service_worker",
             "api.health",
             "api.login",
             "api.logout",
@@ -453,6 +463,48 @@ def create_app():
             "round_length_label": round_length_label,
             "matchplay_hole_result_label": matchplay_hole_result_label,
         }
+
+    @app.get("/manifest.webmanifest")
+    def web_manifest():
+        host = (request.host or "").split(":", 1)[0].lower()
+        profile = request.args.get("app", "").strip().lower()
+        if profile == "balletour":
+            name = "BalleTour2026"
+            short_name = "BalleTour"
+            start_url = "/balletour/"
+            scope = "/balletour/"
+            icon_prefix = "balletour"
+            theme_color = "#244b3f"
+        else:
+            name = "Shanklife App" if host == "app.shanklife.no" else "Shanklife Pro"
+            short_name = "Shanklife"
+            start_url = "/"
+            scope = "/"
+            icon_prefix = "shanklife"
+            theme_color = "#0f766e"
+        response = jsonify({
+            "id": start_url,
+            "name": name,
+            "short_name": short_name,
+            "start_url": start_url,
+            "scope": scope,
+            "display": "standalone",
+            "background_color": "#f5f7fb",
+            "theme_color": theme_color,
+            "icons": [
+                {"src": f"/static/{icon_prefix}-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": f"/static/{icon_prefix}-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            ],
+        })
+        response.mimetype = "application/manifest+json"
+        return response
+
+    @app.get("/sw.js")
+    def service_worker():
+        response = make_response(app.send_static_file("sw.js"))
+        response.headers["Service-Worker-Allowed"] = "/"
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     app.register_blueprint(main_bp)
     app.register_blueprint(players_bp)

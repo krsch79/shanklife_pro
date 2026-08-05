@@ -2,17 +2,28 @@
 {% block title %}Logg inn - Shanklife scoring{% endblock %}
 
 {% block content %}
-<h2>Logg inn</h2>
-
-<form method="post" class="form-card narrow-form">
-    <label for="username">Brukernavn</label>
-    <input type="text" id="username" name="username" value="{{ username }}" required autofocus>
-
-    <label for="password">Passord</label>
-    <input type="password" id="password" name="password" required>
-
-    <div class="button-row">
-        <button type="submit" class="button">Logg inn</button>
+<section class="login-shell">
+    <div class="login-intro">
+        <span class="login-kicker">Golfen din, samlet</span>
+        <h2>Velkommen tilbake.</h2>
+        <p>Runder, statistikk og BalleTour – på banen, på mobilen og på desktop.</p>
     </div>
-</form>
+    <form method="post" class="form-card narrow-form login-form">
+        <div>
+            <span class="login-kicker">Sikker innlogging</span>
+            <h2>Logg inn</h2>
+            <p>Bruk Shanklife-kontoen din.</p>
+        </div>
+        <label for="username">Brukernavn</label>
+        <input type="text" id="username" name="username" value="{{ username }}" autocomplete="username" autocapitalize="none" required autofocus>
+
+        <label for="password">Passord</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+        <div class="button-row">
+            <button type="submit" class="button">Logg inn <span aria-hidden="true">→</span></button>
+        </div>
+        <small class="session-note">På private enheter fornyes innloggingen automatisk i opptil 180 dager.</small>
+    </form>
+</section>
 {% endblock %}

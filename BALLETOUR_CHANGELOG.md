@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.58] - 2026-08-05
+- Holder innloggede private enheter pålogget med en rullerende 180-dagerssesjon.
+- Gjør BalleTour installerbar fra Safari med eget manifest, hjemskjermikon og sikker service worker uten hurtiglagring av private sider.
+- Gir toppnavigasjonen større berøringsmål og en ryddig horisontal mobilmeny, samtidig som desktopoppsettet bevares.
+
 ## [1.9.51] - 2026-07-13
 - Retter GolfBox-innsendingen slik at JavaScript-tekst i avkrysningsbokser ikke aktiverer søkemodus ved en feil.
 - Etterkontrollerer automatisk booking mot GolfBox «Mine tider», inkludert starttid, bane, innlogget spiller og alle ønskede spillere, før bookingen markeres som gjennomført eller suksesse-post sendes.

@@ -3877,3 +3877,198 @@ th {
         flex: 1 1 auto;
     }
 }
+
+/* 1.9.58: installable, touch-friendly shell shared by Shanklife Pro and BalleTour. */
+body {
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(circle at 12% 0, rgba(15, 118, 110, 0.09), transparent 32rem), var(--bg);
+}
+
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(14px);
+}
+
+nav a,
+.nav-form button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    padding: 0 9px;
+    border-radius: 10px;
+}
+
+nav a:hover,
+.nav-form button:hover {
+    background: #e7f3f1;
+}
+
+.form-card,
+.card-link,
+.flash {
+    border-color: rgba(148, 163, 184, 0.34);
+    box-shadow: 0 14px 38px rgba(15, 23, 42, 0.055);
+}
+
+.card-link {
+    min-height: 112px;
+    border-radius: 16px;
+    transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.card-link:hover {
+    border-color: rgba(15, 118, 110, 0.42);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.09);
+    transform: translateY(-2px);
+}
+
+.login-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.75fr);
+    gap: clamp(24px, 7vw, 96px);
+    align-items: center;
+    min-height: calc(100vh - 116px);
+    padding: clamp(32px, 8vw, 96px) 0;
+}
+
+.login-intro h2,
+.login-form h2 {
+    margin: 7px 0 10px;
+    letter-spacing: -0.045em;
+}
+
+.login-intro h2 {
+    max-width: 680px;
+    font-size: clamp(2.7rem, 7vw, 5.6rem);
+    line-height: 0.98;
+}
+
+.login-intro p {
+    max-width: 570px;
+    color: var(--muted);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+}
+
+.login-kicker {
+    color: var(--primary);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.login-form {
+    max-width: none;
+    margin: 0;
+    padding: clamp(22px, 4vw, 34px);
+    border-radius: 20px;
+}
+
+.login-form > div:first-child p,
+.session-note {
+    color: var(--muted);
+}
+
+.login-form input {
+    min-height: 48px;
+    border-radius: 12px;
+}
+
+.login-form .button-row,
+.login-form .button {
+    width: 100%;
+}
+
+.login-form .button {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-radius: 12px;
+}
+
+.session-note {
+    display: block;
+    margin-top: 12px;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+    .site-header {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .site-header .container,
+    .balletour-header .container {
+        display: block;
+        padding: 7px 10px 5px;
+    }
+
+    .site-logo {
+        width: 144px;
+        height: 48px;
+    }
+
+    .balletour-header .balletour-logo {
+        width: 126px;
+        height: 42px;
+    }
+
+    .site-header nav,
+    .balletour-header nav {
+        width: calc(100vw - 20px);
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 3px;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: none;
+    }
+
+    .site-header nav::-webkit-scrollbar,
+    .balletour-header nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .site-header nav a,
+    .site-header .nav-form button,
+    .balletour-header nav a {
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 0 9px;
+        font-size: 0.86rem;
+        white-space: nowrap;
+    }
+
+    .login-shell {
+        display: block;
+        min-height: auto;
+        padding: 24px 0 48px;
+    }
+
+    .login-intro {
+        padding: 8px 4px 28px;
+    }
+
+    .login-intro h2 {
+        font-size: 2.75rem;
+    }
+
+    .login-form {
+        border-radius: 18px;
+    }
+}
+
+@media (display-mode: standalone) {
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}

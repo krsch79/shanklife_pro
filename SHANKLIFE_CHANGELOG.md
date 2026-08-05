@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.58] - 2026-08-05
+- Holder innloggede private enheter pålogget med en rullerende 180-dagerssesjon.
+- Gjør Shanklife Pro og Shanklife App installerbare fra Safari med egne manifest, hjemskjermikoner og sikker service worker uten hurtiglagring av private sider.
+- Moderniserer innlogging, kort og toppnavigasjon og gir iPhone større, horisontalt rullbare berøringsmål uten å forringe desktopvisningen.
+
 ## [1.9.57] - 2026-08-05
 - Lar administrator endre tee per spiller når en fullført Shanklife-runde redigeres.
 - Validerer at valgt tee tilhører rundens bane, og beholder rundens fullføringsstatus, fullføringstid, score og statistikk.
