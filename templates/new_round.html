@@ -22,10 +22,10 @@
         {% endfor %}
     </select>
 
-    <div id="round-hole-count-field" hidden>
-        <label for="round_hole_count">Antall hull</label>
-        <select id="round_hole_count" name="round_hole_count" data-selected="{{ selected_round_hole_count }}">
-            <option value="">Velg antall hull</option>
+    <div id="round-length-field" hidden>
+        <label for="round_hole_selection">Rundelengde</label>
+        <select id="round_hole_selection" name="round_hole_selection" data-selected="{{ selected_round_hole_selection }}">
+            <option value="">Velg rundelengde</option>
         </select>
     </div>
 
@@ -80,8 +80,8 @@
 <script>
 (function () {
     const courseSelect = document.getElementById("course_id");
-    const roundHoleCountField = document.getElementById("round-hole-count-field");
-    const roundHoleCountSelect = document.getElementById("round_hole_count");
+    const roundLengthField = document.getElementById("round-length-field");
+    const roundHoleSelection = document.getElementById("round_hole_selection");
     const playerSelects = document.querySelectorAll(".player-select");
     const teeSelects = document.querySelectorAll(".tee-select");
     const courseTeeOptions = {{ course_tee_options|tojson }};
@@ -122,7 +122,7 @@
         if (playingHandicap === null) {
             return null;
         }
-        if (Number(roundHoleCountSelect.value) === 9) {
+        if (["9", "front_9", "back_9"].includes(roundHoleSelection.value)) {
             return playingHandicap >= 0
                 ? Math.ceil(playingHandicap / 2)
                 : -Math.ceil(Math.abs(playingHandicap) / 2);
@@ -177,31 +177,36 @@
         });
     }
 
-    function refreshRoundHoleCount() {
+    function refreshRoundHoleSelection() {
         const selectedCourseId = String(courseSelect.value || "");
         const tee = (courseTeeOptions[selectedCourseId] || [])[0] || null;
-        const previousValue = roundHoleCountSelect.dataset.selected || roundHoleCountSelect.value || "";
-        const allowedCounts = tee
-            ? (tee.supports_nine_hole_round ? [9, 18] : [Number(tee.hole_count)])
-            : [];
+        const previousValue = roundHoleSelection.dataset.selected || roundHoleSelection.value || "";
+        let options = [];
+        if (tee && Number(tee.hole_count) === 18) {
+            options = [
+                {value: "18", label: "18 hull"},
+                {value: "front_9", label: "Første 9"},
+                {value: "back_9", label: "Siste 9"},
+            ];
+        } else if (tee) {
+            options = [{value: String(tee.hole_count), label: `${tee.hole_count} hull`}];
+        }
 
-        roundHoleCountSelect.innerHTML = "";
-        allowedCounts.forEach((holeCount) => {
+        roundHoleSelection.innerHTML = "";
+        options.forEach((roundOption) => {
             const option = document.createElement("option");
-            option.value = String(holeCount);
-            option.textContent = holeCount === 9 && Number(tee.hole_count) === 18
-                ? "9 hull (første sløyfe)"
-                : `${holeCount} hull`;
-            option.selected = String(holeCount) === String(previousValue);
-            roundHoleCountSelect.appendChild(option);
+            option.value = roundOption.value;
+            option.textContent = roundOption.label;
+            option.selected = roundOption.value === String(previousValue);
+            roundHoleSelection.appendChild(option);
         });
 
-        if (!roundHoleCountSelect.value && allowedCounts.length) {
-            roundHoleCountSelect.value = String(allowedCounts[allowedCounts.length - 1]);
+        if (!roundHoleSelection.value && options.length) {
+            roundHoleSelection.value = options[0].value;
         }
-        roundHoleCountField.hidden = !tee;
-        roundHoleCountSelect.disabled = !tee;
-        roundHoleCountSelect.dataset.selected = "";
+        roundLengthField.hidden = !tee;
+        roundHoleSelection.disabled = !tee;
+        roundHoleSelection.dataset.selected = "";
     }
 
     function populateTeeSelect(selectEl, options, selectedValue) {
@@ -309,12 +314,12 @@
             selectEl.dataset.autoSelected = "";
             selectEl.value = "";
         });
-        refreshRoundHoleCount();
+        refreshRoundHoleSelection();
         refreshAllTeeSelects();
         updateAllReceivedStrokes();
     });
 
-    roundHoleCountSelect.addEventListener("change", updateAllReceivedStrokes);
+    roundHoleSelection.addEventListener("change", updateAllReceivedStrokes);
 
     playerSelects.forEach((select) => {
         select.addEventListener("change", function () {
@@ -344,7 +349,7 @@
         handlePlayerSelection(slotEl);
     });
 
-    refreshRoundHoleCount();
+    refreshRoundHoleSelection();
     refreshAllTeeSelects();
     updateAllReceivedStrokes();
 })();

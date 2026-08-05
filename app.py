@@ -27,6 +27,7 @@ from services.balletour import is_balletour_player
 from services.golfbox import migrate_golfbox_password_tokens
 from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
 from services.play_formats import MATCHPLAY, STROKE_PLAY, matchplay_hole_result_label, play_format_label
+from services.round_length import round_length_label
 from services.time import format_server_datetime
 
 
@@ -82,6 +83,7 @@ def ensure_schema_updates(app):
 
         if "rounds" in table_names:
             add_column_if_missing("rounds", "played_hole_count", "played_hole_count INTEGER")
+            add_column_if_missing("rounds", "starting_hole_number", "starting_hole_number INTEGER")
             add_column_if_missing("rounds", "play_format", "play_format VARCHAR(30) DEFAULT 'stroke_play' NOT NULL")
             add_column_if_missing("rounds", "stats_user_id", "stats_user_id INTEGER")
             add_column_if_missing("rounds", "weather_json", "weather_json TEXT")
@@ -448,6 +450,7 @@ def create_app():
                 and not (current_user.email or "").strip()
             ),
             "play_format_label": play_format_label,
+            "round_length_label": round_length_label,
             "matchplay_hole_result_label": matchplay_hole_result_label,
         }
 

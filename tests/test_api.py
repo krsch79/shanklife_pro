@@ -191,6 +191,125 @@ class ApiTests(unittest.TestCase):
             self.db.session.commit()
             return course.id, player.id, tee.id
 
+    def _create_shanklife_eighteen_hole_course_data(self):
+        with self.app.app_context():
+            player = self.Player.query.filter_by(name="API Testspiller").first()
+            course = self.Course(name="Hauger API Testbane", hole_count=18)
+            self.db.session.add(course)
+            self.db.session.flush()
+            holes = [
+                self.CourseHole(
+                    course_id=course.id,
+                    hole_number=number,
+                    par=3 if number in (3, 8, 12, 16) else 4,
+                    stroke_index=number,
+                )
+                for number in range(1, 19)
+            ]
+            self.db.session.add_all(holes)
+            self.db.session.flush()
+            tee = self.CourseTee(course_id=course.id, name="58", display_order=1)
+            self.db.session.add(tee)
+            self.db.session.flush()
+            self.db.session.add_all([
+                self.CourseTeeLength(
+                    tee_id=tee.id,
+                    hole_id=hole.id,
+                    hole_number=hole.hole_number,
+                    length_meters=150 + hole.hole_number * 10,
+                )
+                for hole in holes
+            ])
+            self.db.session.commit()
+            return course.id, player.id, tee.id
+
+    def test_shanklife_can_create_back_nine_round(self):
+        course_id, player_id, tee_id = self._create_shanklife_eighteen_hole_course_data()
+        self._login()
+
+        with patch("routes.api._send_shanklife_round_started_mail"):
+            response = self.client.post(
+                "/api/v1/shanklife/rounds",
+                json={
+                    "course_id": course_id,
+                    "played_hole_count": 9,
+                    "starting_hole_number": 10,
+                    "players": [{
+                        "player_id": player_id,
+                        "hcp": 12.3,
+                        "tee_id": tee_id,
+                        "tracks_stats": True,
+                    }],
+                },
+            )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.get_json()
+        self.assertEqual(payload["starting_hole_number"], 10)
+        self.assertEqual(payload["round_length_label"], "Siste 9")
+        self.assertEqual(payload["hole_numbers"], list(range(10, 19)))
+        self.assertEqual(
+            [score["hole_number"] for score in payload["players"][0]["scores"]],
+            list(range(10, 19)),
+        )
+
+        with self.app.app_context():
+            round_obj = self.Round.query.get(payload["id"])
+            self.assertEqual(round_obj.played_hole_count, 9)
+            self.assertEqual(round_obj.starting_hole_number, 10)
+            self.assertEqual(
+                [entry.hole_number for entry in round_obj.round_players[0].score_entries],
+                list(range(10, 19)),
+            )
+
+    def test_shanklife_rejects_invalid_start_hole(self):
+        course_id, player_id, tee_id = self._create_shanklife_eighteen_hole_course_data()
+        self._login()
+
+        response = self.client.post(
+            "/api/v1/shanklife/rounds",
+            json={
+                "course_id": course_id,
+                "played_hole_count": 9,
+                "starting_hole_number": 5,
+                "players": [{
+                    "player_id": player_id,
+                    "hcp": 12.3,
+                    "tee_id": tee_id,
+                    "tracks_stats": True,
+                }],
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("start-hull", response.get_json()["error"]["message"])
+
+    def test_web_new_round_back_nine_starts_on_hole_ten(self):
+        course_id, player_id, tee_id = self._create_shanklife_eighteen_hole_course_data()
+        self._login()
+
+        with patch("routes.rounds._send_shanklife_round_started_mail"):
+            response = self.client.post(
+                "/rounds/new",
+                data={
+                    "course_id": str(course_id),
+                    "play_format": "stroke_play",
+                    "round_hole_selection": "back_9",
+                    "player_slot_1": str(player_id),
+                    "hcp_existing_1": "12,3",
+                    "tee_existing_1": str(tee_id),
+                    "track_stats_1": "1",
+                },
+                follow_redirects=False,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRegex(response.headers["Location"], r"/rounds/\d+/hole/10$")
+        with self.app.app_context():
+            round_obj = self.Round.query.order_by(self.Round.id.desc()).first()
+            self.assertEqual(round_obj.played_hole_count, 9)
+            self.assertEqual(round_obj.starting_hole_number, 10)
+
     def test_shanklife_round_started_mail_is_sent_without_local_simulator_header(self):
         course_id, player_id, tee_id = self._create_shanklife_course_data()
         self._login()

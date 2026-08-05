@@ -95,7 +95,7 @@
             </div>
             <div class="my-round-meta">
                 <span>Runde {{ row.round.id }}</span>
-                <span>{{ row.hole_count }} hull</span>
+                <span>{{ round_length_label(row.round) }}</span>
                 <span>{{ row.tee_name }} tee</span>
                 <span>HCP {{ "%.1f"|format(row.round_player.hcp_for_round) }}</span>
                 <span>{{ play_format_label(row.round.play_format) }}</span>

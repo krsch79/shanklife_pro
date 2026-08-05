@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.56] - 2026-08-05
+- Lar deg velge «18 hull», «Første 9» eller «Siste 9» når du starter en runde på en 18-hullsbane.
+- En runde på «Siste 9» starter på hull 10 og bruker hull 10–18 i scoreføring, scorekort, statistikk, handicapindeks og Garmin-matching.
+- Viser «Første 9» og «Siste 9» tydelig i rundelister og rundedetaljer, slik at 9-hullsrundene kan skilles fra hverandre.
+
 ## [1.9.55] - 2026-07-28
 - Foreslår utslagskølle på et hull når spilleren har registrerte køllevalg fra samme faktiske hull i tidligere fullførte Shanklife-runder.
 

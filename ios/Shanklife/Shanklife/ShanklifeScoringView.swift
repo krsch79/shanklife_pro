@@ -63,7 +63,7 @@ struct ShanklifeScoringView: View {
         _detail = State(initialValue: initialDetail)
         _activeSetup = State(initialValue: setup)
         let firstOpen = initialDetail.players.flatMap(\.scores).first(where: { $0.strokes == nil })?.holeNumber
-        _currentHoleNumber = State(initialValue: firstOpen ?? 1)
+        _currentHoleNumber = State(initialValue: firstOpen ?? initialDetail.startingHoleNumber ?? 1)
     }
 
     var body: some View {
@@ -104,7 +104,7 @@ struct ShanklifeScoringView: View {
 
                         Spacer()
 
-                        if currentHoleNumber < detail.course.holeCount {
+                        if currentHoleNumber != holes.last?.holeNumber {
                             Button {
                                 Task { await saveHole(move: 1) }
                             } label: {
@@ -167,10 +167,13 @@ struct ShanklifeScoringView: View {
     }
 
     private var holes: [BalleTourSetupHole] {
+        let selectedHoleNumbers = Set(detail.holeNumbers ?? detail.players.flatMap(\.scores).map(\.holeNumber))
         if let course = activeSetup?.courses.first(where: { $0.id == detail.course.id }) {
-            return course.holes.prefix(detail.course.holeCount).map { $0 }
+            return course.holes.filter { selectedHoleNumbers.contains($0.holeNumber) }
         }
-        return (1...detail.course.holeCount).map {
+        let startingHole = detail.startingHoleNumber ?? 1
+        let endingHole = startingHole + detail.course.holeCount - 1
+        return (startingHole...endingHole).map {
             BalleTourSetupHole(holeNumber: $0, par: 4, strokeIndex: $0, lengths: [:], scoreOptions: [3, 4, 5, 6, 7, 8, 9])
         }
     }
@@ -351,9 +354,12 @@ struct ShanklifeScoringView: View {
     }
 
     private func moveHole(_ delta: Int) {
-        let target = currentHoleNumber + delta
-        if holes.contains(where: { $0.holeNumber == target }) {
-            currentHoleNumber = target
+        guard let currentIndex = holes.firstIndex(where: { $0.holeNumber == currentHoleNumber }) else {
+            return
+        }
+        let targetIndex = currentIndex + delta
+        if holes.indices.contains(targetIndex) {
+            currentHoleNumber = holes[targetIndex].holeNumber
         }
     }
 
@@ -386,9 +392,10 @@ struct ShanklifeScoringView: View {
                 inputs[player.roundPlayerID] ?? BalleTourHolePlayerInput(roundPlayerID: player.roundPlayerID)
             })
             detail = try await client.saveShanklifeHole(roundID: detail.id, holeNumber: currentHoleNumber, body: request)
-            let target = currentHoleNumber + move
-            if holes.contains(where: { $0.holeNumber == target }) {
-                currentHoleNumber = target
+            if move != 0,
+               let currentIndex = holes.firstIndex(where: { $0.holeNumber == currentHoleNumber }),
+               holes.indices.contains(currentIndex + move) {
+                currentHoleNumber = holes[currentIndex + move].holeNumber
             }
             loadInputsForCurrentHole()
         } catch {

@@ -48,7 +48,13 @@ from routes.rounds import (
     _shanklife_rounds_query,
     _score_options_for_par,
 )
-from services.round_length import allowed_round_hole_counts, round_holes
+from services.round_length import (
+    allowed_round_hole_counts,
+    allowed_round_starting_holes,
+    round_holes,
+    round_length_label,
+    round_starting_hole_number,
+)
 from services.balletour import BALLETOUR_MENU_LABEL, get_balletour_series, is_balletour_player
 from services.balletour import get_balletour_memberships
 from services.balletour_mcp import (
@@ -143,6 +149,8 @@ def _round_payload(round_obj):
         "started_at": round_obj.started_at.isoformat() if round_obj.started_at else None,
         "finished_at": round_obj.finished_at.isoformat() if round_obj.finished_at else None,
         "played_hole_count": round_obj.played_hole_count,
+        "starting_hole_number": round_starting_hole_number(round_obj),
+        "round_length_label": round_length_label(round_obj),
         "course": {
             "id": round_obj.course.id,
             "name": round_obj.course.name,
@@ -478,6 +486,9 @@ def _shanklife_round_detail_payload(round_obj):
         "status": round_obj.status,
         "play_format": getattr(round_obj, "play_format", STROKE_PLAY),
         "play_format_label": play_format_label(getattr(round_obj, "play_format", STROKE_PLAY)),
+        "starting_hole_number": round_starting_hole_number(round_obj),
+        "round_length_label": round_length_label(round_obj),
+        "hole_numbers": [hole.hole_number for hole in holes],
         "course": {
             "id": round_obj.course.id,
             "name": round_obj.course.name,
@@ -1127,6 +1138,12 @@ def shanklife_create_round():
         return _json_error("bad_request", "Ugyldig valg av antall hull.", 400)
     if played_hole_count not in allowed_round_hole_counts(course):
         return _json_error("bad_request", "Denne banen kan ikke spilles med valgt antall hull.", 400)
+    try:
+        starting_hole_number = int(data.get("starting_hole_number") or 1)
+    except (TypeError, ValueError):
+        return _json_error("bad_request", "Ugyldig start-hull for valgt rundelengde.", 400)
+    if starting_hole_number not in allowed_round_starting_holes(course, played_hole_count):
+        return _json_error("bad_request", "Ugyldig start-hull for valgt rundelengde.", 400)
 
     course_tees = {tee.id: tee for tee in course.tees}
     if not course_tees:
@@ -1183,6 +1200,7 @@ def shanklife_create_round():
             course,
             round_players_payload,
             played_hole_count=played_hole_count,
+            starting_hole_number=starting_hole_number,
             play_format=play_format,
         )
         db.session.commit()

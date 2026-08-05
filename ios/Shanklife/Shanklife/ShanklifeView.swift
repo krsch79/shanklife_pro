@@ -138,7 +138,7 @@ struct ShanklifeNewRoundView: View {
     @EnvironmentObject private var session: SessionStore
     @State private var setup: ShanklifeSetupResponse?
     @State private var selectedCourseID: Int?
-    @State private var playedHoleCount = 18
+    @State private var roundSelection = "18"
     @State private var selectedPlayers: [ShanklifeCreateRoundPlayer] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -155,10 +155,13 @@ struct ShanklifeNewRoundView: View {
                     }
 
                     if let course = selectedCourse(setup) {
-                        Picker("Hull", selection: $playedHoleCount) {
-                            Text("\(course.holeCount)").tag(course.holeCount)
-                            if course.supportsNineHoleRound {
-                                Text("9").tag(9)
+                        Picker("Rundelengde", selection: $roundSelection) {
+                            if course.holeCount == 18 {
+                                Text("18 hull").tag("18")
+                                Text("Første 9").tag("front_9")
+                                Text("Siste 9").tag("back_9")
+                            } else {
+                                Text("\(course.holeCount) hull").tag(String(course.holeCount))
                             }
                         }
                     }
@@ -216,7 +219,7 @@ struct ShanklifeNewRoundView: View {
             set: { newValue in
                 selectedCourseID = newValue
                 if let setup, let course = selectedCourse(setup) {
-                    playedHoleCount = course.holeCount
+                    roundSelection = String(course.holeCount)
                     normalizeTees(for: course)
                 }
             }
@@ -279,7 +282,7 @@ struct ShanklifeNewRoundView: View {
             setup = loaded
             selectedCourseID = loaded.courses.first?.id
             if let course = loaded.courses.first {
-                playedHoleCount = course.holeCount
+                roundSelection = String(course.holeCount)
             }
             selectedPlayers = []
             if let currentPlayerID = session.user?.player?.id,
@@ -334,7 +337,8 @@ struct ShanklifeNewRoundView: View {
             let round = try await client.createShanklifeRound(
                 ShanklifeCreateRoundRequest(
                     courseID: selectedCourseID,
-                    playedHoleCount: playedHoleCount,
+                    playedHoleCount: roundSelection == "18" ? 18 : 9,
+                    startingHoleNumber: roundSelection == "back_9" ? 10 : 1,
                     players: selectedPlayers
                 )
             )

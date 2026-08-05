@@ -67,13 +67,13 @@
 {% block content %}
 <div class="page-title-row round-summary-heading">
     <div>
-        <p class="muted">Fullført Shanklife-runde · {{ round.played_hole_count or round.course.hole_count }} hull · {{ play_format_label(round.play_format) }}</p>
+        <p class="muted">Fullført Shanklife-runde · {{ round_length_label(round) }} · {{ play_format_label(round.play_format) }}</p>
         <h2>{{ round.course.name }}</h2>
         <p class="muted">{{ round.started_at|datetime_local }}{% if weather_summary %} · {{ weather_summary }}{% endif %}</p>
     </div>
     <div class="button-row compact">
         {% if current_user and current_user.is_admin %}
-        <a class="button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=1, edit=1) }}">Rediger runde</a>
+        <a class="button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=played_holes[0].hole_number, edit=1) }}">Rediger runde</a>
         {% endif %}
         {% if current_user_round_player and not is_matchplay_round %}
         <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
@@ -103,9 +103,11 @@
         </div>
     </div>
 
-    {{ scorecard_segment('Front 9', round_summary.front_holes, 'front_total', false) }}
+    {% if round_summary.front_holes %}
+    {{ scorecard_segment('Første 9', round_summary.front_holes, 'front_total', false) }}
+    {% endif %}
     {% if round_summary.back_holes %}
-    {{ scorecard_segment('Back 9', round_summary.back_holes, 'back_total', true) }}
+    {{ scorecard_segment('Siste 9', round_summary.back_holes, 'back_total', round_summary.front_holes|length > 0) }}
     {% endif %}
 </section>
 

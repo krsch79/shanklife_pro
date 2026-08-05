@@ -34,7 +34,7 @@
                 {% endif %}
                 {{ card.round.course.name }}
             </h3>
-            <p class="muted">Runde {{ card.round.id }} · {{ card.round.played_hole_count or card.round.course.hole_count }} hull · {{ play_format_label(card.round.play_format) }} · {{ card.round.started_at|datetime_local }}</p>
+            <p class="muted">Runde {{ card.round.id }} · {{ round_length_label(card.round) }} · {{ play_format_label(card.round.play_format) }} · {{ card.round.started_at|datetime_local }}</p>
             {% if card.round.garmin_sync %}
             <p class="garmin-sync-status synced">Synkronisert med Garmin</p>
             {% elif card.current_user_round_player and not card.is_matchplay_round %}

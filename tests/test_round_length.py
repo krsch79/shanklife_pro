@@ -8,10 +8,13 @@ from services.handicap import (
 )
 from services.round_length import (
     allowed_round_hole_counts,
+    allowed_round_starting_holes,
     course_supports_nine_hole_round,
     round_handicap_stroke_index,
     round_hole_count,
     round_holes,
+    round_length_label,
+    round_starting_hole_number,
 )
 
 
@@ -45,25 +48,41 @@ def _duplicate_loop_course():
 
 
 class RoundLengthTests(unittest.TestCase):
-    def test_identical_loops_allow_nine_or_eighteen_holes(self):
+    def test_eighteen_hole_course_allows_front_back_or_full_round(self):
         course = _duplicate_loop_course()
 
         self.assertTrue(course_supports_nine_hole_round(course))
         self.assertEqual(allowed_round_hole_counts(course), (9, 18))
+        self.assertEqual(allowed_round_starting_holes(course, 9), (1, 10))
+        self.assertEqual(allowed_round_starting_holes(course, 18), (1,))
 
-    def test_length_difference_disables_nine_hole_option(self):
+    def test_different_front_and_back_still_allow_nine_hole_rounds(self):
         course = _duplicate_loop_course()
         course.tees[0].lengths[-1].length_meters += 1
+        course.holes[-1].par += 1
+
+        self.assertTrue(course_supports_nine_hole_round(course))
+        self.assertEqual(allowed_round_hole_counts(course), (9, 18))
+
+    def test_nine_hole_course_only_allows_its_full_loop(self):
+        course = SimpleNamespace(hole_count=9)
 
         self.assertFalse(course_supports_nine_hole_round(course))
-        self.assertEqual(allowed_round_hole_counts(course), (18,))
+        self.assertEqual(allowed_round_hole_counts(course), (9,))
+        self.assertEqual(allowed_round_starting_holes(course, 9), (1,))
 
     def test_nine_hole_round_uses_first_loop_and_normalized_indexes(self):
         course = _duplicate_loop_course()
-        round_obj = SimpleNamespace(course=course, played_hole_count=9)
+        round_obj = SimpleNamespace(
+            course=course,
+            played_hole_count=9,
+            starting_hole_number=1,
+        )
 
         self.assertEqual(round_hole_count(round_obj), 9)
-        self.assertEqual(len(round_holes(round_obj)), 9)
+        self.assertEqual([hole.hole_number for hole in round_holes(round_obj)], list(range(1, 10)))
+        self.assertEqual(round_starting_hole_number(round_obj), 1)
+        self.assertEqual(round_length_label(round_obj), "Første 9")
         self.assertEqual(
             [
                 round_handicap_stroke_index(round_obj, hole)
@@ -72,9 +91,30 @@ class RoundLengthTests(unittest.TestCase):
             list(range(1, 10)),
         )
 
+    def test_back_nine_round_uses_holes_ten_through_eighteen(self):
+        course = _duplicate_loop_course()
+        round_obj = SimpleNamespace(
+            course=course,
+            played_hole_count=9,
+            starting_hole_number=10,
+        )
+        played_holes = round_holes(round_obj)
+
+        self.assertEqual([hole.hole_number for hole in played_holes], list(range(10, 19)))
+        self.assertEqual(round_starting_hole_number(round_obj), 10)
+        self.assertEqual(round_length_label(round_obj), "Siste 9")
+        self.assertEqual(
+            [round_handicap_stroke_index(round_obj, hole) for hole in played_holes],
+            list(range(1, 10)),
+        )
+
     def test_eighteen_hole_rating_is_halved_and_distributed_for_nine_holes(self):
         course = _duplicate_loop_course()
-        round_obj = SimpleNamespace(course=course, played_hole_count=9)
+        round_obj = SimpleNamespace(
+            course=course,
+            played_hole_count=9,
+            starting_hole_number=1,
+        )
         total_par = sum(hole.par for hole in course.holes)
         rating = SimpleNamespace(slope=113, course_rating=total_par)
 

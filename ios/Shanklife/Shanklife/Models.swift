@@ -94,6 +94,8 @@ struct RoundSummary: Decodable, Identifiable {
     let startedAt: String?
     let finishedAt: String?
     let playedHoleCount: Int?
+    let startingHoleNumber: Int?
+    let roundLengthLabel: String?
     let course: CourseSummary?
     let players: [RoundPlayerSummary]
 
@@ -103,6 +105,8 @@ struct RoundSummary: Decodable, Identifiable {
         case startedAt = "started_at"
         case finishedAt = "finished_at"
         case playedHoleCount = "played_hole_count"
+        case startingHoleNumber = "starting_hole_number"
+        case roundLengthLabel = "round_length_label"
         case course
         case players
     }
@@ -328,11 +332,13 @@ struct ShanklifeRoundPlayerSummary: Decodable, Identifiable {
 struct ShanklifeCreateRoundRequest: Encodable {
     let courseID: Int
     let playedHoleCount: Int
+    let startingHoleNumber: Int
     let players: [ShanklifeCreateRoundPlayer]
 
     enum CodingKeys: String, CodingKey {
         case courseID = "course_id"
         case playedHoleCount = "played_hole_count"
+        case startingHoleNumber = "starting_hole_number"
         case players
     }
 }
@@ -362,6 +368,9 @@ struct ShanklifeRoundDetail: Decodable, Identifiable {
     let id: Int
     let status: String
     let course: BalleTourCourse
+    let startingHoleNumber: Int?
+    let roundLengthLabel: String?
+    let holeNumbers: [Int]?
     let startedAt: String?
     let startedAtDisplay: String?
     let finishedAt: String?
@@ -372,6 +381,9 @@ struct ShanklifeRoundDetail: Decodable, Identifiable {
         case id
         case status
         case course
+        case startingHoleNumber = "starting_hole_number"
+        case roundLengthLabel = "round_length_label"
+        case holeNumbers = "hole_numbers"
         case startedAt = "started_at"
         case startedAtDisplay = "started_at_display"
         case finishedAt = "finished_at"

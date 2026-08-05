@@ -8,6 +8,7 @@ Shanklife Pro er hovedapplikasjonen i Shanklife-økosystemet. Den dekker scoref�
 - `routes/` inneholder HTTP-flytene for scoreføring, runder, statistikk, profiler, BalleTour, GolfBox og API.
 - `models.py` og `extensions.py` definerer SQLAlchemy-modellen og databasekoblingen.
 - `services/` inneholder domene- og integrasjonslogikk, blant annet GolfBox, Garmin, statistikk, e-post, hemmelighetslagring og varsler.
+- Rundelengde styres av `Round.played_hole_count` og `Round.starting_hole_number`. `services/round_length.py` er felles kilde for hvilke hull en runde omfatter; en 18-hullsbane kan spilles som 18 hull, «Første 9» (1–9) eller «Siste 9» (10–18).
 - `templates/` og `static/` inneholder det server-renderte grensesnittet. GPS-måling av slag ligger i `templates/round_hole.html` og aktiveres bare etter en eksplisitt brukerhandling.
 - `scripts/` inneholder deploy, backup, vedlikeholdsserver, planlagte jobber og driftsverktøy.
 - `balletour_survey/` er en separat sideapp med egen README og runtime.
@@ -65,4 +66,5 @@ Produksjonsdatabasen og runtime-data ligger under `instance/` og `uploads/` og e
 - GPS-måling krever eksplisitt nettlesertillatelse og 5 meters nøyaktighet før lengdemåling kan starte.
 - GolfBox og Garmin er eksterne integrasjoner; feil der skal ikke hindre lagring eller fullføring av en vanlig Shanklife-runde når flyten er definert som valgfri.
 - Produksjonsprosessen styres av `scripts/deploy.sh` og `run.sh`, ikke systemd. Driftskontroller må derfor følge faktisk prosess, port og health-endepunkt.
+- Eldre 9-hullsrunder uten `starting_hole_number` tolkes som «Første 9». Nye runder valideres mot både antall hull og tillatt start-hull.
 - Produktendringer dokumenteres i `SHANKLIFE_CHANGELOG.md` eller `BALLETOUR_CHANGELOG.md`. Relevante åpne oppgaver spores i GitHub Issues.

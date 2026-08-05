@@ -37,10 +37,12 @@ from services.live_score import score_to_par_for_entries
 from services.round_completion import missing_saved_entry_choices, validate_score_putts
 from services.round_length import (
     allowed_round_hole_counts,
+    allowed_round_starting_holes,
     course_supports_nine_hole_round,
     round_handicap_stroke_index,
     round_hole_count,
     round_holes,
+    round_starting_hole_number,
 )
 from services.round_summary import build_round_summary
 from services.balletour import get_balletour_course_id, get_balletour_memberships, get_balletour_series
@@ -178,7 +180,7 @@ def new_round_form_state(courses, players):
         course_tee_options=course_tee_options,
         player_hcps=player_hcps,
         player_genders=player_genders,
-        selected_round_hole_count=request.form.get("round_hole_count", "").strip(),
+        selected_round_hole_selection=request.form.get("round_hole_selection", "").strip(),
         play_format_options=PLAY_FORMAT_LABELS.items(),
         selected_play_format=selected_play_format,
     )
@@ -205,8 +207,28 @@ def _parse_tee(raw_value, course_tees, player_name):
     return selected_tee_id
 
 
-def _create_round(course, round_players_payload, stats_user_id=None, played_hole_count=None, play_format=STROKE_PLAY):
+def _create_round(
+    course,
+    round_players_payload,
+    stats_user_id=None,
+    played_hole_count=None,
+    starting_hole_number=1,
+    play_format=STROKE_PLAY,
+):
     selected_hole_count = played_hole_count or course.hole_count
+    if selected_hole_count not in allowed_round_hole_counts(course):
+        raise ValueError("Denne banen kan ikke spilles med valgt antall hull.")
+    if starting_hole_number not in allowed_round_starting_holes(course, selected_hole_count):
+        raise ValueError("Ugyldig start-hull for valgt rundelengde.")
+
+    selected_hole_numbers = list(range(
+        starting_hole_number,
+        starting_hole_number + selected_hole_count,
+    ))
+    available_hole_numbers = {hole.hole_number for hole in course.holes}
+    if not set(selected_hole_numbers).issubset(available_hole_numbers):
+        raise ValueError("Banen mangler ett eller flere hull i valgt runde.")
+
     play_format = normalize_play_format(play_format)
     round_obj = Round(
         course_id=course.id,
@@ -214,6 +236,7 @@ def _create_round(course, round_players_payload, stats_user_id=None, played_hole
         play_format=play_format,
         started_at=server_now(),
         played_hole_count=selected_hole_count,
+        starting_hole_number=starting_hole_number,
         stats_user_id=stats_user_id,
     )
     db.session.add(round_obj)
@@ -234,7 +257,7 @@ def _create_round(course, round_players_payload, stats_user_id=None, played_hole
         round_player_rows.append(rp)
 
     for rp in round_player_rows:
-        for hole in range(1, selected_hole_count + 1):
+        for hole in selected_hole_numbers:
             db.session.add(
                 ScoreEntry(
                     round_id=round_obj.id,
@@ -247,16 +270,33 @@ def _create_round(course, round_players_payload, stats_user_id=None, played_hole
     return round_obj
 
 
-def _parse_round_hole_count(course):
-    raw_value = request.form.get("round_hole_count", "").strip()
-    try:
-        selected_hole_count = int(raw_value or course.hole_count)
-    except ValueError as exc:
-        raise ValueError("Ugyldig valg av antall hull.") from exc
+def _parse_round_hole_selection(course):
+    raw_selection = request.form.get("round_hole_selection", "").strip()
+    if raw_selection:
+        selections = {
+            str(course.hole_count): (course.hole_count, 1),
+        }
+        if course.hole_count == 18:
+            selections.update({
+                "front_9": (9, 1),
+                "back_9": (9, 10),
+            })
+        if raw_selection not in selections:
+            raise ValueError("Ugyldig valg av rundelengde.")
+        selected_hole_count, starting_hole_number = selections[raw_selection]
+    else:
+        raw_count = request.form.get("round_hole_count", "").strip()
+        try:
+            selected_hole_count = int(raw_count or course.hole_count)
+        except ValueError as exc:
+            raise ValueError("Ugyldig valg av antall hull.") from exc
+        starting_hole_number = 1
 
     if selected_hole_count not in allowed_round_hole_counts(course):
         raise ValueError("Denne banen kan ikke spilles med valgt antall hull.")
-    return selected_hole_count
+    if starting_hole_number not in allowed_round_starting_holes(course, selected_hole_count):
+        raise ValueError("Ugyldig start-hull for valgt rundelengde.")
+    return selected_hole_count, starting_hole_number
 
 
 def _current_user_can_track_stats(round_obj):
@@ -1188,16 +1228,21 @@ def _score_totals(round_obj, round_player_id):
             in_total += score_entry.strokes
 
     return {
-        "out": out_total if round_hole_count(round_obj) >= 9 else total_strokes,
+        "out": (
+            in_total
+            if round_hole_count(round_obj) == 9 and round_starting_hole_number(round_obj) == 10
+            else out_total if round_hole_count(round_obj) >= 9 else total_strokes
+        ),
         "in": in_total if round_hole_count(round_obj) > 9 else None,
         "total": total_strokes,
     }
 
 
 def _next_unscored_hole_number(round_obj):
+    played_holes = round_holes(round_obj)
     round_player_ids = [round_player.id for round_player in round_obj.round_players]
     if not round_player_ids:
-        return 1
+        return played_holes[0].hole_number
 
     entries = ScoreEntry.query.filter(
         ScoreEntry.round_id == round_obj.id,
@@ -1209,10 +1254,10 @@ def _next_unscored_hole_number(round_obj):
             scored_by_hole.setdefault(entry.hole_number, set()).add(entry.round_player_id)
 
     expected_player_count = len(round_player_ids)
-    for hole in round_holes(round_obj):
+    for hole in played_holes:
         if len(scored_by_hole.get(hole.hole_number, set())) < expected_player_count:
             return hole.hole_number
-    return round_hole_count(round_obj)
+    return played_holes[-1].hole_number
 
 
 def _save_hole_from_form(round_obj, hole_number, stats_rp=None):
@@ -1668,7 +1713,7 @@ def new_round():
             return new_round_form_state(courses, players)
 
         try:
-            selected_hole_count = _parse_round_hole_count(course)
+            selected_hole_count, starting_hole_number = _parse_round_hole_selection(course)
         except ValueError as exc:
             flash(str(exc), "error")
             return new_round_form_state(courses, players)
@@ -1806,12 +1851,17 @@ def new_round():
             course,
             round_players_payload,
             played_hole_count=selected_hole_count,
+            starting_hole_number=starting_hole_number,
             play_format=play_format,
         )
         db.session.commit()
         _send_shanklife_round_started_mail(round_obj)
         flash("Runde opprettet.", "success")
-        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
+        return redirect(url_for(
+            "rounds.round_hole",
+            round_id=round_obj.id,
+            hole_number=round_starting_hole_number(round_obj),
+        ))
 
     return new_round_form_state(courses, players)
 
@@ -1879,7 +1929,7 @@ def new_stats_round():
             return new_stats_round_form_state(courses, players)
 
         try:
-            selected_hole_count = _parse_round_hole_count(course)
+            selected_hole_count, starting_hole_number = _parse_round_hole_selection(course)
         except ValueError as exc:
             flash(str(exc), "error")
             return new_stats_round_form_state(courses, players)
@@ -1986,11 +2036,16 @@ def new_stats_round():
             round_players_payload,
             stats_user_id=g.current_user.id,
             played_hole_count=selected_hole_count,
+            starting_hole_number=starting_hole_number,
         )
         db.session.commit()
         _send_shanklife_round_started_mail(round_obj)
         flash("Runde med statistikk opprettet.", "success")
-        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
+        return redirect(url_for(
+            "rounds.round_hole",
+            round_id=round_obj.id,
+            hole_number=round_starting_hole_number(round_obj),
+        ))
 
     return new_stats_round_form_state(courses, players)
 
@@ -2063,6 +2118,8 @@ def continue_round(round_id):
 def round_hole(round_id, hole_number):
     round_obj = Round.query.get_or_404(round_id)
     course = round_obj.course
+    played_holes = round_holes(round_obj)
+    played_hole_numbers = [item.hole_number for item in played_holes]
     played_hole_count = round_hole_count(round_obj)
     admin_edit_mode = bool(
         request.args.get("edit") == "1"
@@ -2078,9 +2135,9 @@ def round_hole(round_id, hole_number):
             values["edit"] = "1"
         return url_for("rounds.round_hole", **values)
 
-    if hole_number < 1 or hole_number > played_hole_count:
+    if hole_number not in played_hole_numbers:
         flash("Ugyldig hullnummer.", "error")
-        return redirect(edit_url(1))
+        return redirect(edit_url(played_hole_numbers[0]))
 
     stats_rp = _stats_round_player(round_obj)
     hole = next((item for item in course.holes if item.hole_number == hole_number), None)
@@ -2139,10 +2196,11 @@ def round_hole(round_id, hole_number):
 
         db.session.commit()
 
+        current_hole_index = played_hole_numbers.index(hole_number)
         if action == "previous":
-            target_hole = played_hole_count if hole_number == 1 else hole_number - 1
+            target_hole = played_hole_numbers[current_hole_index - 1]
         else:
-            target_hole = 1 if hole_number == played_hole_count else hole_number + 1
+            target_hole = played_hole_numbers[(current_hole_index + 1) % played_hole_count]
 
         return redirect(edit_url(target_hole))
 
@@ -2212,8 +2270,11 @@ def round_hole(round_id, hole_number):
         admin_edit_mode=admin_edit_mode,
         score_entry_editable=round_obj.status == "ongoing" or admin_edit_mode,
         played_hole_count=played_hole_count,
-        previous_hole=played_hole_count if hole_number == 1 else hole_number - 1,
-        next_hole=1 if hole_number == played_hole_count else hole_number + 1,
+        played_hole_position=played_hole_numbers.index(hole_number) + 1,
+        previous_hole=played_hole_numbers[played_hole_numbers.index(hole_number) - 1],
+        next_hole=played_hole_numbers[
+            (played_hole_numbers.index(hole_number) + 1) % played_hole_count
+        ],
     )
 
 
@@ -2223,9 +2284,11 @@ def upload_round_hole_image(round_id, hole_number):
     round_obj = Round.query.get_or_404(round_id)
     course = round_obj.course
 
-    if hole_number < 1 or hole_number > round_hole_count(round_obj):
+    played_hole_numbers = {hole.hole_number for hole in round_holes(round_obj)}
+    if hole_number not in played_hole_numbers:
         flash("Ugyldig hullnummer.", "error")
-        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=1))
+        first_hole = round_holes(round_obj)[0].hole_number
+        return redirect(url_for("rounds.round_hole", round_id=round_obj.id, hole_number=first_hole))
 
     image_file = request.files.get("round_image")
     if not image_file or not image_file.filename:
@@ -2320,7 +2383,7 @@ def autosave_score(round_id):
     if not round_player:
         return jsonify({"ok": False, "error": "Fant ikke spiller i runden."}), 404
 
-    if hole_number < 1 or hole_number > round_hole_count(round_obj):
+    if hole_number not in {hole.hole_number for hole in round_holes(round_obj)}:
         return jsonify({"ok": False, "error": "Ugyldig hullnummer."}), 400
 
     hole = next((item for item in round_obj.course.holes if item.hole_number == hole_number), None)
@@ -2454,17 +2517,17 @@ def round_score(round_id):
     if request.method == "POST":
         action = request.form.get("action", "save")
         for rp in round_players:
-            for hole in range(1, played_hole_count + 1):
-                field_name = f"score_{rp.id}_{hole}"
+            for hole_obj in played_holes:
+                hole_number = hole_obj.hole_number
+                field_name = f"score_{rp.id}_{hole_number}"
                 raw_value = request.form.get(field_name, "").strip()
 
                 entry = ScoreEntry.query.filter_by(
                     round_id=round_obj.id,
                     round_player_id=rp.id,
-                    hole_number=hole,
+                    hole_number=hole_number,
                 ).first()
 
-                hole_obj = next((item for item in course.holes if item.hole_number == hole), None)
                 try:
                     parsed_strokes = _parse_score_for_hole(raw_value, hole_obj, rp.player_name_snapshot)
                     _validate_existing_stat_for_score(entry, hole_obj, parsed_strokes)
@@ -2478,25 +2541,25 @@ def round_score(round_id):
                         _save_score_stat(
                             entry,
                             hole_obj,
-                            request.form.get(f"stat_drive_{hole}", ""),
+                            request.form.get(f"stat_drive_{hole_number}", ""),
                             _green_stat_from_grouped_form(
-                                f"stat_green_status_{hole}",
-                                f"stat_green_pin_{hole}",
-                                f"stat_green_horizontal_{hole}",
-                                f"stat_green_vertical_{hole}",
-                            ) if hole_obj.par == 3 else request.form.get(f"stat_fairway_{hole}", ""),
-                            request.form.get(f"stat_putts_{hole}", ""),
-                            request.form.get(f"stat_last_putt_distance_{hole}", ""),
+                                f"stat_green_status_{hole_number}",
+                                f"stat_green_pin_{hole_number}",
+                                f"stat_green_horizontal_{hole_number}",
+                                f"stat_green_vertical_{hole_number}",
+                            ) if hole_obj.par == 3 else request.form.get(f"stat_fairway_{hole_number}", ""),
+                            request.form.get(f"stat_putts_{hole_number}", ""),
+                            request.form.get(f"stat_last_putt_distance_{hole_number}", ""),
                         )
                     except ValueError as exc:
                         message = str(exc) or "Ugyldig statistikk."
-                        flash(f"{message} ({rp.player_name_snapshot}, hull {hole})", "error")
+                        flash(f"{message} ({rp.player_name_snapshot}, hull {hole_number})", "error")
                         return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
                 if _round_is_matchplay(round_obj):
                     try:
                         entry.hole_result = _parse_matchplay_hole_result(
-                            request.form.get(f"hole_result_{rp.id}_{hole}", ""),
+                            request.form.get(f"hole_result_{rp.id}_{hole_number}", ""),
                             rp.player_name_snapshot,
                         )
                     except ValueError as exc:
@@ -2583,20 +2646,21 @@ def round_score(round_id):
         in_total = 0
         grand_total = 0
 
-        for hole in range(1, played_hole_count + 1):
-            entry = entries.get(hole)
+        for hole_obj in played_holes:
+            hole_number = hole_obj.hole_number
+            entry = entries.get(hole_number)
             strokes = entry.strokes if entry else None
-            player_scores[hole] = strokes
-            player_hole_results[hole] = entry.hole_result if entry else None
-            score_entry_id_map.setdefault(rp.id, {})[hole] = entry.id if entry else None
+            player_scores[hole_number] = strokes
+            player_hole_results[hole_number] = entry.hole_result if entry else None
+            score_entry_id_map.setdefault(rp.id, {})[hole_number] = entry.id if entry else None
 
             if stats_rp and rp.id == stats_rp.id:
                 stat = entry.detailed_stat if entry else None
-                stats_map[hole] = _stat_view_values(stat)
+                stats_map[hole_number] = _stat_view_values(stat)
 
             if strokes is not None:
                 grand_total += strokes
-                if hole <= 9:
+                if hole_number <= 9:
                     out_total += strokes
                 else:
                     in_total += strokes
@@ -2604,7 +2668,11 @@ def round_score(round_id):
         score_map[rp.id] = player_scores
         hole_result_map[rp.id] = player_hole_results
         totals[rp.id] = {
-            "out": out_total if played_hole_count >= 9 else grand_total,
+            "out": (
+                in_total
+                if played_hole_count == 9 and round_starting_hole_number(round_obj) == 10
+                else out_total if played_hole_count >= 9 else grand_total
+            ),
             "in": in_total if played_hole_count > 9 else None,
             "total": grand_total,
         }
