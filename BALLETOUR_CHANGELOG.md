@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.59] - 2026-08-05
+- Løfter tee-valg, handlingsknapper, versjonslenke og spillerlenker i leaderboard til minst 44 piksler på iPhone.
+- Beholder den kompakte desktop-tabellen og den horisontalt rullbare mobilnavigasjonen.
+
 ## [1.9.58] - 2026-08-05
 - Holder innloggede private enheter pålogget med en rullerende 180-dagerssesjon.
 - Gjør BalleTour installerbar fra Safari med eget manifest, hjemskjermikon og sikker service worker uten hurtiglagring av private sider.

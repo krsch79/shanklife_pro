@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.59] - 2026-08-05
+- Løfter versjonslenker og felles handlingsknapper til minst 44 piksler etter produksjonskontroll på iPhone 16.
+- Versjonerer appskallet på nytt, slik at allerede installerte hjemskjermapper får den ferdig kontrollerte stilen.
+
 ## [1.9.58] - 2026-08-05
 - Holder innloggede private enheter pålogget med en rullerende 180-dagerssesjon.
 - Gjør Shanklife Pro og Shanklife App installerbare fra Safari med egne manifest, hjemskjermikoner og sikker service worker uten hurtiglagring av private sider.

@@ -4072,3 +4072,30 @@ nav a:hover,
         padding-bottom: env(safe-area-inset-bottom);
     }
 }
+
+/* 1.9.59: minimum comfortable touch targets after production iPhone QA. */
+.button,
+.tee-tabs a,
+.version-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+}
+
+.balletour-title-row .version-link {
+    padding-top: 0;
+}
+
+.site-brand a {
+    min-height: 44px;
+}
+
+@media (max-width: 760px) {
+    .balletour-leaderboard a {
+        display: inline-flex;
+        min-width: 44px;
+        min-height: 44px;
+        align-items: center;
+    }
+}

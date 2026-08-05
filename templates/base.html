@@ -12,7 +12,7 @@
     {% set install_balletour = (request.endpoint and request.endpoint.startswith('balletour.')) or request.path.startswith('/balletour') or request.args.get('next', '').startswith('/balletour') %}
     <link rel="manifest" href="{{ url_for('web_manifest', app='balletour' if install_balletour else '') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='balletour-icon-180.png' if install_balletour else 'shanklife-icon-180.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.9.58">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.9.59">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
