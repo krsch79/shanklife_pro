@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.60] - 2026-08-10
+- Hindrer serverfeil etter fullført runde når iPhone/Safari avbryter og prøver GolfBox-overgangen på nytt.
+- Gjør visning av GolfBox-siden skrivefri og oppretter bare én kladd når brukeren faktisk søker etter markør eller sender score.
+
 ## [1.9.59] - 2026-08-05
 - Løfter versjonslenker og felles handlingsknapper til minst 44 piksler etter produksjonskontroll på iPhone 16.
 - Versjonerer appskallet på nytt, slik at allerede installerte hjemskjermapper får den ferdig kontrollerte stilen.

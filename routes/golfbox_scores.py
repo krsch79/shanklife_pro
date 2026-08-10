@@ -1,4 +1,5 @@
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
+from sqlalchemy.exc import IntegrityError
 
 from extensions import db
 from models import GolfBoxScoreSubmission, Round, RoundPlayer
@@ -28,16 +29,31 @@ def _return_endpoint(round_obj):
 
 
 def _get_or_create_submission(round_player):
-    if round_player.golfbox_submission:
-        return round_player.golfbox_submission
+    submission = GolfBoxScoreSubmission.query.filter_by(round_player_id=round_player.id).first()
+    if submission:
+        return submission
     submission = GolfBoxScoreSubmission(
         round_player_id=round_player.id,
         submitted_by_user_id=g.current_user.id,
         status="draft",
     )
     db.session.add(submission)
-    db.session.flush()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        submission = GolfBoxScoreSubmission.query.filter_by(round_player_id=round_player.id).first()
+        if not submission:
+            raise
     return submission
+
+
+def _transient_draft_submission(round_player):
+    return GolfBoxScoreSubmission(
+        round_player_id=round_player.id,
+        submitted_by_user_id=g.current_user.id,
+        status="draft",
+    )
 
 
 @golfbox_scores_bp.route("/rounds/<int:round_id>/golfbox", methods=["GET", "POST"])
@@ -56,7 +72,7 @@ def prepare(round_id):
         return redirect(url_for(_return_endpoint(round_obj), round_id=round_obj.id))
 
     payload = round_player_score_payload(round_player)
-    submission = _get_or_create_submission(round_player)
+    submission = GolfBoxScoreSubmission.query.filter_by(round_player_id=round_player.id).first()
     marker_results = []
     selected_marker = None
     course_suggestions = []
@@ -71,6 +87,7 @@ def prepare(round_id):
         if action == "cancel":
             return redirect(url_for(_return_endpoint(round_obj), round_id=round_obj.id))
         if action == "search_marker":
+            submission = _get_or_create_submission(round_player)
             marker_query = request.form.get("marker_query", "").strip()
             try:
                 marker_results = search_marker(g.current_user, marker_query)
@@ -79,6 +96,7 @@ def prepare(round_id):
             if len(marker_results) == 1:
                 selected_marker = marker_results[0]
         elif action == "submit":
+            submission = _get_or_create_submission(round_player)
             marker_guid = request.form.get("marker_guid", "").strip()
             marker_name = request.form.get("marker_name", "").strip()
             marker_club = request.form.get("marker_club", "").strip()
@@ -113,7 +131,8 @@ def prepare(round_id):
         else:
             flash("Ukjent GolfBox-handling.", "error")
 
-    db.session.commit()
+    if submission is None:
+        submission = _transient_draft_submission(round_player)
     return render_template(
         "golfbox_score_submit.html",
         round=round_obj,
