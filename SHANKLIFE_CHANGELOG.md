@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.61] - 2026-08-13
+- Viser løpende matchplay-stilling som opp, ned eller all square mens hullresultatet føres.
+- Viser vunnet, tapt eller delt per hull og samlet stilling i scorekortet for fullførte matchplay-runder.
+
 ## [1.9.60] - 2026-08-10
 - Hindrer serverfeil etter fullført runde når iPhone/Safari avbryter og prøver GolfBox-overgangen på nytt.
 - Gjør visning av GolfBox-siden skrivefri og oppretter bare én kladd når brukeren faktisk søker etter markør eller sender score.

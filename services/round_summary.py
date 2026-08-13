@@ -1,5 +1,11 @@
 from collections import Counter
 
+from services.play_formats import (
+    is_matchplay_round,
+    matchplay_hole_result_label,
+    matchplay_hole_result_value,
+    matchplay_status_label,
+)
 from services.round_length import round_handicap_stroke_index, round_holes
 
 
@@ -192,6 +198,7 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
 
 def build_round_summary(round_obj):
     holes = round_holes(round_obj)
+    matchplay_round = is_matchplay_round(round_obj)
     holes_by_number = {hole.hole_number: hole for hole in holes}
     front_numbers = [hole.hole_number for hole in holes if hole.hole_number <= 9]
     back_numbers = [hole.hole_number for hole in holes if hole.hole_number > 9]
@@ -234,13 +241,26 @@ def build_round_summary(round_obj):
             hole_number: entries[hole_number].strokes if hole_number in entries else None
             for hole_number in all_numbers
         }
-        cells = {
-            hole_number: {
+        cells = {}
+        matchplay_status = 0
+        for hole_number, score in scores.items():
+            hole_result = entries[hole_number].hole_result if hole_number in entries else None
+            matchplay_status += matchplay_hole_result_value(hole_result)
+            cells[hole_number] = {
                 "score": score,
                 "shape_class": _score_shape_class(score, par_by_hole[hole_number]),
+                "matchplay_result": hole_result,
+                "matchplay_result_label": matchplay_hole_result_label(hole_result),
+                "matchplay_status": matchplay_status,
+                "matchplay_status_display": matchplay_status_label(matchplay_status),
             }
-            for hole_number, score in scores.items()
-        }
+
+        front_matchplay_status = (
+            cells[front_numbers[-1]]["matchplay_status"] if front_numbers else 0
+        )
+        total_matchplay_status = (
+            cells[all_numbers[-1]]["matchplay_status"] if all_numbers else 0
+        )
         player_row = {
             "player_name": round_player.player_name_snapshot,
             "hcp": round_player.hcp_for_round,
@@ -249,6 +269,8 @@ def build_round_summary(round_obj):
             "front_total": _segment_values(scores, front_numbers),
             "back_total": _segment_values(scores, back_numbers),
             "total": _segment_values(scores, all_numbers),
+            "matchplay_front_status_display": matchplay_status_label(front_matchplay_status),
+            "matchplay_total_status_display": matchplay_status_label(total_matchplay_status),
             "to_par": (
                 sum(score for score in scores.values() if score is not None)
                 - sum(par_by_hole[hole_number] for hole_number, score in scores.items() if score is not None)
@@ -257,12 +279,13 @@ def build_round_summary(round_obj):
         player_row["to_par_display"] = _to_par_display(player_row["to_par"])
         player_rows.append(player_row)
 
-        if _player_tracks_stats(round_obj, round_player):
+        if not matchplay_round and _player_tracks_stats(round_obj, round_player):
             statistics.append(
                 _player_statistics(round_obj, round_player, holes_by_number, scores)
             )
 
     return {
+        "is_matchplay": matchplay_round,
         "hole_numbers": all_numbers,
         "front_holes": [holes_by_number[number] for number in front_numbers],
         "back_holes": [holes_by_number[number] for number in back_numbers],

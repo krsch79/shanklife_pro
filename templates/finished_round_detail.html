@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ round.course.name }} - runde {{ round.id }}{% endblock %}
 
-{% macro scorecard_segment(title, holes, segment_key, include_total=false) %}
+{% macro scorecard_segment(title, holes, segment_key, include_total=false, matchplay_status_key='') %}
 <section class="round-scorecard-section">
     <h3>{{ title }}</h3>
     <div class="table-wrap round-scorecard-wrap">
@@ -10,8 +10,8 @@
                 <tr>
                     <th>Hull</th>
                     {% for hole in holes %}<th>{{ hole.hole_number }}</th>{% endfor %}
-                    <th>{{ 'Ut' if segment_key == 'front_total' else 'Inn' }}</th>
-                    {% if include_total %}<th>Tot</th>{% endif %}
+                    <th>{% if is_matchplay_round %}Stilling{% else %}{{ 'Ut' if segment_key == 'front_total' else 'Inn' }}{% endif %}</th>
+                    {% if include_total and not is_matchplay_round %}<th>Tot</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -19,20 +19,20 @@
                     <th>Index</th>
                     {% for hole in holes %}<td>{{ round_summary.index_by_hole[hole.hole_number] }}</td>{% endfor %}
                     <td>-</td>
-                    {% if include_total %}<td>-</td>{% endif %}
+                    {% if include_total and not is_matchplay_round %}<td>-</td>{% endif %}
                 </tr>
                 <tr class="course-data-row">
                     <th>Par</th>
                     {% for hole in holes %}<td>{{ hole.par }}</td>{% endfor %}
-                    <td><strong>{{ round_summary.front_par if segment_key == 'front_total' else round_summary.back_par }}</strong></td>
-                    {% if include_total %}<td><strong>{{ round_summary.total_par }}</strong></td>{% endif %}
+                    <td><strong>{% if is_matchplay_round %}-{% else %}{{ round_summary.front_par if segment_key == 'front_total' else round_summary.back_par }}{% endif %}</strong></td>
+                    {% if include_total and not is_matchplay_round %}<td><strong>{{ round_summary.total_par }}</strong></td>{% endif %}
                 </tr>
                 {% for tee in round_summary.tee_rows %}
                 <tr class="course-data-row tee-row">
                     <th>{{ tee.label }}</th>
                     {% for hole in holes %}<td>{{ tee.lengths.get(hole.hole_number, '-') }}</td>{% endfor %}
-                    <td><strong>{{ tee[segment_key] if tee[segment_key] is not none else '-' }}</strong></td>
-                    {% if include_total %}<td><strong>{{ tee.total if tee.total is not none else '-' }}</strong></td>{% endif %}
+                    <td><strong>{% if is_matchplay_round %}-{% else %}{{ tee[segment_key] if tee[segment_key] is not none else '-' }}{% endif %}</strong></td>
+                    {% if include_total and not is_matchplay_round %}<td><strong>{{ tee.total if tee.total is not none else '-' }}</strong></td>{% endif %}
                 </tr>
                 {% endfor %}
                 {% for player in round_summary.player_rows %}
@@ -44,13 +44,20 @@
                     {% for hole in holes %}
                     <td>
                         {% set cell = player.cells[hole.hole_number] %}
+                        {% if is_matchplay_round %}
+                        <span class="matchplay-hole-result" title="{{ cell.matchplay_result_label }}">
+                            <span class="matchplay-result-long">{{ cell.matchplay_result_label }}</span>
+                            <span class="matchplay-result-short" aria-hidden="true">{{ cell.matchplay_result_label[0] if cell.matchplay_result else '—' }}</span>
+                        </span>
+                        {% else %}
                         <span class="score-shape {{ cell.shape_class }}">
                             {{ cell.score if cell.score is not none else '-' }}
                         </span>
+                        {% endif %}
                     </td>
                     {% endfor %}
-                    <td><strong>{{ player[segment_key] if player[segment_key] is not none else '-' }}</strong></td>
-                    {% if include_total %}
+                    <td><strong>{% if is_matchplay_round %}{{ player[matchplay_status_key] }}{% else %}{{ player[segment_key] if player[segment_key] is not none else '-' }}{% endif %}</strong></td>
+                    {% if include_total and not is_matchplay_round %}
                     <td>
                         <strong>{{ player.total if player.total is not none else '-' }}</strong>
                         <small class="score-total-to-par">{{ player.to_par_display }}</small>
@@ -103,11 +110,15 @@
         </div>
     </div>
 
+    {% if is_matchplay_round %}
+    <p class="matchplay-scorecard-legend"><strong>Hullresultat:</strong> V = vunnet · T = tapt · D = delt</p>
+    {% endif %}
+
     {% if round_summary.front_holes %}
-    {{ scorecard_segment('Første 9', round_summary.front_holes, 'front_total', false) }}
+    {{ scorecard_segment('Første 9', round_summary.front_holes, 'front_total', false, 'matchplay_front_status_display') }}
     {% endif %}
     {% if round_summary.back_holes %}
-    {{ scorecard_segment('Siste 9', round_summary.back_holes, 'back_total', round_summary.front_holes|length > 0) }}
+    {{ scorecard_segment('Siste 9', round_summary.back_holes, 'back_total', round_summary.front_holes|length > 0, 'matchplay_total_status_display') }}
     {% endif %}
 </section>
 

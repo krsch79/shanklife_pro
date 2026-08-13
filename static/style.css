@@ -584,6 +584,22 @@ input.submit-is-loading {
     margin-top: 2px;
 }
 
+.matchplay-scorecard-legend {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin: 0 0 10px;
+}
+
+.matchplay-hole-result {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.matchplay-result-short {
+    display: none;
+}
+
 .round-player-statistics {
     border-top: 1px solid var(--border);
     padding-top: 18px;
@@ -3702,6 +3718,14 @@ th {
 
     .round-summary-scorecard .player-score-row th small {
         font-size: 0.62rem;
+    }
+
+    .matchplay-result-long {
+        display: none;
+    }
+
+    .matchplay-result-short {
+        display: inline;
     }
 
     .round-stat-grid {

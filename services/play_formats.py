@@ -12,6 +12,11 @@ MATCHPLAY_HOLE_RESULT_LABELS = {
     "lost": "Tapt",
     "halved": "Delt",
 }
+MATCHPLAY_HOLE_RESULT_VALUES = {
+    "won": 1,
+    "lost": -1,
+    "halved": 0,
+}
 
 
 def normalize_play_format(value):
@@ -31,3 +36,19 @@ def is_matchplay_round(round_obj):
 
 def matchplay_hole_result_label(value):
     return MATCHPLAY_HOLE_RESULT_LABELS.get(value or "", "—")
+
+
+def matchplay_hole_result_value(value):
+    return MATCHPLAY_HOLE_RESULT_VALUES.get(value or "", 0)
+
+
+def matchplay_status_value(hole_results):
+    return sum(matchplay_hole_result_value(value) for value in hole_results)
+
+
+def matchplay_status_label(value):
+    if value == 0:
+        return "All square"
+    if value > 0:
+        return f"{value} opp"
+    return f"{abs(value)} ned"

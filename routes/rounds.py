@@ -54,6 +54,8 @@ from services.play_formats import (
     PLAY_FORMAT_LABELS,
     STROKE_PLAY,
     is_matchplay_round,
+    matchplay_hole_result_value,
+    matchplay_status_label,
     normalize_play_format,
 )
 from services.shot_measurements import parse_shot_measurements
@@ -613,6 +615,30 @@ def _live_vs_par_rows(round_obj, round_players, hole_number):
             "player": round_player,
             "value": value,
             "display": _vs_par_display(value),
+        })
+    return rows
+
+
+def _live_matchplay_rows(round_obj, round_players, hole_number):
+    entries = ScoreEntry.query.filter_by(round_id=round_obj.id).all()
+    entries_by_player = {}
+    for entry in entries:
+        entries_by_player.setdefault(entry.round_player_id, {})[entry.hole_number] = entry.hole_result
+
+    rows = []
+    for round_player in round_players:
+        results_by_hole = entries_by_player.get(round_player.id, {})
+        base_value = sum(
+            matchplay_hole_result_value(result)
+            for entry_hole_number, result in results_by_hole.items()
+            if entry_hole_number != hole_number
+        )
+        value = base_value + matchplay_hole_result_value(results_by_hole.get(hole_number))
+        rows.append({
+            "player": round_player,
+            "base_value": base_value,
+            "value": value,
+            "display": matchplay_status_label(value),
         })
     return rows
 
@@ -2268,6 +2294,11 @@ def round_hole(round_id, hole_number):
         display_stroke_index=round_handicap_stroke_index(round_obj, hole),
         round_players=round_players,
         live_vs_par_rows=_live_vs_par_rows(round_obj, round_players, hole_number),
+        live_matchplay_rows=(
+            _live_matchplay_rows(round_obj, round_players, hole_number)
+            if _round_is_matchplay(round_obj)
+            else []
+        ),
         score_entries=score_entries,
         stats_round_player_id=stats_rp.id if stats_rp else None,
         stats_values=stats_values,

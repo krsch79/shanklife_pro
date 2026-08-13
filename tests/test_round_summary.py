@@ -33,18 +33,21 @@ class RoundSummaryTests(unittest.TestCase):
             SimpleNamespace(
                 hole_number=1,
                 strokes=2,
+                hole_result=None,
                 detailed_stat=_stat(1, "hit", 140),
                 tee_club=SimpleNamespace(name="7-jern"),
             ),
             SimpleNamespace(
                 hole_number=2,
                 strokes=4,
+                hole_result=None,
                 detailed_stat=_stat(2, "hit"),
                 tee_club=SimpleNamespace(name="Driver"),
             ),
             SimpleNamespace(
                 hole_number=3,
                 strokes=6,
+                hole_result=None,
                 detailed_stat=_stat(0, "right", 220),
                 tee_club=SimpleNamespace(name="Driver"),
             ),
@@ -63,6 +66,7 @@ class RoundSummaryTests(unittest.TestCase):
             course=SimpleNamespace(hole_count=3, holes=holes),
             round_players=[round_player],
             stats_user=None,
+            play_format="stroke_play",
         )
 
         summary = build_round_summary(round_obj)
@@ -93,6 +97,48 @@ class RoundSummaryTests(unittest.TestCase):
         self.assertEqual(stats["hole_rows"][1]["result"], "Traff fairway")
         self.assertEqual(stats["hole_rows"][2]["result"], "Misset fairway høyre")
         self.assertEqual(stats["hole_rows"][2]["putts"], 0)
+
+    def test_builds_matchplay_hole_results_and_running_status(self):
+        holes = [
+            SimpleNamespace(hole_number=1, par=4, stroke_index=1),
+            SimpleNamespace(hole_number=2, par=3, stroke_index=2),
+            SimpleNamespace(hole_number=3, par=5, stroke_index=3),
+        ]
+        entries = [
+            SimpleNamespace(hole_number=1, strokes=None, hole_result="won"),
+            SimpleNamespace(hole_number=2, strokes=None, hole_result="halved"),
+            SimpleNamespace(hole_number=3, strokes=None, hole_result="lost"),
+        ]
+        round_player = SimpleNamespace(
+            id=1,
+            player_id=4,
+            player_name_snapshot="Kristian",
+            hcp_for_round=3.5,
+            tracks_stats=True,
+            selected_tee=None,
+            score_entries=entries,
+        )
+        round_obj = SimpleNamespace(
+            played_hole_count=None,
+            course=SimpleNamespace(hole_count=3, holes=holes),
+            round_players=[round_player],
+            stats_user=None,
+            play_format="matchplay",
+        )
+
+        summary = build_round_summary(round_obj)
+        cells = summary["player_rows"][0]["cells"]
+
+        self.assertTrue(summary["is_matchplay"])
+        self.assertEqual(cells[1]["matchplay_result_label"], "Vunnet")
+        self.assertEqual(cells[1]["matchplay_status_display"], "1 opp")
+        self.assertEqual(cells[2]["matchplay_status_display"], "1 opp")
+        self.assertEqual(cells[3]["matchplay_status_display"], "All square")
+        self.assertEqual(
+            summary["player_rows"][0]["matchplay_total_status_display"],
+            "All square",
+        )
+        self.assertEqual(summary["statistics"], [])
 
 
 if __name__ == "__main__":

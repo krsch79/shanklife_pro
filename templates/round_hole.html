@@ -49,7 +49,26 @@
         <div><strong>{{ hole.hole_number }}</strong><span>Hull</span></div>
         <div><strong>{{ hole.par }}</strong><span>Par</span></div>
         {% if is_matchplay_round %}
-        <div><strong>{{ play_format_label(round.play_format) }}</strong><span>Spilleform</span></div>
+        <div class="hole-matchplay-status-cell">
+            {% if live_matchplay_rows|length == 1 %}
+            <strong
+                data-live-matchplay-status
+                data-round-player-id="{{ live_matchplay_rows[0].player.id }}"
+                data-base-matchplay-status="{{ live_matchplay_rows[0].base_value }}"
+            ><span data-live-matchplay-status-value>{{ live_matchplay_rows[0].display }}</span></strong>
+            {% else %}
+            <strong>
+                {% for row in live_matchplay_rows %}
+                <small
+                    data-live-matchplay-status
+                    data-round-player-id="{{ row.player.id }}"
+                    data-base-matchplay-status="{{ row.base_value }}"
+                >{{ row.player.player_name_snapshot }} <span data-live-matchplay-status-value>{{ row.display }}</span></small>{% if not loop.last %}<br>{% endif %}
+                {% endfor %}
+            </strong>
+            {% endif %}
+            <span>Stilling</span>
+        </div>
         {% else %}
         <div class="hole-vs-par-cell">
             {% if live_vs_par_rows|length == 1 %}
@@ -106,7 +125,12 @@
                 {% if is_matchplay_round %}
                 <label class="matchplay-result-field">
                     <span>Hullresultat</span>
-                    <select name="hole_result_{{ rp.id }}" {% if not score_entry_editable %}disabled{% endif %}>
+                    <select
+                        name="hole_result_{{ rp.id }}"
+                        data-matchplay-hole-result
+                        data-round-player-id="{{ rp.id }}"
+                        {% if not score_entry_editable %}disabled{% endif %}
+                    >
                         <option value="" {% if not entry or not entry.hole_result %}selected{% endif %}>—</option>
                         {% for value, label in matchplay_hole_result_labels.items() %}
                         <option value="{{ value }}" {% if entry and entry.hole_result == value %}selected{% endif %}>{{ label }}</option>
@@ -428,6 +452,29 @@
         return value > 0 ? `+${value}` : String(value);
     }
 
+    function matchplayResultValue(result) {
+        if (result === "won") return 1;
+        if (result === "lost") return -1;
+        return 0;
+    }
+
+    function formatMatchplayStatus(value) {
+        if (value === 0) return "All square";
+        return value > 0 ? `${value} opp` : `${Math.abs(value)} ned`;
+    }
+
+    function updateLiveMatchplayStatus(select) {
+        if (!select) return;
+        const display = document.querySelector(
+            `[data-live-matchplay-status][data-round-player-id="${select.dataset.roundPlayerId}"]`
+        );
+        if (!display) return;
+        const base = Number.parseInt(display.dataset.baseMatchplayStatus, 10);
+        if (!Number.isInteger(base)) return;
+        const target = display.querySelector("[data-live-matchplay-status-value]") || display;
+        target.textContent = formatMatchplayStatus(base + matchplayResultValue(select.value));
+    }
+
     function updateLiveVsPar(row) {
         if (!row) return;
         const scoreSelect = scoreSelectForRow(row);
@@ -474,6 +521,11 @@
             syncPinOption(select);
             syncPuttsOptionsForRow(select.closest(".hole-player-row"));
         });
+    });
+
+    document.querySelectorAll('select[data-matchplay-hole-result]').forEach((select) => {
+        updateLiveMatchplayStatus(select);
+        select.addEventListener("change", () => updateLiveMatchplayStatus(select));
     });
 
     document.querySelectorAll('select[data-drive-distance]').forEach((select) => {
