@@ -135,6 +135,29 @@ start_maintenance_server
 stop_maintenance_server
 sudo systemctl restart "$SERVICE_NAME"
 
+app_ready=0
+for wait_number in $(seq 1 30); do
+    if sudo systemctl is-active --quiet "$SERVICE_NAME" \
+        && [ -n "$(app_pids)" ] \
+        && curl -sS -o /dev/null --max-time 3 "$HEALTH_URL"; then
+        app_ready=1
+        break
+    fi
+    sleep 1
+done
+
+if [ "$app_ready" -ne 1 ]; then
+    echo "Shanklife Pro-prosessen ble ikke klar etter restart."
+    sudo systemctl status "$SERVICE_NAME" --no-pager -l || true
+    exit 1
+fi
+
+sudo systemctl is-active --quiet "$SERVICE_NAME"
+ps -ef | grep "/tmp/shanklife_pro_venv/bin/python app.py" | grep -v grep
+
+echo "Tar Shanklife Pro ut av vedlikeholdsmodus..."
+disable_maintenance
+
 health_ok=0
 for wait_number in $(seq 1 30); do
     if curl -fsS --max-time 3 "$HEALTH_URL" >/dev/null; then
@@ -145,13 +168,12 @@ for wait_number in $(seq 1 30); do
 done
 
 if [ "$health_ok" -ne 1 ]; then
+    mkdir -p "$(dirname "$MAINTENANCE_FILE")"
+    printf 'Health-sjekk feilet %s\n' "$(date -Is)" > "$MAINTENANCE_FILE"
     echo "Shanklife Pro svarte ikke på health-sjekken etter restart."
     sudo systemctl status "$SERVICE_NAME" --no-pager -l || true
     exit 1
 fi
-
-sudo systemctl is-active --quiet "$SERVICE_NAME"
-ps -ef | grep "/tmp/shanklife_pro_venv/bin/python app.py" | grep -v grep
 
 if [ "${SHANKLIFE_SEND_VERSION_NOTIFICATIONS:-0}" = "1" ]; then
     echo "Sender eventuelle versjonsvarsler..."
@@ -159,8 +181,5 @@ if [ "${SHANKLIFE_SEND_VERSION_NOTIFICATIONS:-0}" = "1" ]; then
 else
     echo "Hopper over versjonsvarsler. Sett SHANKLIFE_SEND_VERSION_NOTIFICATIONS=1 for å sende dem."
 fi
-
-echo "Tar Shanklife Pro ut av vedlikeholdsmodus..."
-disable_maintenance
 
 echo "Deploy ferdig."

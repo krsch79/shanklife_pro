@@ -5,6 +5,7 @@ Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTou
 ## [1.9.62] - 2026-08-17
 - Starter Shanklife Pro automatisk og kontrollert etter serveromstart, også når serveren bruker wifi i stedet for kablet nett.
 - Overvåker app-prosessen med systemd og verifiserer health-endepunktet før en deploy avsluttes.
+- Beholder vedlikeholdssiden til den nye prosessen svarer, og setter vedlikehold på igjen dersom den avsluttende health-sjekken feiler.
 
 ## [1.9.61] - 2026-08-13
 - Viser løpende matchplay-stilling som opp, ned eller all square mens hullresultatet føres.
