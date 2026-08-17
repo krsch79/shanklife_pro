@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.62] - 2026-08-17
+- Starter den delte BalleTour-backenden automatisk og kontrollert etter serveromstart, også når serveren bruker wifi i stedet for kablet nett.
+- Overvåker app-prosessen med systemd og verifiserer health-endepunktet før en deploy avsluttes.
+
 ## [1.9.59] - 2026-08-05
 - Løfter tee-valg, handlingsknapper, versjonslenke og spillerlenker i leaderboard til minst 44 piksler på iPhone.
 - Beholder den kompakte desktop-tabellen og den horisontalt rullbare mobilnavigasjonen.

@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.62] - 2026-08-17
+- Starter Shanklife Pro automatisk og kontrollert etter serveromstart, også når serveren bruker wifi i stedet for kablet nett.
+- Overvåker app-prosessen med systemd og verifiserer health-endepunktet før en deploy avsluttes.
+
 ## [1.9.61] - 2026-08-13
 - Viser løpende matchplay-stilling som opp, ned eller all square mens hullresultatet føres.
 - Viser vunnet, tapt eller delt per hull og samlet stilling i scorekortet for fullførte matchplay-runder.

@@ -43,7 +43,7 @@ Bruk nettlesertest i tillegg når endringen gjelder interaksjon eller responsivt
 
 ## Produksjon og deploy
 
-Produksjonen kjører på Raspberry Pi via SSH-aliaset `shanklife-pi`. Kilden ligger i `/home/kristian/shanklife_pro`, prosessen er `/tmp/shanklife_pro_venv/bin/python app.py`, og appen lytter på port `5055`. Den er ikke en egen systemd-tjeneste.
+Produksjonen kjører på Raspberry Pi via SSH-aliaset `shanklife-pi`. Kilden ligger i `/home/kristian/shanklife_pro`, prosessen er `/tmp/shanklife_pro_venv/bin/python app.py`, og appen lytter på port `5055`. Systemd-tjenesten `shanklife-pro.service` starter og overvåker prosessen, slik at Shanklife Pro, Shanklife App, BalleTour og Score kommer tilbake automatisk etter en serveromstart.
 
 Normal flyt er å teste, oppdatere riktig changelog og `services/version.py`, committe og pushe `main`, og deretter kjøre:
 
@@ -51,8 +51,9 @@ Normal flyt er å teste, oppdatere riktig changelog og `services/version.py`, co
 ssh shanklife-pi 'cd /home/kristian/shanklife_pro && ./scripts/deploy.sh'
 ```
 
-Deployskriptet setter vedlikeholdsmodus, tar databasebackup, fast-forwarder fra GitHub, installerer avhengigheter, syntakssjekker og restarter appen. Etter deploy skal følgende verifiseres:
+Deployskriptet setter vedlikeholdsmodus, tar databasebackup, fast-forwarder fra GitHub, installerer avhengigheter, syntakssjekker, installerer/aktiverer systemd-tjenesten og restarter appen. Etter deploy skal følgende verifiseres:
 
+- `shanklife-pro.service` er aktiv og aktivert for automatisk oppstart;
 - prosessen `/tmp/shanklife_pro_venv/bin/python app.py` kjører og port `5055` lytter;
 - `instance/maintenance.lock` er fjernet;
 - `https://pro.shanklife.no/api/v1/health` og `https://app.shanklife.no/api/v1/health` viser riktig versjon;
@@ -67,6 +68,6 @@ Produksjonsdatabasen og runtime-data ligger under `instance/` og `uploads/` og e
 
 - GPS-måling krever eksplisitt nettlesertillatelse og 5 meters nøyaktighet før lengdemåling kan starte.
 - GolfBox og Garmin er eksterne integrasjoner; feil der skal ikke hindre lagring eller fullføring av en vanlig Shanklife-runde når flyten er definert som valgfri.
-- Produksjonsprosessen styres av `scripts/deploy.sh` og `run.sh`, ikke systemd. Driftskontroller må derfor følge faktisk prosess, port og health-endepunkt.
+- Produksjonsprosessen startes og overvåkes av `shanklife-pro.service`; `scripts/deploy.sh` installerer tjenesten og bruker fortsatt `run.sh` som felles runtime-startpunkt. Driftskontroller skal verifisere både systemd, faktisk prosess, port og health-endepunkt.
 - Eldre 9-hullsrunder uten `starting_hole_number` tolkes som «Første 9». Nye runder valideres mot både antall hull og tillatt start-hull.
 - Produktendringer dokumenteres i `SHANKLIFE_CHANGELOG.md` eller `BALLETOUR_CHANGELOG.md`. Relevante åpne oppgaver spores i GitHub Issues.

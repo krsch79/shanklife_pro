@@ -5,10 +5,12 @@ APP_DIR="${APP_DIR:-/home/kristian/shanklife_pro}"
 BRANCH="${BRANCH:-main}"
 PYTHON_BIN="${PYTHON_BIN:-/tmp/shanklife_pro_venv/bin/python}"
 PIP_BIN="${PIP_BIN:-/tmp/shanklife_pro_venv/bin/pip}"
-LOG_FILE="${LOG_FILE:-/tmp/shanklife_pro.log}"
 MAINTENANCE_FILE="${SHANKLIFE_MAINTENANCE_FILE:-$APP_DIR/instance/maintenance.lock}"
 APP_PORT="${APP_PORT:-5055}"
 MAINTENANCE_LOG_FILE="${MAINTENANCE_LOG_FILE:-/tmp/shanklife_pro_maintenance.log}"
+SERVICE_NAME="${SHANKLIFE_SERVICE_NAME:-shanklife-pro.service}"
+SERVICE_FILE="${SHANKLIFE_SERVICE_FILE:-$APP_DIR/deploy/shanklife-pro.service}"
+HEALTH_URL="${SHANKLIFE_HEALTH_URL:-http://127.0.0.1:$APP_PORT/api/v1/health}"
 MAINTENANCE_SERVER_PID=""
 
 cd "$APP_DIR"
@@ -36,6 +38,7 @@ finish_deploy() {
     fi
 
     if [ -z "$(app_pids)" ]; then
+        sudo systemctl stop "$SERVICE_NAME" >/dev/null 2>&1 || true
         start_maintenance_server || true
         echo "Deploy feilet mens appen var nede. Statisk vedlikeholdsside blir stående på port $APP_PORT."
     fi
@@ -101,16 +104,53 @@ echo "Kjører syntakssjekk..."
 echo "Installerer planlagt GolfBox-booking-kjører..."
 install_golfbox_scheduler
 
+echo "Installerer og aktiverer systemd-tjenesten..."
+sudo install -m 0644 "$SERVICE_FILE" "/etc/systemd/system/$SERVICE_NAME"
+sudo systemctl daemon-reload
+sudo systemctl enable "$SERVICE_NAME"
+
 echo "Restarter Shanklife Pro..."
-pids="$(app_pids)"
-if [ -n "$pids" ]; then
-    kill $pids
-    start_maintenance_server
-    sleep 2
+if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
+    sudo systemctl stop "$SERVICE_NAME"
+else
+    pids="$(app_pids)"
+    if [ -n "$pids" ]; then
+        kill $pids
+    fi
 fi
+
+for wait_number in $(seq 1 20); do
+    if [ -z "$(app_pids)" ]; then
+        break
+    fi
+    sleep 0.5
+done
+
+if [ -n "$(app_pids)" ]; then
+    echo "Kunne ikke stoppe eksisterende Shanklife Pro-prosess kontrollert."
+    exit 1
+fi
+
+start_maintenance_server
 stop_maintenance_server
-nohup ./run.sh > "$LOG_FILE" 2>&1 < /dev/null &
-sleep 3
+sudo systemctl restart "$SERVICE_NAME"
+
+health_ok=0
+for wait_number in $(seq 1 30); do
+    if curl -fsS --max-time 3 "$HEALTH_URL" >/dev/null; then
+        health_ok=1
+        break
+    fi
+    sleep 1
+done
+
+if [ "$health_ok" -ne 1 ]; then
+    echo "Shanklife Pro svarte ikke på health-sjekken etter restart."
+    sudo systemctl status "$SERVICE_NAME" --no-pager -l || true
+    exit 1
+fi
+
+sudo systemctl is-active --quiet "$SERVICE_NAME"
 ps -ef | grep "/tmp/shanklife_pro_venv/bin/python app.py" | grep -v grep
 
 if [ "${SHANKLIFE_SEND_VERSION_NOTIFICATIONS:-0}" = "1" ]; then

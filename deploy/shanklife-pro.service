@@ -1,0 +1,17 @@
+[Unit]
+Description=Shanklife Pro and BalleTour web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kristian
+Group=kristian
+WorkingDirectory=/home/kristian/shanklife_pro
+ExecStart=/home/kristian/shanklife_pro/run.sh
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
