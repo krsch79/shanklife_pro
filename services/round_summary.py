@@ -157,6 +157,7 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
         })
 
     return {
+        "round_player_id": round_player.id,
         "player_name": round_player.player_name_snapshot,
         "tee_name": round_player.selected_tee.name if round_player.selected_tee else "-",
         "scored_holes": len(differences),

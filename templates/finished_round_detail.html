@@ -72,14 +72,16 @@
 {% endmacro %}
 
 {% block content %}
+{% set balletour_round_detail = balletour_round_detail|default(false) %}
+{% set round_list_url = round_list_url|default(url_for('rounds.finished_rounds')) %}
 <div class="page-title-row round-summary-heading">
     <div>
-        <p class="muted">Fullført Shanklife-runde · {{ round_length_label(round) }} · {{ play_format_label(round.play_format) }}</p>
+        <p class="muted">Fullført {{ 'BalleTour' if balletour_round_detail else 'Shanklife' }}-runde · {{ round_length_label(round) }} · {{ play_format_label(round.play_format) }}</p>
         <h2>{{ round.course.name }}</h2>
         <p class="muted">{{ round.started_at|datetime_local }}{% if weather_summary %} · {{ weather_summary }}{% endif %}</p>
     </div>
     <div class="button-row compact">
-        {% if current_user and current_user.is_admin %}
+        {% if current_user and current_user.is_admin and not balletour_round_detail %}
         <a class="button" href="{{ url_for('rounds.round_hole', round_id=round.id, hole_number=played_holes[0].hole_number, edit=1) }}">Rediger runde</a>
         {% endif %}
         {% if current_user_round_player and not is_matchplay_round %}
@@ -92,8 +94,8 @@
             <button type="submit" class="button">Hent fra Garmin</button>
         </form>
         {% endif %}
-        <a class="button secondary" href="{{ url_for('rounds.round_shot_map', round_id=round.id, hole_number=round_summary.hole_numbers[0]) }}">Slagkart</a>
-        <a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Alle runder</a>
+        {% if not balletour_round_detail %}<a class="button secondary" href="{{ url_for('rounds.round_shot_map', round_id=round.id, hole_number=round_summary.hole_numbers[0]) }}">Slagkart</a>{% endif %}
+        <a class="button secondary" href="{{ round_list_url }}">Alle runder</a>
     </div>
 </div>
 
@@ -214,10 +216,10 @@
 {% endif %}
 
 <div class="button-row round-summary-actions">
-    <a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Tilbake til fullførte runder</a>
-    {% if current_user and current_user.is_admin %}
+    <a class="button secondary" href="{{ round_list_url }}">Tilbake til fullførte runder</a>
+    {% if current_user and current_user.is_admin and not balletour_round_detail %}
     <form method="post" action="{{ url_for('rounds.delete_round', round_id=round.id) }}" onsubmit="return confirm('Er du sikker på at du vil slette runde {{ round.id }}?');" class="inline-form">
-        <input type="hidden" name="next" value="{{ url_for('rounds.finished_rounds') }}">
+        <input type="hidden" name="next" value="{{ round_list_url }}">
         <button type="submit" class="button danger">Slett runde</button>
     </form>
     {% endif %}

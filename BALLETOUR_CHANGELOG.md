@@ -2,6 +2,10 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [1.9.63] - 2026-08-29
+- Viser GIR, fairwaytreff og antall putter per spiller direkte på hvert avsluttet rundekort.
+- Legger til en egen rundestatistikkside med scorekort, nøkkeltall og detaljert statistikk hull for hull for hver avsluttet BalleTour-runde.
+
 ## [1.9.62] - 2026-08-17
 - Starter den delte BalleTour-backenden automatisk og kontrollert etter serveromstart, også når serveren bruker wifi i stedet for kablet nett.
 - Overvåker app-prosessen med systemd og verifiserer health-endepunktet før en deploy avsluttes.

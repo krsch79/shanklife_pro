@@ -54,6 +54,10 @@
             {% endif %}
         </div>
         <div class="button-row compact">
+            <a
+                class="button secondary compact-button"
+                href="{{ url_for('balletour.round_detail', round_id=card.round.id, tee=selected_tee_key, player_id=selected_player_ids) }}"
+            >Se rundestatistikk</a>
             {% if current_user and current_user.is_admin %}
             <form
                 method="post"
@@ -81,7 +85,17 @@
             <tbody>
                 {% for row in card.rows %}
                 <tr>
-                    <td>{{ row.player_name }}</td>
+                    <td>
+                        <strong>{{ row.player_name }}</strong>
+                        {% if row.statistics %}
+                        <span class="compact-round-stat-summary">
+                            GIR {{ row.statistics.gir_count }}/{{ row.statistics.gir_attempts }}
+                            {% if row.statistics.gir_percent is not none %}· {{ row.statistics.gir_percent }}%{% endif %}
+                            · FW {{ row.statistics.fairway_hit }}/{{ row.statistics.fairway_attempts }}
+                            · {{ row.statistics.putts_total }} putter
+                        </span>
+                        {% endif %}
+                    </td>
                     {% for cell in row.cells %}
                     <td>
                         <span class="score-shape {{ cell.shape_class }}">

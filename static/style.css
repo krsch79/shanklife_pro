@@ -1802,6 +1802,16 @@ input.submit-is-loading {
     margin: 0;
 }
 
+.compact-round-stat-summary {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.35;
+    white-space: normal;
+}
+
 .garmin-sync-status {
     display: inline-flex;
     align-items: center;

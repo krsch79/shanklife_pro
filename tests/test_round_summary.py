@@ -81,6 +81,7 @@ class RoundSummaryTests(unittest.TestCase):
         )
 
         stats = summary["statistics"][0]
+        self.assertEqual(stats["round_player_id"], round_player.id)
         self.assertEqual(stats["gir_count"], 2)
         self.assertEqual(stats["gir_attempts"], 3)
         self.assertEqual(stats["fairway_attempts"], 2)

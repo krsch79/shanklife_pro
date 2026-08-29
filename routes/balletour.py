@@ -14,6 +14,8 @@ from services.balletour_test_db import (
     test_database_exists,
 )
 from services.leaderboard import build_live_leaderboards
+from services.round_length import round_holes
+from services.round_summary import build_round_summary
 from services.tee_filters import (
     round_player_matches_tee,
     selected_tee_key,
@@ -872,6 +874,11 @@ def _balletour_all_player_stats(series, memberships, tee_ids=None):
 def _round_score_card(round_obj, tee_key=None):
     holes = list(round_obj.course.holes)
     par_by_hole = {hole.hole_number: hole.par for hole in holes}
+    round_summary = build_round_summary(round_obj)
+    statistics_by_round_player_id = {
+        row["round_player_id"]: row
+        for row in round_summary["statistics"]
+    }
     rows = []
     round_players = sorted(round_obj.round_players, key=lambda item: item.id)
     if tee_key:
@@ -903,6 +910,7 @@ def _round_score_card(round_obj, tee_key=None):
             "player_name": round_player.player_name_snapshot,
             "cells": cells,
             "total": total if has_total else None,
+            "statistics": statistics_by_round_player_id.get(round_player.id),
         })
     return {
         "round": round_obj,
@@ -1599,6 +1607,40 @@ def finished_rounds():
             tee_options=tee_filter_options(series.course),
             selected_tee_key=tee_key,
             display_name=_player_display_name,
+            **_balletour_database_context(),
+        )
+
+
+@balletour_bp.route("/rounds/<int:round_id>")
+@login_required
+def round_detail(round_id):
+    _require_balletour_player()
+    with balletour_data_context():
+        series = _balletour_or_404()
+        round_obj = Round.query.get_or_404(round_id)
+        if round_obj.course_id != series.course_id or round_obj.status != "finished":
+            abort(404)
+
+        tee_key = selected_tee_key(request.args.get("tee"))
+        selected_player_ids = request.args.getlist("player_id")
+        back_url = url_for(
+            "balletour.finished_rounds",
+            tee=tee_key,
+            player_id=selected_player_ids,
+        )
+        return render_template(
+            "finished_round_detail.html",
+            round=round_obj,
+            series=series,
+            played_holes=round_holes(round_obj),
+            round_summary=build_round_summary(round_obj),
+            is_matchplay_round=False,
+            current_user_round_player=None,
+            garmin_sync=None,
+            garmin_sync_available=False,
+            weather_summary=_round_weather_summary(round_obj),
+            balletour_round_detail=True,
+            round_list_url=back_url,
             **_balletour_database_context(),
         )
 
