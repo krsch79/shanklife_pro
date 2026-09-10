@@ -218,6 +218,10 @@
                             <option value="hit" {% if stat_values.fairway_result == 'hit' %}selected{% endif %}>Traff fairway</option>
                             <option value="right" {% if stat_values.fairway_result == 'right' %}selected{% endif %}>Misset høyre</option>
                             <option value="left" {% if stat_values.fairway_result == 'left' %}selected{% endif %}>Misset venstre</option>
+                            <option value="bunker" {% if stat_values.fairway_result == "bunker" %}selected{% endif %}>Fairwaybunker</option>
+                            <option value="long" {% if stat_values.fairway_result == "long" %}selected{% endif %}>Forbi fairway</option>
+                            <option value="short" {% if stat_values.fairway_result == "short" %}selected{% endif %}>Kort av fairway</option>
+                            <option value="green" {% if stat_values.fairway_result == "green" %}selected{% endif %}>Greentreff</option>
                         </select>
                     </label>
                     {% endif %}

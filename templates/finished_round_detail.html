@@ -150,6 +150,7 @@
             <div class="stat-card"><strong>{{ stats.gir_count }}/{{ stats.gir_attempts }}</strong><span>GIR{% if stats.gir_percent is not none %} · {{ stats.gir_percent }}%{% endif %}</span></div>
             <div class="stat-card"><strong>{{ stats.fairway_hit }}/{{ stats.fairway_attempts }}</strong><span>Fairwaytreff{% if stats.fairway_hit_percent is not none %} · {{ stats.fairway_hit_percent }}%{% endif %}</span></div>
             <div class="stat-card"><strong>{{ stats.fairway_left }}</strong><span>Miss fairway venstre{% if stats.fairway_left_percent is not none %} · {{ stats.fairway_left_percent }}%{% endif %}</span></div>
+            {% for outcome in stats.fairway_outcomes %}<div class="stat-card"><strong>{{ outcome.count }}</strong><span>{{ outcome.label }}</span></div>{% endfor %}
             <div class="stat-card"><strong>{{ stats.fairway_right }}</strong><span>Miss fairway høyre{% if stats.fairway_right_percent is not none %} · {{ stats.fairway_right_percent }}%{% endif %}</span></div>
             <div class="stat-card"><strong>{{ stats.putts_total }}</strong><span>Putter totalt{% if stats.putts_average is not none %} · {{ stats.putts_average }} per hull{% endif %}</span></div>
             <div class="stat-card"><strong>{{ stats.green_hit }}/{{ stats.green_attempts }}</strong><span>Greentreff par 3{% if stats.green_hit_percent is not none %} · {{ stats.green_hit_percent }}%{% endif %}</span></div>

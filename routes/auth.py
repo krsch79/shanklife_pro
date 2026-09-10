@@ -162,3 +162,9 @@ def accept_balletour_invitation(token):
         return redirect(url_for("balletour.index"))
 
     return render_template("accept_balletour_invitation.html", invitation=invitation)
+
+
+@auth_bp.route("/shanklife-invitation/<token>", methods=["GET", "POST"])
+def accept_shanklife_invitation(token):
+    from services.shanklife_invitations import accept
+    return accept(token)

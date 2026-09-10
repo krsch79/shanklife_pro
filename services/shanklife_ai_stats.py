@@ -6,6 +6,7 @@ from openai import OpenAI, RateLimitError
 
 from extensions import db
 from models import Club, Course, CourseHole, Round, RoundPlayer, ScoreEntry, ScoreStat
+from services.fairway import FAIRWAY_LABELS
 from services.balletour import get_balletour_course_id
 from services.play_formats import MATCHPLAY
 from services.round_length import round_holes
@@ -406,10 +407,11 @@ def _gir_summary(rows):
 def _fairway_summary(rows):
     attempts = [
         row for row in rows
-        if row["par"] in (4, 5) and row["fairway_result"] in ("hit", "left", "right")
+        if row["par"] in (4, 5) and row["fairway_result"] in FAIRWAY_LABELS
     ]
-    counts = {key: sum(1 for row in attempts if row["fairway_result"] == key) for key in ("hit", "left", "right")}
+    counts = {key: sum(1 for row in attempts if row["fairway_result"] == key) for key in FAIRWAY_LABELS}
     return {
+        "outcomes": counts,
         "attempts": len(attempts),
         "hit_percent": _percent(counts["hit"], len(attempts)),
         "left_percent": _percent(counts["left"], len(attempts)),

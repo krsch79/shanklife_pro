@@ -18,6 +18,16 @@
     </div>
 </div>
 
+<form method="get" class="form-card finished-round-filters">
+    <div class="finished-round-filter-grid">
+    <label>Bane<select name="course"><option value="">Alle baner</option>{% for id, name in filter_courses %}<option value="{{ id }}" {% if filters.course == id|string %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>Hull<select name="holes"><option value="">Alle lengder</option>{% for count in (9, 18) %}<option value="{{ count }}" {% if filters.holes == count|string %}selected{% endif %}>{{ count }} hull</option>{% endfor %}</select></label>
+    <label>År<select name="year"><option value="">Alle år</option>{% for year in filter_years %}<option value="{{ year }}" {% if filters.year == year|string %}selected{% endif %}>{{ year }}</option>{% endfor %}</select></label>
+    <label>Spiller<select name="player"><option value="">Alle spillere</option>{% for id, name in filter_players %}<option value="{{ id }}" {% if filters.player == id|string %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="button-row"><button class="button" type="submit">Filtrer</button><a class="button secondary" href="{{ url_for('rounds.finished_rounds') }}">Nullstill</a></div>
+    <p class="muted">Viser {{ score_cards|length }} av {{ total_rounds }} runder.</p>
+</form>
 {% for card in score_cards %}
 <section class="compact-round-card">
     <div class="compact-round-card-header">
@@ -89,6 +99,6 @@
     </div>
 </section>
 {% else %}
-<p>Ingen fullførte Shanklife-runder ennå.</p>
+<p>Ingen fullførte runder samsvarer med filtrene. Prøv å nullstille filtrene.</p>
 {% endfor %}
 {% endblock %}

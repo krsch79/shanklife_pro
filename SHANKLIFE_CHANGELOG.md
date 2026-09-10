@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [1.9.64] - 2026-09-10
+- Registrer Fairwaybunker, Forbi fairway, Kort av fairway og Greentreff på par 4 og 5. Valgene vises i scorekort og statistikk og kan redigeres i fullførte runder.
+- Administrator kan invitere en ny Shanklife-bruker med navn og e-post. Mottakeren velger passord via en engangslenke og får automatisk tilgang til Shanklife Pro og Shanklife-appen.
+- Filtrer fullførte runder på bane, 9/18 hull, år og spiller, med antall treff og enkel nullstilling.
+
 ## [1.9.62] - 2026-08-17
 - Starter Shanklife Pro automatisk og kontrollert etter serveromstart, også når serveren bruker wifi i stedet for kablet nett.
 - Overvåker app-prosessen med systemd og verifiserer health-endepunktet før en deploy avsluttes.

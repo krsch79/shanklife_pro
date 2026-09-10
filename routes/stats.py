@@ -7,6 +7,7 @@ from sqlalchemy import or_
 from extensions import db
 from models import Club, CourseHole, Player, Round, RoundPlayer, ScoreEntry, ScoreStat, User
 from routes.auth import login_required
+from services.fairway import FAIRWAY_LABELS
 from services.balletour import get_balletour_course_id
 from services.play_formats import MATCHPLAY
 from services.round_length import round_holes
@@ -320,7 +321,7 @@ def _round_stat_summary(round_player):
     ]
     diffs = [entry.strokes - par_by_entry_id.get(entry.id, 3) for entry in entries]
     score_counts = _score_distribution(diffs)
-    fairway_counts = {"hit": 0, "left": 0, "right": 0}
+    fairway_counts = dict.fromkeys(FAIRWAY_LABELS, 0)
     fairway_attempts = 0
     for stat, entry in stats_rows:
         if par_by_entry_id.get(entry.id) not in (4, 5):
@@ -343,6 +344,7 @@ def _round_stat_summary(round_player):
         "to_par": total - par if total is not None else None,
         "gir_percent": _percent(gir_count, gir_attempts),
         "avg_putts": _avg([stat.putts for stat, _entry in stats_rows]),
+        "fairway_outcomes": [{"label": label, "count": fairway_counts[key], "percent": _percent(fairway_counts[key], fairway_attempts)} for key, label in FAIRWAY_LABELS.items() if key not in ("hit", "left", "right")],
         "fairway_attempts": fairway_attempts,
         "fairway_hit_percent": _percent(fairway_counts["hit"], fairway_attempts),
         "fairway_left_percent": _percent(fairway_counts["left"], fairway_attempts),
@@ -402,7 +404,7 @@ def _player_stats(player):
             if entry.strokes is not None and entry.strokes <= par_by_entry_id.get(entry.id, 3):
                 sand_saves += 1
 
-    fairway_counts = {"hit": 0, "left": 0, "right": 0}
+    fairway_counts = dict.fromkeys(FAIRWAY_LABELS, 0)
     for stat, _entry in tee_rows:
         if stat.fairway_result in fairway_counts:
             fairway_counts[stat.fairway_result] += 1
@@ -410,6 +412,7 @@ def _player_stats(player):
 
     club_rows = []
     by_club = defaultdict(lambda: {
+        **dict.fromkeys(FAIRWAY_LABELS, 0),
         "count": 0,
         "strokes": [],
         "drive_distances": [],
@@ -425,7 +428,7 @@ def _player_stats(player):
         bucket["count"] += 1
         bucket["strokes"].append(entry.strokes)
         bucket["drive_distances"].append(stat.drive_distance_m)
-        if stat.fairway_result in ("hit", "left", "right"):
+        if stat.fairway_result in FAIRWAY_LABELS:
             bucket[stat.fairway_result] += 1
     clubs = Club.query.filter(Club.id.in_(by_club.keys())).all() if by_club else []
     club_names = {club.id: club.name for club in clubs}
@@ -475,6 +478,7 @@ def _player_stats(player):
             for key, label in green_bucket_labels
             if green_bucket_counts.get(key, 0) or key in ("hit", "bunker")
         ],
+        "fairway_outcomes": [{"label": label, "count": fairway_counts[key], "percent": _percent(fairway_counts[key], fairway_attempts)} for key, label in FAIRWAY_LABELS.items() if key not in ("hit", "left", "right")],
         "fairway_attempts": fairway_attempts,
         "fairway_hit_percent": _percent(fairway_counts["hit"], fairway_attempts),
         "fairway_left_percent": _percent(fairway_counts["left"], fairway_attempts),

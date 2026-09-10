@@ -151,6 +151,7 @@
                 <div class="stat-card"><strong>{{ stats.fairway_hit_percent if stats.fairway_hit_percent is not none else "-" }}{% if stats.fairway_hit_percent is not none %}%{% endif %}</strong><span>Fairwaytreff</span></div>
                 <div class="stat-card"><strong>{{ stats.fairway_left_percent if stats.fairway_left_percent is not none else "-" }}{% if stats.fairway_left_percent is not none %}%{% endif %}</strong><span>Venstre</span></div>
                 <div class="stat-card"><strong>{{ stats.fairway_right_percent if stats.fairway_right_percent is not none else "-" }}{% if stats.fairway_right_percent is not none %}%{% endif %}</strong><span>Høyre</span></div>
+                {% for outcome in stats.fairway_outcomes %}<div class="stat-card"><strong>{{ outcome.percent if outcome.percent is not none else "-" }}{% if outcome.percent is not none %}%{% endif %}</strong><span>{{ outcome.label }} · {{ outcome.count }}</span></div>{% endfor %}
                 <div class="stat-card"><strong>{{ stats.fairway_attempts }}</strong><span>Registrerte utslag</span></div>
             </div>
 

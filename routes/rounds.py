@@ -26,6 +26,7 @@ from models import (
     ShotMeasurement,
 )
 from routes.auth import login_required
+from services.fairway import FAIRWAY_LABELS
 from services.handicap import calculate_playing_handicap_for_course, received_strokes_for_round, strokes_received_for_hole
 from services.garmin_golf import (
     GarminGolfSyncError,
@@ -685,7 +686,7 @@ def _save_score_stat(
         fairway_result = _encode_green_stat(status, directions)
     elif hole.par in (4, 5):
         fairway_result = (fairway_result_raw or "").strip()
-        if fairway_result not in ("", "hit", "left", "right"):
+        if fairway_result not in ("", *FAIRWAY_LABELS):
             raise ValueError
         fairway_result = fairway_result or None
 
@@ -1510,6 +1511,8 @@ def _hole_result_label(hole, raw_result):
         "hit": "Fairwaytreff",
         "left": "Miss fairway venstre",
         "right": "Miss fairway høyre",
+        "bunker": "Fairwaybunker", "long": "Forbi fairway",
+        "short": "Kort av fairway", "green": "Greentreff",
     }.get(raw_result, raw_result)
 
 
@@ -1699,6 +1702,16 @@ def finished_rounds():
         .order_by(Round.started_at.desc())
         .all()
     )
+    filter_courses = sorted({(r.course_id, r.course.name) for r in rows}, key=lambda x: x[1])
+    filter_years = sorted({r.started_at.year for r in rows}, reverse=True)
+    filter_players = sorted({(rp.player_id, rp.player.name) for r in rows for rp in r.round_players}, key=lambda x: x[1])
+    filters = {key: request.args.get(key, "").strip() for key in ("course", "holes", "year", "player")}
+    total_rounds = len(rows)
+    rows = [r for r in rows if
+            (not filters["course"] or str(r.course_id) == filters["course"])
+            and (not filters["holes"] or str(round_hole_count(r)) == filters["holes"])
+            and (not filters["year"] or str(r.started_at.year) == filters["year"])
+            and (not filters["player"] or any(str(rp.player_id) == filters["player"] for rp in r.round_players))]
     current_user = g.get("current_user")
     connection_available = garmin_connection_available(current_user)
     score_cards = []
@@ -1717,6 +1730,8 @@ def finished_rounds():
         "finished_rounds.html",
         score_cards=score_cards,
         title="Fullførte runder",
+        filters=filters, filter_courses=filter_courses, filter_years=filter_years,
+        filter_players=filter_players, total_rounds=total_rounds,
         garmin_connection_available=connection_available,
     )
 

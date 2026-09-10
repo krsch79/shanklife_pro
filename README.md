@@ -64,6 +64,14 @@ Deployskriptet setter vedlikeholdsmodus, tar databasebackup, fast-forwarder fra 
 
 Produksjonsdatabasen og runtime-data ligger under `instance/` og `uploads/` og er ignorert av Git. `.env`, SQLite-filer, logger, backuper, Garmin-tokenfiler, GolfBox-legitimasjon, SMTP-legitimasjon og OpenAI-nøkler skal aldri committes eller skrives ut i logger og svar. `.env.example` dokumenterer bare trygge variabelnavn.
 
+## Invitasjoner og rundefiltre
+
+- Admin-siden sender Shanklife-invitasjoner gjennom `services/shanklife_invitations.py` og eksisterende SMTP-oppsett. `shanklife_invitations` opprettes av `db.create_all()` ved oppstart; bare SHA-256 av token lagres. Lenken varer i sju dager, kan brukes én gang, og en ny utsending erstatter den gamle lenken. Ved e-postfeil rulles endringen tilbake.
+- Aksept oppretter vanlig bruker og spiller og gir `user_app_access` til både `shanklife-pro` og `shanklife-app`, uten adminrettigheter eller BalleTour-medlemskap. Begge appene må allerede finnes i den sentrale `app_registry`. Eksisterende e-post eller spillernavn avvises for å unngå duplikater.
+- `/rounds/finished` støtter kombinerbare GET-filtre `course`, `holes`, `year` og `player`. Baner, år og spillere hentes fra de fullførte Shanklife-rundene. Rundelengde bruker `round_hole_count`, også for eldre runder uten eksplisitt lengde.
+- `services/fairway.py` definerer par-4/par-5-resultatene. `green` betyr at utslaget traff green og telles separat fra fairwaytreff; alle sju registrerte resultater inngår i nevneren for fairwayprosent. GIR beregnes som før fra score og putter. De nye valgene er tilgjengelige i nettgrensesnittet; native iOS får dem først ved en egen apputgivelse.
+- Regresjonstester ligger i `tests/test_shanklife_improvements.py`; SMTP mockes slik at testene ikke sender invitasjoner.
+
 ## Begrensninger og oppfølging
 
 - GPS-måling krever eksplisitt nettlesertillatelse og 5 meters nøyaktighet før lengdemåling kan starte.

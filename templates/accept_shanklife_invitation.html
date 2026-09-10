@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Velkommen til Shanklife Pro{% endblock %}
+{% block content %}
+<h2>Velkommen til Shanklife Pro</h2>
+<form method="post" class="form-card">
+    <p>Hei {{ invitation.name }}! Velg passord for å aktivere tilgangen din til Shanklife Pro og Shanklife-appen.</p>
+    <p>Brukernavnet ditt er {{ invitation.email }}.</p>
+    <label for="password">Passord (minst 8 tegn)</label><input type="password" id="password" name="password" minlength="8" autocomplete="new-password" required>
+    <label for="confirm_password">Bekreft passord</label><input type="password" id="confirm_password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+    <button class="button" type="submit">Aktiver bruker og logg inn</button>
+</form>
+{% endblock %}

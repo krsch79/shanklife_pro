@@ -5,6 +5,14 @@
 <h2>Admin</h2>
 
 <div class="admin-grid">
+    <form method="post" action="{{ url_for('shanklife_invitations.invite') }}" class="form-card">
+        <h3>Inviter Shanklife-bruker</h3>
+        <label for="shanklife_name">Navn</label><input type="text" id="shanklife_name" name="name" maxlength="120" required>
+        <label for="shanklife_email">E-post</label><input type="email" id="shanklife_email" name="email" maxlength="255" required>
+        <p class="muted">Mottakeren velger passord via en engangslenke som er gyldig i 7 dager, og får automatisk tilgang til Shanklife Pro og Shanklife-appen. Send på nytt for å erstatte en tidligere invitasjon.</p>
+        <button type="submit" class="button">Send Shanklife-invitasjon</button>
+    </form>
+
     <a class="card-link" href="{{ url_for('admin.ai_requests') }}">
         <h3 class="ai-fix-heading">AI-feilretting</h3>
         <p>Legg inn prompt for feilretting og følg status på forespørsler.</p>

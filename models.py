@@ -667,3 +667,19 @@ class RoundImageTag(db.Model):
     __table_args__ = (
         db.UniqueConstraint("image_id", "tag", name="uq_round_image_tag"),
     )
+
+
+class ShanklifeInvitation(db.Model):
+    __tablename__ = "shanklife_invitations"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True)
+    invited_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    accepted_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now, server_default=db.func.now())
+    accepted_at = db.Column(db.DateTime, nullable=True)
+
+    invited_by_user = db.relationship("User", foreign_keys=[invited_by_user_id])
+    accepted_user = db.relationship("User", foreign_keys=[accepted_user_id])

@@ -4133,3 +4133,9 @@ nav a:hover,
         align-items: center;
     }
 }
+
+.finished-round-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.finished-round-filter-grid select { width: 100%; }
+
+.finished-round-filter-grid label { margin: 0; min-width: 0; }
+@media (min-width: 800px) { .finished-round-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

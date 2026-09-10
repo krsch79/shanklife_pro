@@ -1,5 +1,6 @@
 from collections import Counter
 
+from services.fairway import FAIRWAY_LABELS
 from services.play_formats import (
     is_matchplay_round,
     matchplay_hole_result_label,
@@ -85,6 +86,8 @@ def _shot_result_label(stat, hole):
         "hit": "Traff fairway",
         "left": "Misset fairway venstre",
         "right": "Misset fairway høyre",
+        "bunker": "Fairwaybunker", "long": "Forbi fairway",
+        "short": "Kort av fairway", "green": "Greentreff",
     }.get(stat.fairway_result, "-")
 
 
@@ -121,7 +124,7 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
             last_putt_distances.append(stat.last_putt_distance_m)
         if entry.tee_club:
             club_counts[entry.tee_club.name] += 1
-        if hole.par in (4, 5) and stat.fairway_result in ("hit", "left", "right"):
+        if hole.par in (4, 5) and stat.fairway_result in FAIRWAY_LABELS:
             fairway_counts[stat.fairway_result] += 1
         if hole.par == 3:
             green_status = (stat.fairway_result or "").partition(":")[0]
@@ -167,6 +170,7 @@ def _player_statistics(round_obj, round_player, holes_by_number, score_by_hole):
         "gir_count": gir_count,
         "gir_attempts": gir_attempts,
         "gir_percent": _percent(gir_count, gir_attempts),
+        "fairway_outcomes": [{"label": label, "count": fairway_counts[key]} for key, label in FAIRWAY_LABELS.items() if key not in ("hit", "left", "right")],
         "fairway_attempts": fairway_attempts,
         "fairway_hit": fairway_counts["hit"],
         "fairway_hit_percent": _percent(fairway_counts["hit"], fairway_attempts),

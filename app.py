@@ -427,6 +427,7 @@ def create_app():
         public_endpoints = {
             "auth.login",
             "auth.accept_balletour_invitation",
+            "auth.accept_shanklife_invitation",
             "web_manifest",
             "service_worker",
             "api.health",
@@ -512,6 +513,8 @@ def create_app():
     app.register_blueprint(rounds_bp)
     app.register_blueprint(leaderboard_bp)
     app.register_blueprint(auth_bp)
+    from services.shanklife_invitations import invitation_bp
+    app.register_blueprint(invitation_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(series_bp)

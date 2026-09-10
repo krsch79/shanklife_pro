@@ -225,7 +225,7 @@ class GarminGolfTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Ikke synkronisert med Garmin", html)
-        self.assertIn(f'value="{round_id}"', html)
+        self.assertRegex(html, rf'name="round_ids"\s+value="{round_id}"')
         self.assertIn("Synkroniser valgte med Garmin", html)
 
         with self.app.app_context():
@@ -239,7 +239,7 @@ class GarminGolfTests(unittest.TestCase):
             response = client.get("/rounds/finished")
         html = response.get_data(as_text=True)
         self.assertIn("Synkronisert med Garmin", html)
-        self.assertNotIn(f'value="{round_id}"', html)
+        self.assertNotRegex(html, rf'name="round_ids"\s+value="{round_id}"')
 
     def test_bulk_sync_reports_specific_round_failure(self):
         from services.garmin_golf import GarminGolfSyncError

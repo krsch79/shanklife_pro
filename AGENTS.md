@@ -24,3 +24,6 @@
 - API tests that create a temporary SQLite database must also seed `app_registry` and `user_app_access` for the test user before calling authenticated `/api/v1` endpoints; `db.create_all()` cannot create these shared admin-owned tables.
 - Verify Shanklife Pro publicly through `https://pro.shanklife.no/api/v1/health` and the native app host through `https://app.shanklife.no/api/v1/health`; do not use the bare `https://shanklife.no` root, which is not configured with the app's TLS certificate.
 - When adding responsive CSS to `static/style.css`, do not use a generic closing-brace patch context that can match near the top of the file. Anchor the patch to the final media block or verify with both `sed -n '1,100p'` and `tail` that responsive overrides appear after their base rules before browser testing.
+
+- Before read-only database probes, resolve the configured SQLite filename from app.py/environment; the default is instance/shanklife_pro.db, not instance/shanklife.db. Open with mode=ro and require the expected schema before querying.
+- Use explicit type="text" for text inputs in new forms: static/style.css styles input[type="text"], so omitted types render as unstyled browser defaults. Verify the rendered form before deployment.
