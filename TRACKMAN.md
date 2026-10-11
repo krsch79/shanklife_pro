@@ -72,8 +72,22 @@ Sample counts/numerators are pooled; rounded percentages are never averaged.
 Full round records require 9/18 expected, played and scored holes and matching
 gross total. Partial rounds supply only played holes and are excluded from best
 round/average round summaries. Zero/unplayed holes stay in the raw archive.
-Automatically assigned putting and holes with a gimme are excluded from putting
-averages; their original values and settings remain available. Unsupported green
+TrackMan's hole `putts` includes the final conceded stroke when
+`gimmeWasGiven=true`. Manual-putting averages include the whole hole, including
+that gimme; never add another stroke or discard the preceding played putts.
+`played_putts_total` subtracts one gimme from each known manual hole's recorded
+count, `gimmes_total` counts explicit concessions, and `automatic_putts_total`
+counts known automatically assigned putts separately. Auto/unknown putting modes
+are excluded from both manual averages. `putts_total`/`putting_holes` and
+`played_putts_total`/`played_putting_holes` expose independent denominators;
+missing putts or a missing concession flag cannot establish a played-putt count.
+Known zero is retained, absent samples yield null, and contradictory negative or
+nonintegral counts stay out of derived statistics. Gimme totals include only
+explicit TrackMan flags; outdoor entries do not have a concession field.
+UI, round summaries, native API and AI share the same functions. Existing
+projections already contain original hole counts/flags, so the fix takes effect
+without a new upstream sync, schema migration or historical database rewrite.
+The original archive is unchanged. Unsupported green
 miss, bunker, fairway-per-club and putt-distance comparisons retain outdoor samples
 only, rather than inventing simulator measurements. Detailed fairway outcomes
 and per-club fairway percentages explicitly use outdoor samples. Club and distance

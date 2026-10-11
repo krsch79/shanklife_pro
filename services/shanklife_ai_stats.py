@@ -85,7 +85,7 @@ def build_shanklife_stats_context(prompt="", current_user=None, environment="out
     round_players = _finished_shanklife_round_players() if environment != "simulator" else []
     rows = _entry_rows([round_player.id for round_player in round_players])
     completed_rounds = _completed_rounds(round_players)
-    from services.trackman_rounds import row_summary, user_rounds
+    from services.trackman_rounds import hole_putting, row_summary, user_rounds
     imported_models = user_rounds(current_user.id, environment) if current_user else []
     imported = [row_summary(r) for r in imported_models]
     imported_detailed = 0
@@ -97,10 +97,10 @@ def build_shanklife_stats_context(prompt="", current_user=None, environment="out
         base = {"round_id": "trackman:" + model.remote_id, "player_id": current_user.player_id, "player_name": current_user.player.name if current_user.player else current_user.username, "course_id": course_id, "course_name": model.course_name, "date": model.started_at.date().isoformat() if model.started_at else "", "tee": data.get("tee_name") or "", "environment": model.environment}
         for hole in data["holes"]:
             shot = hole.get("tee_shot") or {}
-            rows.append({**base, "hole": hole["number"], "par": hole["par"], "strokes": hole["strokes"], "to_par": hole["strokes"] - hole["par"] if hole["par"] is not None else None, "putts": hole["putts"] if not data["automatic_putting"] and hole.get("gimme") is not True else None, "gir": hole["gir"], "fairway_result": "", "club": shot.get("club") or ""})
+            rows.append({**base, "hole": hole["number"], "par": hole["par"], "strokes": hole["strokes"], "to_par": hole["strokes"] - hole["par"] if hole["par"] is not None else None, **hole_putting(hole, data), "gir": hole["gir"], "fairway_result": "", "club": shot.get("club") or ""})
         if model.completed:
             completed_rounds.append({**base, "score": data["total"], "to_par": data["total"] - data["par"] if data["par"] is not None else None})
-        imported_detailed += any(h["gir"] is not None or (h["putts"] is not None and not data["automatic_putting"] and h.get("gimme") is not True) for h in data["holes"])
+        imported_detailed += any(h["gir"] is not None or (hole_putting(h, data)["putts"] is not None) for h in data["holes"])
     completed_rounds.sort(key=lambda r: (r["date"], str(r["round_id"])), reverse=True)
 
     by_player = defaultdict(list)
@@ -152,7 +152,7 @@ def build_shanklife_stats_context(prompt="", current_user=None, environment="out
     return {
         "round_environment": environment,
         "trackman_own_rounds": [{**r, "started_at": r["started_at"].isoformat() if r["started_at"] else None} for r in imported],
-        "trackman_note": "Egne private runder. Automatiske putter og gimmies er utelatt fra puttesnitt; delvise runder er merket. Team og matchplay inngår ikke i individuelle summer. TrackMan-baner har egne identiteter. Fairway per hull mangler; rundens opprinnelige fairwayprosenter finnes i trackman_own_rounds.",
+        "trackman_note": "Egne private runder. Puttesnitt inkluderer gimmies, men utelater automatisk putting. Registrerte putter uten gimmies, gimmies og automatisk tildelte putter har separate summer og hullgrunnlag. Ukjente tall er null, ikke 0. Utendørsregistreringer har ikke et eget gimmiefelt. Delvise runder er merket. Team og matchplay inngår ikke i individuelle summer. TrackMan-baner har egne identiteter. Fairway per hull mangler; rundens opprinnelige fairwayprosenter finnes i trackman_own_rounds.",
         "current_user": _current_user_context(current_user),
         "dataset": {
             "players": len(players),
@@ -418,8 +418,10 @@ def _field_summary(players, rows):
 
 
 def _putting_summary(rows):
-    values = [row["putts"] for row in rows if row["putts"] is not None]
-    return {"attempts": len(values), "avg_putts": _rounded_avg(values)}
+    from services.trackman_rounds import putting_stats
+    observations = [{**row, "played_putts": row.get("played_putts", row["putts"])} for row in rows]
+    result = putting_stats(observations)
+    return {"attempts": result["putting_holes"], **result}
 
 
 def _gir_summary(rows):

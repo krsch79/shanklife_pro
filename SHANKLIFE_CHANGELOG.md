@@ -2,7 +2,13 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
-## 1.9.65 - 2026-10-11
+## [1.9.66] - 2026-10-11
+
+- Viser registrerte putter, gimmies og automatisk tildelte putter separat, samlet og per TrackMan-runde.
+- Retter puttesnittet slik at hull med gimmie også tas med. Gimmien inngår allerede i TrackMans puttantall og telles én gang.
+- Viser hullgrunnlaget for puttesnittene og beholder manglende tall som manglende. Statistikken og AI bruker samme beregning.
+
+## [1.9.65] - 2026-10-11
 
 - TrackMan-tilkobling med innlogging hos TrackMan, full historikkimport og automatisk synkronisering fire ganger i døgnet.
 - Simulatorrunder vises i rundehistorikken og kan sammenlignes med utendørsrunder. Statistikken og AI-statistikken har valgene inne og ute, kun simulator og kun utendørs.

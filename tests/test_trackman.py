@@ -192,16 +192,60 @@ class TrackManIntegrationTests(unittest.TestCase):
         self.assertEqual(sim["avg_putts"], 2)
         self.assertEqual(outdoor["scored_holes"], 0)
 
-    def test_putting_auto_and_gimme_holes_excluded_without_erasing_raw(self):
+    def test_gimme_keeps_played_putts_and_is_not_added_to_score_twice(self):
         card = scorecard()
-        card["holes"][0].update(putts=99, gimmeWasGiven=True)
+        card["holes"][0].update(putts=3, gimmeWasGiven=True)
         self.seed_card(holes=card["holes"])
         data = self.client.get("/api/v1/shanklife/stats?environment=simulator").json["stats"]
-        self.assertEqual(data["avg_putts"], 2)
+        self.assertEqual(data["avg_putts"], 2.1)
+        self.assertEqual(data["putts_total"], 19)
+        self.assertEqual(data["played_putts_total"], 18)
+        self.assertEqual(data["gimmes_total"], 1)
+        self.assertEqual(data["played_putting_holes"], 9)
+        self.assertEqual(data["round_rows"][0]["played_putts_total"], 18)
+        self.assertEqual(data["round_rows"][0]["gimmes_total"], 1)
+        page = self.client.get("/stats/?environment=simulator")
+        self.assertIn("Registrerte putter uten gimmies".encode(), page.data)
+        self.assertIn(b"Gimmies (TrackMan)", page.data)
+        from models import User
+        from services.shanklife_ai_stats import build_shanklife_stats_context
+        with self.app.app_context():
+            context = build_shanklife_stats_context(current_user=self.db.session.get(User, self.owner), environment="simulator")
+            putting = context["players"][0]["putting"]
+            self.assertEqual(putting["putts_total"], 19)
+            self.assertEqual(putting["played_putts_total"], 18)
+            self.assertEqual(putting["gimmes_total"], 1)
+
+    def test_auto_putting_separate_without_erasing_raw(self):
         self.seed_card(gameSettings={"puttingSettings": {"isAuto": True, "puttingMode": "AUTO"}})
         data = self.client.get("/api/v1/shanklife/stats?environment=simulator").json["stats"]
         self.assertIsNone(data["avg_putts"])
+        self.assertIsNone(data["played_putts_total"])
+        self.assertEqual(data["automatic_putts_total"], 18)
+        self.assertEqual(data["automatic_putting_holes"], 9)
         self.assertIn(b'"putts":2', self.client.get("/me/trackman/export").data)
+
+    def test_gimme_only_zero_missing_and_unknown_have_distinct_samples(self):
+        card = scorecard()
+        card["holes"] = card["holes"][:5]
+        card["holes"][0].update(putts=1, gimmeWasGiven=True)
+        card["holes"][1].update(putts=0, gimmeWasGiven=False)
+        card["holes"][2].update(putts=None, gimmeWasGiven=True)
+        card["holes"][3].update(putts=2, gimmeWasGiven=None)
+        card["holes"][4].update(putts=None, gimmeWasGiven=None)
+        self.seed_card(holes=card["holes"])
+        data = self.client.get("/api/v1/shanklife/stats?environment=simulator").json["stats"]
+        self.assertEqual(data["putts_total"], 3)
+        self.assertEqual(data["putting_holes"], 3)
+        self.assertEqual(data["played_putts_total"], 0)
+        self.assertEqual(data["played_putting_holes"], 2)
+        self.assertEqual(data["gimmes_total"], 2)
+        self.assertEqual(data["gimme_recorded_holes"], 3)
+        self.assertIsNone(data["automatic_putts_total"])
+        self.seed_card(gameSettings={})
+        data = self.client.get("/api/v1/shanklife/stats?environment=simulator").json["stats"]
+        self.assertIsNone(data["avg_putts"])
+        self.assertIsNone(data["automatic_putts_total"])
 
     def test_unknown_and_team_not_blended_into_individual_statistics(self):
         self.seed_card(bayKind="UNKNOWN")
@@ -235,6 +279,11 @@ class TrackManIntegrationTests(unittest.TestCase):
         self.assertEqual(data["avg_round_vs_par"], 0.5)
         self.assertEqual(data["gir_percent"], 100.0)
         self.assertEqual(data["fairway_hit_percent"], 47.1)
+        self.assertEqual(data["putts_total"], 34)
+        self.assertEqual(data["putting_holes"], 17)
+        self.assertEqual(data["played_putts_total"], 34)
+        self.assertEqual(data["gimmes_total"], 0)
+        self.assertEqual(data["gimme_recorded_holes"], 9)
 
     def test_simulator_clubs_include_unknown_clubs_and_distances(self):
         card = scorecard()

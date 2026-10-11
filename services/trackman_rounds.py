@@ -76,15 +76,59 @@ def user_rounds(user_id, environment="all"):
     return query.order_by(TrackManRound.started_at.desc(), TrackManRound.id.desc()).all()
 
 
+
+def hole_putting(hole, summary):
+    """TrackMan's putts already includes the conceded final stroke.
+
+    Keep recorded/manual, conceded and automatically assigned counts distinct.
+    Missing concession flags cannot establish a played-putt count. Unknown
+    putting modes cannot establish an automatically assigned count either.
+    """
+    putts = number(hole.get("putts"))
+    if putts is not None and (putts < 0 or int(putts) != putts):
+        putts = None
+    gimme = hole.get("gimme")
+    gimmes = int(gimme) if isinstance(gimme, bool) else None
+    automatic = summary["automatic_putting"]
+    if gimmes == 1 and putts is not None and putts < 1:
+        putts = None  # Contradictory upstream counts remain in the raw archive.
+    return {
+        "putts": putts if not automatic else None,
+        "played_putts": putts - gimmes if not automatic and putts is not None and gimmes is not None else None,
+        "gimmes": gimmes,
+        "automatic_putts": putts if automatic and str(summary.get("putting_mode") or "").startswith("AUTO") else None,
+    }
+
+
+def putting_stats(observations):
+    """Pool independent known samples and expose their denominators."""
+    result = {}
+    for source, total_key, count_key in (
+        ("putts", "putts_total", "putting_holes"),
+        ("played_putts", "played_putts_total", "played_putting_holes"),
+        ("gimmes", "gimmes_total", "gimme_recorded_holes"),
+        ("automatic_putts", "automatic_putts_total", "automatic_putting_holes"),
+    ):
+        values = [row.get(source) for row in observations if row.get(source) is not None]
+        result[total_key] = sum(values) if values else None
+        result[count_key] = len(values)
+    for average, total, count in (
+        ("avg_putts", "putts_total", "putting_holes"),
+        ("avg_played_putts", "played_putts_total", "played_putting_holes"),
+    ):
+        result[average] = round(result[total] / result[count], 1) if result[count] else None
+    return result
+
+
 def row_summary(row):
     s = json.loads(row.summary)
     scored = s["holes"]
     diffs = [h["strokes"] - h["par"] for h in scored if h["par"] is not None]
     gir = [h["gir"] for h in scored if h["gir"] is not None]
-    puts = [h["putts"] for h in scored if h["putts"] is not None and h.get("gimme") is not True] if not s["automatic_putting"] else []
+    putting = putting_stats([hole_putting(h, s) for h in scored])
     fw = [number(s["stat"].get(k)) for k in ("fairwayHitFairway", "fairwayHitLeft", "fairwayHitRight")]
     attempts = sum(fw) if all(v is not None for v in fw) else 0
-    return {"trackman_id": row.id, "round_id": None, "started_at": row.started_at, "course_name": row.course_name, "tee_name": s.get("tee_name") or "—", "holes": len(scored), "total": s["total"], "to_par": s["total"] - s["par"] if s["total"] is not None and s["par"] is not None else None, "gir_percent": round(sum(gir) / len(gir) * 100, 1) if gir else None, "fairway_hit_percent": round(fw[0] / attempts * 100, 1) if attempts else None, "fairway_left_percent": round(fw[1] / attempts * 100, 1) if attempts else None, "fairway_right_percent": round(fw[2] / attempts * 100, 1) if attempts else None, "avg_putts": round(sum(puts) / len(puts), 1) if puts else None, "birdies": sum(d == -1 for d in diffs), "pars": sum(d == 0 for d in diffs), "bogeys": sum(d == 1 for d in diffs), "double_bogeys_or_worse": sum(d >= 2 for d in diffs), "environment": row.environment, "completed": row.completed, "team": s.get("team", False), "holes_to_play": row.holes_to_play, "automatic_putting": s["automatic_putting"], "mulligans": s.get("mulligans")}
+    return {"trackman_id": row.id, "round_id": None, "started_at": row.started_at, "course_name": row.course_name, "tee_name": s.get("tee_name") or "—", "holes": len(scored), "total": s["total"], "to_par": s["total"] - s["par"] if s["total"] is not None and s["par"] is not None else None, "gir_percent": round(sum(gir) / len(gir) * 100, 1) if gir else None, "fairway_hit_percent": round(fw[0] / attempts * 100, 1) if attempts else None, "fairway_left_percent": round(fw[1] / attempts * 100, 1) if attempts else None, "fairway_right_percent": round(fw[2] / attempts * 100, 1) if attempts else None, **putting, "birdies": sum(d == -1 for d in diffs), "pars": sum(d == 0 for d in diffs), "bogeys": sum(d == 1 for d in diffs), "double_bogeys_or_worse": sum(d >= 2 for d in diffs), "environment": row.environment, "completed": row.completed, "team": s.get("team", False), "holes_to_play": row.holes_to_play, "automatic_putting": s["automatic_putting"], "mulligans": s.get("mulligans")}
 
 
 def merge_stats(stats, trackman_rows):
@@ -92,6 +136,7 @@ def merge_stats(stats, trackman_rows):
     samples = stats.pop("_samples")
     completed = stats.pop("_completed")
     clubs = samples.get("clubs", {})
+    putting = [{"putts": value, "played_putts": value} for value in samples["putts"]]
     stats["fairway_detail_attempts"] = samples["fairway_attempts"]
     stats["fairway_details_environment"] = "outdoor"
     for row in trackman_rows:
@@ -120,8 +165,7 @@ def merge_stats(stats, trackman_rows):
             if h["gir"] is not None:
                 samples["gir_count"] += int(h["gir"])
                 samples["gir_attempts"] += 1
-            if h["putts"] is not None and not s["automatic_putting"] and h.get("gimme") is not True:
-                samples["putts"].append(h["putts"])
+            putting.append(hole_putting(h, s))
         fw = [number(s["stat"].get(k)) for k in ("fairwayHitFairway", "fairwayHitLeft", "fairwayHitRight")]
         if all(v is not None for v in fw):
             for key, value in zip(("hit", "left", "right"), fw):
@@ -129,7 +173,7 @@ def merge_stats(stats, trackman_rows):
             samples["fairway_attempts"] += sum(fw)
     stats.update(round_score_summary(completed))
     stats["gir_percent"] = round(samples["gir_count"] / samples["gir_attempts"] * 100, 1) if samples["gir_attempts"] else None
-    stats["avg_putts"] = round(sum(samples["putts"]) / len(samples["putts"]), 1) if samples["putts"] else None
+    stats.update(putting_stats(putting))
     stats["fairway_attempts"] = samples["fairway_attempts"]
     for key in ("hit", "left", "right"):
         stats["fairway_" + key + "_percent"] = round(samples["fairway"][key] / samples["fairway_attempts"] * 100, 1) if samples["fairway_attempts"] else None

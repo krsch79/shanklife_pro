@@ -13,7 +13,7 @@ from services.play_formats import MATCHPLAY
 from services.round_length import round_holes
 from services.shanklife_ai_stats import ask_shanklife_stats_ai
 from services.stats_summary import round_score_summary
-from services.trackman_rounds import ENVIRONMENTS, environment_filter, merge_stats, user_rounds
+from services.trackman_rounds import ENVIRONMENTS, environment_filter, merge_stats, putting_stats, user_rounds
 
 stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
 
@@ -347,7 +347,7 @@ def _round_stat_summary(round_player):
         "total": total,
         "to_par": total - par if total is not None else None,
         "gir_percent": _percent(gir_count, gir_attempts),
-        "avg_putts": _avg([stat.putts for stat, _entry in stats_rows]),
+        **putting_stats([{"putts": stat.putts, "played_putts": stat.putts} for stat, _entry in stats_rows]),
         "fairway_outcomes": [{"label": label, "count": fairway_counts[key], "percent": _percent(fairway_counts[key], fairway_attempts)} for key, label in FAIRWAY_LABELS.items() if key not in ("hit", "left", "right")],
         "fairway_attempts": fairway_attempts,
         "fairway_hit_percent": _percent(fairway_counts["hit"], fairway_attempts),

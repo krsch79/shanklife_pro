@@ -24,7 +24,7 @@
 
 {% if selected_player %}
 <div class="tee-tabs trackman-tabs" aria-label="Velg rundetype">{% for key, label in environments.items() %}<a class="{{ 'active' if environment == key else '' }}" href="{{ url_for('stats.index', player_id=selected_player.id, environment=key) }}">{{ label }}</a>{% endfor %}</div>
-<p class="muted">TrackMan-runder er private og vises for din egen spiller. Automatisk putting og hull med gimmie teller ikke i puttesnittet. Lagspill er utelatt fra individuelle snitt. Delvis spilte runder bidrar med registrerte hull; beste runde krever en fullført runde. <a href="{{ url_for('trackman.index') }}">TrackMan-arkiv og datadekning</a></p>
+<p class="muted">TrackMan-runder er private og vises for din egen spiller. Puttesnittet inkluderer gimmies, men utelater automatisk putting. Registrerte putter og gimmies vises separat. Lagspill er utelatt fra individuelle snitt. Delvis spilte runder bidrar med registrerte hull; beste runde krever en fullført runde. <a href="{{ url_for('trackman.index') }}">TrackMan-arkiv og datadekning</a></p>
 <header class="stats-player-heading">
     <div>
         <h3>{{ selected_player.name }}</h3>
@@ -47,7 +47,7 @@
     </div>
     <div class="stat-card stats-overview-card">
         <strong>{{ stats.avg_putts if stats.avg_putts is not none else "-" }}</strong>
-        <span>Snitt putter per hull</span>
+        <span>Snitt putter inkl. gimmies per hull</span>
     </div>
 </section>
 
@@ -99,7 +99,10 @@
                                 <th>FW</th>
                                 <th>Venstre</th>
                                 <th>Høyre</th>
-                                <th>Putter</th>
+                                <th>Snitt putter inkl. gimmies</th>
+                                <th>Registrerte putter</th>
+                                <th>Gimmies</th>
+                                <th>Auto-putter</th>
                                 <th>Birdie</th>
                                 <th>Par</th>
                                 <th>Bogey</th>
@@ -119,13 +122,16 @@
                                 <td>{{ row.fairway_left_percent if row.fairway_left_percent is not none else "-" }}{% if row.fairway_left_percent is not none %}%{% endif %}</td>
                                 <td>{{ row.fairway_right_percent if row.fairway_right_percent is not none else "-" }}{% if row.fairway_right_percent is not none %}%{% endif %}</td>
                                 <td>{{ row.avg_putts if row.avg_putts is not none else "-" }}</td>
+                                <td>{{ row.played_putts_total if row.played_putts_total is defined and row.played_putts_total is not none else "-" }}</td>
+                                <td>{{ row.gimmes_total if row.gimmes_total is defined and row.gimmes_total is not none else "-" }}</td>
+                                <td>{{ row.automatic_putts_total if row.automatic_putts_total is defined and row.automatic_putts_total is not none else "-" }}</td>
                                 <td>{{ row.birdies }}</td>
                                 <td>{{ row.pars }}</td>
                                 <td>{{ row.bogeys }}</td>
                                 <td>{{ row.double_bogeys_or_worse }}</td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="14">Ingen statistikkrunder funnet.</td></tr>
+                            <tr><td colspan="17">Ingen statistikkrunder funnet.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -261,10 +267,16 @@
         </summary>
         <div class="stats-section-content">
             <div class="stat-grid stats-detail-metrics stats-putting-metrics">
-                <div class="stat-card"><strong>{{ stats.avg_putts if stats.avg_putts is not none else "-" }}</strong><span>Snitt putter per hull</span></div>
+                <div class="stat-card"><strong>{{ stats.avg_putts if stats.avg_putts is not none else "-" }}</strong><span>Snitt putter inkl. gimmies per hull</span></div>
+                <div class="stat-card"><strong>{{ stats.played_putts_total if stats.played_putts_total is not none else "-" }}</strong><span>Registrerte putter uten gimmies</span></div>
+                <div class="stat-card"><strong>{{ stats.gimmes_total if stats.gimmes_total is not none else "-" }}</strong><span>Gimmies (TrackMan)</span></div>
+                <div class="stat-card"><strong>{{ stats.automatic_putts_total if stats.automatic_putts_total is not none else "-" }}</strong><span>Automatisk tildelte putter</span></div>
+                <div class="stat-card"><strong>{{ stats.avg_played_putts if stats.avg_played_putts is not none else "-" }}</strong><span>Snitt registrerte putter uten gimmies</span></div>
                 <div class="stat-card"><strong>{{ stats.avg_last_putt_distance if stats.avg_last_putt_distance is not none else "-" }}{% if stats.avg_last_putt_distance is not none %} m{% endif %}</strong><span>Snitt siste putt</span></div>
                 <div class="stat-card"><strong>{{ stats.avg_putt_meters_per_round if stats.avg_putt_meters_per_round is not none else "-" }}{% if stats.avg_putt_meters_per_round is not none %} m{% endif %}</strong><span>Meter siste putter per runde</span></div>
             </div>
+            <p class="muted stats-note">Puttesnittet inkluderer den siste putten som gis ved en gimmie. Registrerte putter uten gimmies bygger på {{ stats.played_putting_holes }} hull; snittet inkludert gimmies bygger på {{ stats.putting_holes }} hull. Automatisk tildelte putter holdes utenfor begge snittene og vises separat for {{ stats.automatic_putting_holes }} hull.</p>
+            <p class="muted stats-note">Gimmies er registrert på {{ stats.gimme_recorded_holes }} TrackMan-hull. Utendørsregistreringer har ikke et eget gimmiefelt. Manglende opplysninger vises som «-», og enkelte summer kan derfor ha ulikt hullgrunnlag.</p>
         </div>
     </details>
 </div>
