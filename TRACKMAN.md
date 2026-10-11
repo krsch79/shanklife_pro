@@ -59,7 +59,9 @@ HTTP; contextual graphs must not be expanded into unbounded queries.
 Media/report URLs and metadata are preserved. Binary video/PDF payloads are not
 mirrored and signed links can expire. A JSON export contains raw golf records,
 schema and coverage, but no OAuth credentials. Every browser/detail/export/query
-is scoped to the current user's ID, including when selecting another player's
+is scoped to the current user's ID. Other-player scorecard references are also
+stripped before storage/administrative import and before preserving older partial
+snapshots; those fields are excluded from upstream selections. This applies when selecting another player's
 public outdoor statistics.
 
 ## Statistics rules

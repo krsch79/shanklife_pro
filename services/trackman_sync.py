@@ -14,7 +14,7 @@ from flask import current_app
 from extensions import db
 from services.secret_store import decrypt_secret, encrypt_secret
 from services.time import server_now
-from services.trackman_api import ROOTS, TrackManClient, TrackManError, has_next, items_of, named_type, oauth_form
+from services.trackman_api import ROOTS, TrackManClient, TrackManError, has_next, items_of, named_type, oauth_form, own_record
 from services.trackman_models import TrackManAccount, TrackManArchive, TrackManSyncRun
 from services.trackman_rounds import save_scorecard
 
@@ -65,6 +65,7 @@ def access_token(account):
 
 
 def archive(user_id, category, identity, data):
+    data = own_record(data)
     identity = str(identity)
     row = TrackManArchive.query.filter_by(user_id=user_id, category=category, remote_id=identity).first()
     if row is None:
@@ -95,6 +96,7 @@ def preserve_known(previous, incoming):
 
 
 def archive_read(user_id, category, identity, data, client):
+    data = own_record(data)
     errors = getattr(client, "read_errors", None)
     if errors is None:  # Test doubles / compatible clients report coverage only.
         errors = sorted(g for g in client.gaps if g.startswith("upstream error:"))
@@ -107,7 +109,7 @@ def archive_read(user_id, category, identity, data, client):
         archive(user_id, "partial_responses", digest, partial)
         previous = TrackManArchive.query.filter_by(user_id=user_id, category=category, remote_id=str(identity)).first()
         if previous:
-            data = preserve_known(json.loads(previous.payload), data)
+            data = preserve_known(own_record(json.loads(previous.payload)), data)
     archive(user_id, category, identity, data)
     return data
 

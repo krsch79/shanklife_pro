@@ -297,6 +297,15 @@ def unalias(value):
     return value
 
 
+def own_record(value):
+    """Strip other-player card references, including older bounded snapshots."""
+    if isinstance(value, list):
+        return [own_record(v) for v in value]
+    if isinstance(value, dict):
+        return {k: own_record(v) for k, v in value.items() if k not in {"otherPlayersScorecards", "playersScorecards"}}
+    return value
+
+
 def selection_field_count(selection):
     import re
     tokens = re.findall(r'\.\.\.|[A-Za-z_]\w*|[{}():]|[0-9]+|"[^"]*"', selection)

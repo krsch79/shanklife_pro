@@ -170,6 +170,11 @@ class TrackManIntegrationTests(unittest.TestCase):
         self.assertNotIn(b"credentials", export.data)
         self.assertEqual(export.headers["Cache-Control"], "private, no-store")
 
+    def test_other_player_card_references_never_enter_archive_or_export(self):
+        self.seed_card(otherPlayersScorecards=[{"id": "other-card", "par": 72}])
+        data = json.loads(self.client.get("/me/trackman/export").data)
+        self.assertNotIn("otherPlayersScorecards", data["records"][0]["data"])
+
     def test_csrf_rejects_connection_and_disconnect(self):
         for endpoint in ("connect", "disconnect", "poll", "sync"):
             self.assertEqual(self.client.post("/me/trackman/" + endpoint).status_code, 400)
