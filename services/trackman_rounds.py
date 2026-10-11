@@ -41,7 +41,7 @@ def project_scorecard(data):
             continue
         shots = [shot for shot in hole.get("shots") or [] if isinstance(shot, dict)]
         first_shot = min(shots, key=lambda shot: shot.get("shotNumber") or 0) if shots else None
-        tee_shot = {"club": first_shot.get("club"), "total": number((first_shot.get("measurement") or {}).get("total")), "carry": number((first_shot.get("measurement") or {}).get("carry")), "lie": first_shot.get("finalLie")} if first_shot else None
+        tee_shot = {"club": first_shot.get("club"), "total": number(first_shot.get("total")) if number(first_shot.get("total")) is not None else number((first_shot.get("measurement") or {}).get("total")), "carry": number((first_shot.get("measurement") or {}).get("carry")), "lie": first_shot.get("finalLie")} if first_shot else None
         holes.append({"tee_shot": tee_shot, "number": hole.get("holeNumber"), "par": number(hole.get("par")), "strokes": score, "putts": number(hole.get("putts")), "gir": hole.get("greenInRegulation") if isinstance(hole.get("greenInRegulation"), bool) else None, "mulligans": number(hole.get("mulligans")), "gimme": hole.get("gimmeWasGiven")})
     total = sum(h["strokes"] for h in holes) if holes else None
     par = sum(h["par"] for h in holes) if holes and all(h["par"] is not None for h in holes) else None
@@ -92,6 +92,8 @@ def merge_stats(stats, trackman_rows):
     samples = stats.pop("_samples")
     completed = stats.pop("_completed")
     clubs = samples.get("clubs", {})
+    stats["fairway_detail_attempts"] = samples["fairway_attempts"]
+    stats["fairway_details_environment"] = "outdoor"
     for row in trackman_rows:
         s = json.loads(row.summary)
         summary = row_summary(row)

@@ -76,6 +76,42 @@ def archive(user_id, category, identity, data):
     return row
 
 
+def preserve_known(previous, incoming):
+    """An errored response cannot erase previously known fields or list items."""
+    if incoming is None:
+        return previous
+    if isinstance(previous, dict) and isinstance(incoming, dict):
+        return {key: preserve_known(previous.get(key), incoming.get(key)) for key in previous.keys() | incoming.keys()}
+    if isinstance(previous, list) and isinstance(incoming, list):
+        keys = ("id", "holeNumber", "shotNumber", "measurementId")
+        key = next((k for k in keys if all(isinstance(v, dict) and v.get(k) is not None for v in previous + incoming)), None)
+        if key:
+            old = {v[key]: v for v in previous}
+            result = [preserve_known(old.get(v[key]), v) for v in incoming]
+            seen = {v[key] for v in incoming}
+            return result + [v for v in previous if v[key] not in seen]
+        return [preserve_known(previous[i] if i < len(previous) else None, value) for i, value in enumerate(incoming)] + previous[len(incoming):]
+    return incoming
+
+
+def archive_read(user_id, category, identity, data, client):
+    errors = getattr(client, "read_errors", None)
+    if errors is None:  # Test doubles / compatible clients report coverage only.
+        errors = sorted(g for g in client.gaps if g.startswith("upstream error:"))
+    if errors:
+        errors = sorted(set(errors))
+        # Preserve the exact original partial observation separately, even when
+        # a good prior canonical snapshot supplies fields the server could not read.
+        partial = {"source": category, "remote_id": str(identity), "errors": errors, "data": data}
+        digest = hashlib.sha256(json.dumps(partial, sort_keys=True).encode()).hexdigest()
+        archive(user_id, "partial_responses", digest, partial)
+        previous = TrackManArchive.query.filter_by(user_id=user_id, category=category, remote_id=str(identity)).first()
+        if previous:
+            data = preserve_known(json.loads(previous.payload), data)
+    archive(user_id, category, identity, data)
+    return data
+
+
 def sync_account(user_id):
     with account_lock(user_id):
         account = db.session.get(TrackManAccount, user_id)
@@ -107,6 +143,7 @@ def sync_account(user_id):
                 total = None
                 detail_failures = 0
                 detail_count = 0
+                partial_reads = 0
                 source_oldest = None
                 try:
                     while True:
@@ -132,6 +169,7 @@ def sync_account(user_id):
                                 source_oldest = timestamp
                             if source in {"activities", "scorecards"}:
                                 archive(user_id, source + "_index", identity, record)
+                                db.session.commit()  # No SQLite writer lock during HTTP.
                                 actual = record.get("__typename") or "Scorecard"
                                 try:
                                     detail = client.node(identity, actual)
@@ -141,7 +179,8 @@ def sync_account(user_id):
                                     count += 1
                                     continue
                                 detail_count += 1
-                                archive(user_id, source, identity, detail)
+                                partial_reads += bool(getattr(client, "read_errors", []))
+                                detail = archive_read(user_id, source, identity, detail, client)
                                 if isinstance(detail.get("strokes"), list) and detail.get("strokeCount") is not None and len(detail["strokes"]) != detail["strokeCount"]:
                                     client.gaps.add(actual + ": fetched stroke count differs from reported count")
                                 if actual == "PerformanceCenterActivity":
@@ -156,10 +195,18 @@ def sync_account(user_id):
                                     card = detail["scorecard"]
                                     scorecards[card["id"]] = card
                             else:
-                                if not paging:
+                                if paging:
+                                    actual = record.get("__typename")
+                                    if actual and record.get("id") and actual in client.node_types():
+                                        client.expand_pages(record, ["node(id:" + json.dumps(record["id"]) + ")"], actual)
+                                    elif actual:
+                                        client.gaps.add(actual + ": nested pagination needs a Node identity")
+                                else:
                                     client.expand_pages(record, ["me", source], record.get("__typename") or named_type(next(f for f in client.schema["Me"]["fields"] if f["name"] == source)["type"])["name"])
-                                archive(user_id, source, identity, record)
+                                partial_reads += bool(getattr(client, "read_errors", []))
+                                archive_read(user_id, source, identity, record, client)
                             count += 1
+                            db.session.commit()
                         # Durable progress per page. A later error leaves originals intact.
                         account.sync_message = "Henter " + source + ": " + str(count) + " poster"
                         db.session.commit()
@@ -170,7 +217,7 @@ def sync_account(user_id):
                         if not more:
                             if total is not None and count != total:
                                 raise TrackManError("TrackMan-antallet stemmer ikke med hentede poster.")
-                            manifest["sources"][source] = {"state": "partial" if detail_failures else "fetched", "count": count, "detail_count": detail_count if source in {"activities", "scorecards"} else count, "detail_failures": detail_failures, "reported_count": total, "oldest": source_oldest}
+                            manifest["sources"][source] = {"state": "partial" if detail_failures or partial_reads else "fetched", "count": count, "detail_count": detail_count if source in {"activities", "scorecards"} else count, "detail_failures": detail_failures, "partial_reads": partial_reads, "reported_count": total, "oldest": source_oldest}
                             break
                         if offset > 1000000:
                             raise TrackManError("TrackMan-pagineringen overskred sikkerhetsgrensen.")
@@ -187,8 +234,11 @@ def sync_account(user_id):
                     except TrackManError as exc:
                         manifest["errors"].append({"source": "referenced_scorecards", "remote_id": identity, "message": str(exc)})
                         continue
-                archive(user_id, "scorecards", identity, card)
+                    card = archive_read(user_id, "scorecards", identity, card, client)
+                else:
+                    archive(user_id, "scorecards", identity, card)
                 save_scorecard(user_id, card)
+                db.session.commit()
             manifest["referenced_scorecards"] = len(set(scorecards) - canonical_scorecards)
             # Cross-check server kind totals with enumerated activities when possible.
             summaries = TrackManArchive.query.filter_by(user_id=user_id, category="activitySummary").all()

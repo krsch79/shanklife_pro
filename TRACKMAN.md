@@ -32,8 +32,12 @@ Tables registered in `services/trackman_models.py` are created by normal
 `db.create_all()`; no existing golf tables or scores are rewritten.
 
 - `trackman_accounts`: encrypted OAuth state and bound TrackMan player ID.
-- `trackman_archives`: unique user/category/remote ID, original returned JSON,
-  type and fetch time. The current GraphQL schema is also archived.
+- `trackman_archives`: unique user/category/remote ID, type and fetch time.
+  Complete reads retain original JSON. On partial GraphQL errors the canonical
+  record preserves previously known values; exact partial originals are stored
+  separately in `partial_responses` with source/identity/error paths and exported.
+  No missing/null field or truncated list from an errored read erases known data.
+  The current GraphQL schema is also archived.
 - `trackman_sync_runs`: source counts, API-reported totals, gaps, errors,
   schema checksum and completion status. Failed runs preserve prior records.
 - `trackman_rounds`: own-user projection, environment, completion and hole data.
@@ -69,7 +73,13 @@ round/average round summaries. Zero/unplayed holes stay in the raw archive.
 Automatically assigned putting and holes with a gimme are excluded from putting
 averages; their original values and settings remain available. Unsupported green
 miss, bunker, fairway-per-club and putt-distance comparisons retain outdoor samples
-only, rather than inventing simulator measurements. Club and distance averages pool available first-tee-shot data; unknown clubs are retained. Practice strokes never count
+only, rather than inventing simulator measurements. Detailed fairway outcomes
+and per-club fairway percentages explicitly use outdoor samples. Club and distance
+averages pool available first-tee-shot data, preferring ScorecardShot.total (played
+simulator distance) over launch measurement.total; unknown clubs are retained.
+Completed rounds without known par retain gross records but no to-par value.
+AI player/course/hole totals pool eligible own simulator rows and exclude team/match.
+Practice strokes never count
 as completed rounds. There is no GolfBox submission/edit route for imported data.
 An outdoor round uploaded from another service is not automatically merged with
 an existing manual record: identity is independent of environment/source.
@@ -80,7 +90,9 @@ an existing manual record: identity is independent of environment/source.
 for connected users. `scripts/deploy.sh` installs the cron block at 00:17, 06:17,
 12:17 and 18:17. It defers while maintenance is active. Logs show counts/status
 only. UI sync jobs run in a daemon thread, so a process restart interrupts them;
-the next full sync safely upserts the same remote IDs. No archive records are
+the next full sync safely upserts the same remote IDs. Each index/record/projection
+write is committed before the next network request, so full-history retrieval
+does not hold a SQLite writer lock while waiting for TrackMan. No archive records are
 silently removed when TrackMan hides/deletes a source or a request fails.
 
 Use a fresh temporary virtualenv with `requirements.txt`, a private temporary

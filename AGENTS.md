@@ -29,3 +29,6 @@
 - Use explicit type="text" for text inputs in new forms: static/style.css styles input[type="text"], so omitted types render as unstyled browser defaults. Verify the rendered form before deployment.
 
 - TrackMan schema-driven reads must bound query size before any HTTP request. Recursive expansion of facility/course/tournament graphs can create gigabyte queries; treat those as context references, expand only golf measurement paths deeply, and reject queries above 250 KB before sending. Retain excluded/required fields in the coverage manifest.
+- For partial TrackMan GraphQL reads, retain exact errored observations separately and never erase previously known fields/list items. Expand nested pagination for paged root items as well as node details, and test nullable par, team exclusion and played ScorecardShot.total versus launch measurement.total in statistics.
+- Commit each TrackMan index/archive/projection write before the next upstream HTTP request. Holding a SQLite writer transaction across a whole 50-record network page blocks normal app requests and can fail with database locked.
+- Validate all nginx maintenance vhosts and back them all up before writing any one of them; keep every write inside the rollback boundary so a later preflight/write failure cannot leave earlier configs modified.

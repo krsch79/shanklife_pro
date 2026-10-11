@@ -1,5 +1,5 @@
 def round_score_summary(completed_rounds):
-    to_par_values = [row["total"] - row["par"] for row in completed_rounds]
+    to_par_values = [row["total"] - row["par"] for row in completed_rounds if row.get("par") is not None and row.get("total") is not None]
 
     def best_total(hole_count):
         return min(

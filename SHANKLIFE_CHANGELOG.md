@@ -8,6 +8,7 @@ Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTou
 - Simulatorrunder vises i rundehistorikken og kan sammenlignes med utendørsrunder. Statistikken og AI-statistikken har valgene inne og ute, kun simulator og kun utendørs.
 - Et privat arkiv bevarer originale hull-, slag-, trenings-, utstyrs- og handicapdata og kan lastes ned. Datadekning viser kilder, antall og felt som TrackMan ikke leverer.
 - Delvis spilte runder, automatisk putting og gimmies behandles særskilt; manglende tall blir ikke erstattet med null. TrackMan-runder kan ikke sendes til GolfBox.
+- Beholder tidligere kjente tall ved delvise TrackMan-feil, og lagrer feilsvaret separat i det private arkivet. Simulatorens spilte slaglengder og manglende par håndteres i statistikken.
 - Vedlikeholdssiden serveres direkte av nginx også mens appen starter på nytt.
 
 ## [1.9.64] - 2026-09-10

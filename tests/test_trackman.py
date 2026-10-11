@@ -244,6 +244,133 @@ class TrackManIntegrationTests(unittest.TestCase):
         self.assertEqual(clubs["Ukjent kølle (TrackMan)"]["count"], 1)
         self.assertIsNone(clubs["Driver"]["fairway_percent"])
 
+    def test_played_shot_distance_precedes_launch_measurement(self):
+        card = scorecard()
+        for hole in card["holes"]:
+            hole["shots"] = [{"shotNumber": 1, "club": "Driver", "total": 220, "measurement": {"total": 210}}]
+        self.seed_card(holes=card["holes"])
+        data = self.client.get("/api/v1/shanklife/stats?environment=simulator").json["stats"]
+        self.assertEqual(data["club_rows"][0]["avg_drive_distance"], 220)
+
+    def test_completed_missing_par_keeps_gross_and_skips_to_par(self):
+        card = scorecard()
+        card["holes"][0]["par"] = None
+        self.seed_card(holes=card["holes"])
+        response = self.client.get("/api/v1/shanklife/stats?environment=simulator")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["stats"]["best_round_9"], 36)
+        self.assertIsNone(response.json["stats"]["avg_round_vs_par"])
+        self.assertEqual(self.client.get("/stats/?environment=simulator").status_code, 200)
+        from models import User
+        from services.shanklife_ai_stats import build_shanklife_stats_context
+        with self.app.app_context():
+            context = build_shanklife_stats_context(current_user=self.db.session.get(User, self.owner), environment="simulator")
+            self.assertEqual(context["dataset"]["scored_holes"], 9)
+            self.assertIsNone(context["players"][0]["avg_to_par"])
+
+    def test_ai_unknown_hole_number_keeps_score_but_sorts_last(self):
+        from models import User
+        from services.shanklife_ai_stats import build_shanklife_stats_context
+        card = scorecard(); card["holes"][0]["holeNumber"] = None
+        self.seed_card(holes=card["holes"])
+        with self.app.app_context():
+            context = build_shanklife_stats_context(current_user=self.db.session.get(User, self.owner), environment="simulator")
+            self.assertEqual(context["dataset"]["scored_holes"], 9)
+            self.assertIsNone(context["courses"][0]["holes"][-1]["hole"])
+
+    def test_ai_includes_simulator_holes_courses_gir_but_not_team(self):
+        from models import User
+        from services.shanklife_ai_stats import build_shanklife_stats_context
+        self.seed_card(gameSettings={"puttingSettings": {"isAuto": True, "puttingMode": "AUTO"}})
+        with self.app.app_context():
+            user = self.db.session.get(User, self.owner)
+            context = build_shanklife_stats_context(current_user=user, environment="simulator")
+            self.assertEqual(context["dataset"]["players"], 1)
+            self.assertEqual(context["dataset"]["courses"], 1)
+            self.assertEqual(context["dataset"]["scored_holes"], 9)
+            self.assertEqual(context["dataset"]["finished_round_players"], 1)
+            self.assertEqual(context["players"][0]["gir"]["hits"], 9)
+            self.assertIsNone(context["players"][0]["putting"]["avg_putts"])
+        self.seed_card(isTeamScorecard=True)
+        with self.app.app_context():
+            context = build_shanklife_stats_context(current_user=self.db.session.get(User, self.owner), environment="simulator")
+            self.assertEqual(context["dataset"]["finished_round_players"], 0)
+            self.assertEqual(context["dataset"]["scored_holes"], 0)
+            self.assertTrue(context["trackman_own_rounds"][0]["team"])
+
+    def test_partial_read_preserves_known_data_and_exact_original(self):
+        from services.trackman_sync import archive_read
+        from services.trackman_models import TrackManArchive, TrackManRound
+        from services.trackman_rounds import save_scorecard
+        from types import SimpleNamespace
+        self.seed_card()
+        client = SimpleNamespace(read_errors=["node.holes"])
+        with self.app.app_context():
+            merged = archive_read(self.owner, "scorecards", "own-card", scorecard(holes=None), client)
+            save_scorecard(self.owner, merged)
+            self.db.session.commit()
+            self.assertEqual(len(merged["holes"]), 9)
+            self.assertTrue(TrackManRound.query.filter_by(user_id=self.owner).one().completed)
+            observation = TrackManArchive.query.filter_by(user_id=self.owner, category="partial_responses").one()
+            self.assertIsNone(json.loads(observation.payload)["data"]["holes"])
+            new = scorecard(); new["holes"] = new["holes"][:8]; new["holes"][0]["putts"] = None
+            merged = archive_read(self.owner, "scorecards", "own-card", new, client)
+            self.assertEqual(len(merged["holes"]), 9)
+            self.assertEqual(merged["holes"][0]["putts"], 2)
+
+    def test_paged_root_items_expand_nested_collections_before_archive(self):
+        from services.trackman_sync import sync_account, store_tokens
+        from services.trackman_models import TrackManAccount, TrackManArchive
+        class Client:
+            def __init__(self, *args):
+                self.schema = {}; self.gaps = set(); self.boundaries = set(); self.read_errors = []
+            def load_schema(self): return {}
+            def query(self, *args): return {"me": {"profile": {"id": "own-player"}}}
+            def root(self, *args, **kwargs): return {"items": [{"id": "league", "__typename": "League", "teams": {"items": [{"id": "a"}], "totalCount": 2, "pageInfo": {"hasNextPage": True}}}], "totalCount": 1, "pageInfo": {"hasNextPage": False}}, True
+            def node_types(self): return {"League"}
+            def expand_pages(self, record, expression, actual):
+                self_outer.assertEqual(expression, ['node(id:"league")'])
+                self_outer.assertEqual(actual, "League")
+                record["teams"]["items"].append({"id": "b"})
+                record["teams"]["pageInfo"]["hasNextPage"] = False
+            def close(self): pass
+        self_outer = self
+        with self.app.app_context():
+            account = self.db.session.get(TrackManAccount, self.owner)
+            store_tokens(account, {"access_token": "fake-only", "expires_in": 3600})
+            self.db.session.commit()
+            with patch("services.trackman_sync.TrackManClient", Client), patch("services.trackman_sync.ROOTS", ("leagues",)):
+                manifest = sync_account(self.owner)
+            self.assertEqual(manifest["sources"]["leagues"]["state"], "fetched")
+            raw = json.loads(TrackManArchive.query.filter_by(user_id=self.owner, category="leagues").one().payload)
+            self.assertEqual(len(raw["teams"]["items"]), 2)
+
+    def test_network_reads_do_not_hold_uncommitted_sqlite_writes(self):
+        import sqlite3
+        from services.trackman_sync import sync_account, store_tokens
+        from services.trackman_models import TrackManAccount
+        fixture = self
+        class Client:
+            def __init__(self, *args):
+                self.schema = {}; self.gaps = set(); self.boundaries = set(); self.read_errors = []
+            def load_schema(self): return {}
+            def query(self, *args): return {"me": {"profile": {"id": "own-player"}}}
+            def root(self, *args, **kwargs): return [{"id": n, "__typename": "Scorecard"} for n in ("first", "second")], True
+            def node(self, identity, actual):
+                with sqlite3.connect(fixture.tmp.name + '/test.db', timeout=0.1) as connection:
+                    fixture.assertEqual(connection.execute('SELECT COUNT(*) FROM trackman_archives WHERE category=? AND remote_id=?', ('scorecards_index', identity)).fetchone()[0], 1)
+                    # Another app writer must succeed while the upstream read waits.
+                    connection.execute('UPDATE trackman_accounts SET sync_message=sync_message WHERE user_id=?', (fixture.owner,))
+                return scorecard(id=identity)
+            def close(self): pass
+        with self.app.app_context():
+            account = self.db.session.get(TrackManAccount, self.owner)
+            store_tokens(account, {"access_token": "fake-only", "expires_in": 3600})
+            self.db.session.commit()
+            with patch("services.trackman_sync.TrackManClient", Client), patch("services.trackman_sync.ROOTS", ("scorecards",)):
+                manifest = sync_account(self.owner)
+            self.assertEqual(manifest["sources"]["scorecards"]["state"], "fetched")
+
     def test_expired_device_does_not_keep_polling(self):
         from services.secret_store import encrypt_secret
         from services.trackman_models import TrackManAccount

@@ -17,7 +17,7 @@ PAGE_SIZE = 50
 TYPE_REF = "kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name } } } }"
 SCHEMA_QUERY = "{__schema{types{kind name fields(includeDeprecated:true){name args{name defaultValue type{" + TYPE_REF + "}} type{" + TYPE_REF + "}} possibleTypes{name}}}}"
 # Boundaries: no global discovery of other users' golf or facility administration.
-BOUNDARIES = {"tournamentTeams", "participantGroups", "participantProgress", "locations", "sponsors", "partners", "availability", "rounds", "playerData", "newsFeed", "availableTournaments", "playedWith", "permissions", "playersScorecards", "participants", "teamMembers", "members", "friends", "students", "invites", "invitations", "leaderboard", "leaderboards", "players", "scores", "scorecards", "activities", "owner", "creator", "createdBy", "admins", "administrators"}
+BOUNDARIES = {"tournamentTeams", "participantGroups", "participantProgress", "locations", "sponsors", "partners", "availability", "rounds", "playerData", "newsFeed", "availableTournaments", "playedWith", "permissions", "playersScorecards", "otherPlayersScorecards", "participants", "teamMembers", "members", "friends", "students", "invites", "invitations", "leaderboard", "leaderboards", "players", "scores", "scorecards", "activities", "owner", "creator", "createdBy", "admins", "administrators"}
 CONTEXT_FIELDS = {"facility", "bay", "location", "course", "tournament", "league", "leagueSeason", "tournamentActivity", "player", "coach", "coachProfile", "organization", "domain", "parent", "defaultFacility"}
 METRIC_FIELDS = {"scorecard", "holes", "playOffHoles", "shots", "stroke", "strokes", "measurement", "normalizedMeasurement", "measurementDetails", "ballTrajectory", "clubTrajectory", "aggregatedMeasurement", "stat", "gameSettings", "puttingSettings", "clubData", "impactLocation", "data", "tests", "results", "statistics", "sessions"}
 ROOTS = ("profile", "equipment", "hcp", "activities", "scorecards", "activitySummary", "performanceTests", "assignedPerformanceTests", "plannedRounds", "tournaments", "leagues", "favorites", "devices", "visits", "properties", "consents", "connectedApps", "userAccess", "coachProfile")
@@ -69,6 +69,7 @@ class TrackManClient:
         self.boundaries = set()
         self.pages = []
         self.max_depth = 3
+        self.read_errors = []
 
     def close(self):
         self.http.close()
@@ -99,6 +100,7 @@ class TrackManClient:
                 paths = [".".join(map(str, error.get("path", []))) for error in result["errors"]]
                 if allow_partial and isinstance(result.get("data"), dict) and all(paths):
                     self.gaps.update("upstream error: " + path for path in paths)
+                    self.read_errors.extend(paths)
                 else:
                     raise TrackManError("TrackMan returnerte en datafeil" + (" i " + ", ".join(paths[:5]) if any(paths) else "") + ".")
             if not isinstance(result.get("data"), dict):
@@ -178,6 +180,7 @@ class TrackManClient:
         return "__typename " + " ".join((type_name + "__" + f["name"] + ":" + f["name"] if alias else f["name"]) for f in definition.get("fields") or [] if named_type(f["type"])["kind"] in ("SCALAR", "ENUM") and not f["args"])
 
     def root(self, name, skip=0, detail=True):
+        self.read_errors = []
         field = next((f for f in self.schema["Me"]["fields"] if f["name"] == name), None)
         if not field:
             raise TrackManError("TrackMan mangler datakilden " + name + ".")
@@ -196,6 +199,7 @@ class TrackManClient:
 
     def node(self, identity, type_name):
         self.pages = []
+        self.read_errors = []
         selection = self.bounded_selection(type_name)
         record = self.query("query($id:ID!){ node(id:$id){ ... on " + type_name + " { " + selection + " } } }", {"id": identity}, allow_partial=True)["node"]
         if record is None:
@@ -220,7 +224,7 @@ class TrackManClient:
             target = named_type(field["type"])["name"]
             args = {a["name"] for a in field["args"]}
             if {"skip", "take"} <= args:
-                selection = self.selection(target)
+                selection = self.bounded_selection(target)
                 combined = items_of(value)
                 total = value.get("totalCount") if isinstance(value, dict) else None
                 seen = {json.dumps(v, sort_keys=True) for v in combined}

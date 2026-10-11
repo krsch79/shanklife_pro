@@ -85,6 +85,23 @@ def build_shanklife_stats_context(prompt="", current_user=None, environment="out
     round_players = _finished_shanklife_round_players() if environment != "simulator" else []
     rows = _entry_rows([round_player.id for round_player in round_players])
     completed_rounds = _completed_rounds(round_players)
+    from services.trackman_rounds import row_summary, user_rounds
+    imported_models = user_rounds(current_user.id, environment) if current_user else []
+    imported = [row_summary(r) for r in imported_models]
+    imported_detailed = 0
+    for model in imported_models:
+        data = json.loads(model.summary)
+        if data.get("team") or str(data.get("game_score", "")).lower().startswith("match"):
+            continue
+        course_id = "trackman:" + model.course_name
+        base = {"round_id": "trackman:" + model.remote_id, "player_id": current_user.player_id, "player_name": current_user.player.name if current_user.player else current_user.username, "course_id": course_id, "course_name": model.course_name, "date": model.started_at.date().isoformat() if model.started_at else "", "tee": data.get("tee_name") or "", "environment": model.environment}
+        for hole in data["holes"]:
+            shot = hole.get("tee_shot") or {}
+            rows.append({**base, "hole": hole["number"], "par": hole["par"], "strokes": hole["strokes"], "to_par": hole["strokes"] - hole["par"] if hole["par"] is not None else None, "putts": hole["putts"] if not data["automatic_putting"] and hole.get("gimme") is not True else None, "gir": hole["gir"], "fairway_result": "", "club": shot.get("club") or ""})
+        if model.completed:
+            completed_rounds.append({**base, "score": data["total"], "to_par": data["total"] - data["par"] if data["par"] is not None else None})
+        imported_detailed += any(h["gir"] is not None or (h["putts"] is not None and not data["automatic_putting"] and h.get("gimme") is not True) for h in data["holes"])
+    completed_rounds.sort(key=lambda r: (r["date"], str(r["round_id"])), reverse=True)
 
     by_player = defaultdict(list)
     by_course = defaultdict(list)
@@ -101,6 +118,8 @@ def build_shanklife_stats_context(prompt="", current_user=None, environment="out
         round_player.player_id: round_player.player_name_snapshot
         for round_player in round_players
     }
+    if current_user:
+        player_names[current_user.player_id] = current_user.player.name if current_user.player else current_user.username
     players = [
         _player_context(player_id, player_names.get(player_id, "Ukjent spiller"), player_rows, rounds_by_player[player_id])
         for player_id, player_rows in by_player.items()
@@ -110,6 +129,8 @@ def build_shanklife_stats_context(prompt="", current_user=None, environment="out
     course_names = {}
     for round_player in round_players:
         course_names[round_player.round.course_id] = round_player.round.course.name
+    for row in rows:
+        course_names[row["course_id"]] = row["course_name"]
     requested_course_ids = _requested_course_ids(prompt, course_names)
     courses = []
     for course_id, course_rows in sorted(by_course.items(), key=lambda item: course_names.get(item[0], "")):
@@ -128,24 +149,22 @@ def build_shanklife_stats_context(prompt="", current_user=None, environment="out
     if len(compact_json) > 70000 and not requested_course_ids:
         courses = [_course_summary(course) for course in courses]
 
-    from services.trackman_rounds import row_summary, user_rounds
-    imported = [row_summary(r) for r in user_rounds(current_user.id, environment)] if current_user else []
     return {
         "round_environment": environment,
         "trackman_own_rounds": [{**r, "started_at": r["started_at"].isoformat() if r["started_at"] else None} for r in imported],
-        "trackman_note": "Egne private runder. Ikke målte/automatiske putter er utelatt fra puttesnitt; delvise runder er merket.",
+        "trackman_note": "Egne private runder. Automatiske putter og gimmies er utelatt fra puttesnitt; delvise runder er merket. Team og matchplay inngår ikke i individuelle summer. TrackMan-baner har egne identiteter. Fairway per hull mangler; rundens opprinnelige fairwayprosenter finnes i trackman_own_rounds.",
         "current_user": _current_user_context(current_user),
         "dataset": {
             "players": len(players),
             "courses": len(courses),
-            "finished_round_players": len(round_players) + sum(r["completed"] for r in imported),
+            "finished_round_players": len(completed_rounds),
             "scored_holes": len(rows),
-            "rounds_with_detailed_stats": sum(1 for round_player in round_players if _tracks_stats(round_player)),
+            "rounds_with_detailed_stats": sum(1 for round_player in round_players if _tracks_stats(round_player)) + imported_detailed,
             "note": "Alle BalleTour/Ballerud-runder og matchplay-runder er utelatt.",
         },
         "players": players[:MAX_PLAYERS],
         "courses": courses[:MAX_COURSES],
-        "field_summary": _field_summary(players, rows),
+        "field_summary": {**_field_summary(players, rows), "avg_round_to_par": _rounded_avg([r["to_par"] for r in completed_rounds])},
     }
 
 
@@ -245,7 +264,7 @@ def _player_context(player_id, name, rows, rounds):
         "completed_rounds": len(rounds),
         "scored_holes": len(rows),
         "avg_to_par": _rounded_avg([row["to_par"] for row in rounds]),
-        "best_to_par": min((row["to_par"] for row in rounds), default=None),
+        "best_to_par": min((row["to_par"] for row in rounds if row["to_par"] is not None), default=None),
         "score_distribution": _score_distribution([row["to_par"] for row in rows]),
         "putting": _putting_summary(rows),
         "gir": _gir_summary(rows),
@@ -259,7 +278,7 @@ def _player_context(player_id, name, rows, rounds):
                     round_row["to_par"] for round_row in rounds_by_course[course_name]
                 ]),
                 "best_round_to_par": min(
-                    (round_row["to_par"] for round_row in rounds_by_course[course_name]),
+                    (round_row["to_par"] for round_row in rounds_by_course[course_name] if round_row["to_par"] is not None),
                     default=None,
                 ),
                 "avg_to_par_per_hole": _rounded_avg([row["to_par"] for row in course_rows]),
@@ -287,7 +306,7 @@ def _course_context(course_id, name, rows, rounds, detailed=True):
         "name": name,
         "completed_rounds": len(rounds),
         "avg_round_to_par": _rounded_avg([round_row["to_par"] for round_row in rounds]),
-        "best_round_to_par": min((round_row["to_par"] for round_row in rounds), default=None),
+        "best_round_to_par": min((round_row["to_par"] for round_row in rounds if round_row["to_par"] is not None), default=None),
         "scored_holes": len(rows),
         "players": [
             {
@@ -298,7 +317,7 @@ def _course_context(course_id, name, rows, rounds, detailed=True):
                     round_row["to_par"] for round_row in rounds_by_player[player_name]
                 ]),
                 "best_round_to_par": min(
-                    (round_row["to_par"] for round_row in rounds_by_player[player_name]),
+                    (round_row["to_par"] for round_row in rounds_by_player[player_name] if round_row["to_par"] is not None),
                     default=None,
                 ),
                 "avg_to_par_per_hole": _rounded_avg([row["to_par"] for row in player_rows]),
@@ -321,7 +340,7 @@ def _course_context(course_id, name, rows, rounds, detailed=True):
     if detailed:
         context["holes"] = [
             _hole_context(hole_number, hole_rows)
-            for hole_number, hole_rows in sorted(by_hole.items())
+            for hole_number, hole_rows in sorted(by_hole.items(), key=lambda item: (item[0] is None, item[0] if item[0] is not None else 0))
         ]
     else:
         context["details_note"] = "Hull-detaljer utelatt fordi spørsmålet peker på en annen bane."
@@ -404,8 +423,8 @@ def _putting_summary(rows):
 
 
 def _gir_summary(rows):
-    attempts = [row for row in rows if row["putts"] is not None]
-    hits = sum(1 for row in attempts if row["strokes"] - row["putts"] <= row["par"] - 2)
+    attempts = [row for row in rows if row.get("gir") is not None or (row.get("environment") != "simulator" and row["putts"] is not None and row["par"] is not None)]
+    hits = sum(1 for row in attempts if row.get("gir") is True or (row.get("gir") is None and row["strokes"] - row["putts"] <= row["par"] - 2))
     return {"attempts": len(attempts), "hits": hits, "percent": _percent(hits, len(attempts))}
 
 
@@ -434,6 +453,7 @@ def _club_context(club, rows):
 
 
 def _score_distribution(diffs):
+    diffs = [diff for diff in diffs if diff is not None]
     return {
         "eagle_or_better": sum(1 for diff in diffs if diff <= -2),
         "birdie": sum(1 for diff in diffs if diff == -1),

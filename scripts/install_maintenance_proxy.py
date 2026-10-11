@@ -22,6 +22,7 @@ def main():
         raise SystemExit("Unsupported app directory")
     stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
     changed = []
+    plans = {}
     backups = Path("/var/backups/shanklife-nginx") / stamp
     for link in Path("/etc/nginx/sites-enabled").iterdir():
         path = link.resolve()
@@ -38,18 +39,22 @@ def main():
         indent = match.group("indent")
         replacement = (indent + "# shanklife-static-maintenance\n" + indent + "error_page 503 =503 /__shanklife_maintenance.html;\n" + indent + "location = /__shanklife_maintenance.html {\n" + indent + "    internal;\n" + indent + "    alias " + root + "/static/maintenance.html;\n" + indent + "    add_header Cache-Control \"no-store\" always;\n" + indent + "}\n" + match.group(0) + indent + "    if (-f " + root + "/instance/maintenance.lock) { return 503; }\n")
         updated = original[:match.start()] + replacement + original[match.end():]
-        backups.mkdir(parents=True, mode=0o700, exist_ok=True)
-        backup = backups / path.name
-        shutil.copy2(path, backup)
-        path.write_text(updated)
-        changed.append((path, backup))
-    if not changed:
+        plans[path] = updated
+    if not plans:
         print("Static maintenance proxy already installed or no matching vhosts.")
         return
     try:
+        backups.mkdir(parents=True, mode=0o700, exist_ok=True)
+        # Preflight all vhosts before any write. Backup all before modifying one.
+        for index, path in enumerate(plans):
+            backup = backups / (str(index) + "-" + path.name)
+            shutil.copy2(path, backup)
+            changed.append((path, backup))
+        for path, updated in plans.items():
+            path.write_text(updated)
         subprocess.run(["/usr/sbin/nginx", "-t"], check=True)
         subprocess.run(["systemctl", "reload", "nginx"], check=True)
-    except Exception:
+    except BaseException:
         for path, backup in changed:
             shutil.copy2(backup, path)
         subprocess.run(["/usr/sbin/nginx", "-t"], check=True)

@@ -19,7 +19,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--username", required=True)
     args = parser.parse_args()
-    payload = json.loads(sys.stdin.buffer.read(128 * 1024 * 1024))
+    transfer_limit = 512 * 1024 * 1024
+    raw = sys.stdin.buffer.read(transfer_limit + 1)
+    if len(raw) > transfer_limit:
+        raise ValueError("Private transfer exceeds the 512 MiB limit.")
+    payload = json.loads(raw)
+    del raw
     from app import app
     from extensions import db
     from models import User
@@ -45,7 +50,7 @@ def main():
                     raise TrackManError("The token does not match the approved archive's player.")
             finally:
                 client.close()
-            allowed = set(ROOTS) | {"schema", "activities_index", "scorecards_index"}
+            allowed = set(ROOTS) | {"schema", "activities_index", "scorecards_index", "partial_responses"}
             count = 0
             for item in payload["records"]:
                 if item["category"] not in allowed:
