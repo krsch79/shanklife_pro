@@ -3,6 +3,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/home/kristian/shanklife_pro}"
 BRANCH="${BRANCH:-main}"
+GIT_SOURCE="${SHANKLIFE_GIT_SOURCE:-origin}"
 PYTHON_BIN="${PYTHON_BIN:-/tmp/shanklife_pro_venv/bin/python}"
 PIP_BIN="${PIP_BIN:-/tmp/shanklife_pro_venv/bin/pip}"
 MAINTENANCE_FILE="${SHANKLIFE_MAINTENANCE_FILE:-$APP_DIR/instance/maintenance.lock}"
@@ -82,6 +83,23 @@ install_golfbox_scheduler() {
     rm -f "$tmp_cron"
 }
 
+install_trackman_scheduler() {
+    local cron_path
+    cron_path="$(mktemp)"
+    crontab -l 2>/dev/null | awk '
+        /# shanklife-trackman-start/ {skip=1; next}
+        /# shanklife-trackman-end/ {skip=0; next}
+        !skip {print}
+    ' > "$cron_path"
+    {
+        echo "# shanklife-trackman-start"
+        echo "17 0,6,12,18 * * * cd $APP_DIR && $PYTHON_BIN scripts/sync_trackman.py >> /tmp/shanklife_pro_trackman.log 2>&1"
+        echo "# shanklife-trackman-end"
+    } >> "$cron_path"
+    crontab "$cron_path"
+    rm -f "$cron_path"
+}
+
 echo "Setter Shanklife Pro i vedlikeholdsmodus..."
 mkdir -p "$(dirname "$MAINTENANCE_FILE")"
 printf 'Deploy startet %s\n' "$(date -Is)" > "$MAINTENANCE_FILE"
@@ -91,11 +109,12 @@ echo "Tar databasebackup før deploy..."
 "$PYTHON_BIN" scripts/daily_backup.py --force --name "Backup før deploy"
 
 echo "Henter siste kode fra GitHub..."
-git fetch origin "$BRANCH"
+git fetch "$GIT_SOURCE" "$BRANCH"
 git checkout "$BRANCH"
-git merge --ff-only "origin/$BRANCH"
+git merge --ff-only FETCH_HEAD
 
 echo "Installerer avhengigheter..."
+sudo /usr/bin/python3 scripts/install_maintenance_proxy.py --app-dir "$APP_DIR" --port "$APP_PORT"
 "$PIP_BIN" install -r requirements.txt
 
 echo "Kjører syntakssjekk..."
@@ -103,6 +122,7 @@ echo "Kjører syntakssjekk..."
 
 echo "Installerer planlagt GolfBox-booking-kjører..."
 install_golfbox_scheduler
+install_trackman_scheduler
 
 echo "Installerer og aktiverer systemd-tjenesten..."
 sudo install -m 0644 "$SERVICE_FILE" "/etc/systemd/system/$SERVICE_NAME"

@@ -19,12 +19,12 @@ MAX_CLUBS = 8
 MAX_HOLE_PLAYERS = 8
 
 
-def ask_shanklife_stats_ai(prompt, current_user=None):
+def ask_shanklife_stats_ai(prompt, current_user=None, environment="all"):
     prompt = (prompt or "").strip()
     if not prompt:
         raise ValueError("Skriv et spørsmål først.")
 
-    data_context = build_shanklife_stats_context(prompt=prompt, current_user=current_user)
+    data_context = build_shanklife_stats_context(prompt=prompt, current_user=current_user, environment=environment)
     api_key = _openai_api_key()
     if not api_key:
         return {
@@ -81,8 +81,8 @@ def ask_shanklife_stats_ai(prompt, current_user=None):
     }
 
 
-def build_shanklife_stats_context(prompt="", current_user=None):
-    round_players = _finished_shanklife_round_players()
+def build_shanklife_stats_context(prompt="", current_user=None, environment="outdoor"):
+    round_players = _finished_shanklife_round_players() if environment != "simulator" else []
     rows = _entry_rows([round_player.id for round_player in round_players])
     completed_rounds = _completed_rounds(round_players)
 
@@ -128,12 +128,17 @@ def build_shanklife_stats_context(prompt="", current_user=None):
     if len(compact_json) > 70000 and not requested_course_ids:
         courses = [_course_summary(course) for course in courses]
 
+    from services.trackman_rounds import row_summary, user_rounds
+    imported = [row_summary(r) for r in user_rounds(current_user.id, environment)] if current_user else []
     return {
+        "round_environment": environment,
+        "trackman_own_rounds": [{**r, "started_at": r["started_at"].isoformat() if r["started_at"] else None} for r in imported],
+        "trackman_note": "Egne private runder. Ikke målte/automatiske putter er utelatt fra puttesnitt; delvise runder er merket.",
         "current_user": _current_user_context(current_user),
         "dataset": {
             "players": len(players),
             "courses": len(courses),
-            "finished_round_players": len(round_players),
+            "finished_round_players": len(round_players) + sum(r["completed"] for r in imported),
             "scored_holes": len(rows),
             "rounds_with_detailed_stats": sum(1 for round_player in round_players if _tracks_stats(round_player)),
             "note": "Alle BalleTour/Ballerud-runder og matchplay-runder er utelatt.",

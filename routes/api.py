@@ -1602,3 +1602,15 @@ def balletour_all_stats():
         "tee": tee_key,
         "rows": [_all_stats_row_payload(row) for row in rows],
     })
+
+
+@api_bp.route("/shanklife/stats")
+@api_login_required
+def shanklife_stats():
+    from routes.stats import _player_stats
+    from services.trackman_rounds import environment_filter, merge_stats, user_rounds
+    environment = environment_filter(request.args.get("environment"))
+    payload = merge_stats(_player_stats(g.current_user.player, environment), user_rounds(g.current_user.id, environment))
+    for row in payload["round_rows"]:
+        row["started_at"] = row["started_at"].isoformat() if row["started_at"] else None
+    return jsonify({"environment": environment, "stats": payload})

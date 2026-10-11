@@ -4139,3 +4139,20 @@ nav a:hover,
 
 .finished-round-filter-grid label { margin: 0; min-width: 0; }
 @media (min-width: 800px) { .finished-round-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* TrackMan connection, archive and source filters. */
+.trackman-panel { margin-bottom: 1.5rem; }
+.trackman-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0; }
+.trackman-rounds { display: grid; gap: .8rem; }
+.trackman-gaps { max-height: 18rem; overflow: auto; overflow-wrap: anywhere; }
+.trackman-data { margin: 0; }
+.trackman-data > div { display: grid; grid-template-columns: minmax(9rem, 1fr) minmax(0, 3fr); gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--border-color, #ddd); }
+.trackman-data dt { font-weight: 600; overflow-wrap: anywhere; }
+.trackman-data dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.trackman-data details { padding: .2rem 0; }
+@media (max-width: 600px) {
+    .trackman-data > div { grid-template-columns: 1fr; gap: .3rem; }
+    .trackman-panel .button-row { flex-direction: column; align-items: stretch; }
+    .trackman-panel button, .trackman-panel .button { width: 100%; }
+    .trackman-rounds .my-round-card { flex-wrap: wrap; }
+}

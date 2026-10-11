@@ -2,6 +2,14 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## 1.9.65 - 2026-10-11
+
+- TrackMan-tilkobling med innlogging hos TrackMan, full historikkimport og automatisk synkronisering fire ganger i døgnet.
+- Simulatorrunder vises i rundehistorikken og kan sammenlignes med utendørsrunder. Statistikken og AI-statistikken har valgene inne og ute, kun simulator og kun utendørs.
+- Et privat arkiv bevarer originale hull-, slag-, trenings-, utstyrs- og handicapdata og kan lastes ned. Datadekning viser kilder, antall og felt som TrackMan ikke leverer.
+- Delvis spilte runder, automatisk putting og gimmies behandles særskilt; manglende tall blir ikke erstattet med null. TrackMan-runder kan ikke sendes til GolfBox.
+- Vedlikeholdssiden serveres direkte av nginx også mens appen starter på nytt.
+
 ## [1.9.64] - 2026-09-10
 - Registrer Fairwaybunker, Forbi fairway, Kort av fairway og Greentreff på par 4 og 5. Valgene vises i scorekort og statistikk og kan redigeres i fullførte runder.
 - Administrator kan invitere en ny Shanklife-bruker med navn og e-post. Mottakeren velger passord via en engangslenke og får automatisk tilgang til Shanklife Pro og Shanklife-appen.

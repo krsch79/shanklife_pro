@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% macro fields(value) %}
+{% if value is mapping %}<dl class="trackman-data">{% for key, child in value.items() %}{% if key != '__typename' %}<div><dt>{{ key }}</dt><dd>{% if child is mapping or (child is iterable and child is not string) %}<details><summary>{{ child|length }} felt / poster</summary>{{ fields(child) }}</details>{% else %}{{ 'Ikke tilgjengelig' if child is none else child }}{% endif %}</dd></div>{% endif %}{% endfor %}</dl>{% elif value is iterable and value is not string %}{% for child in value %}<details><summary>Post {{ loop.index }}</summary>{{ fields(child) }}</details>{% else %}<p>Ingen poster</p>{% endfor %}{% else %}<span>{{ 'Ikke tilgjengelig' if value is none else value }}</span>{% endif %}
+{% endmacro %}
+{% block title %}TrackMan-originaldata{% endblock %}
+{% block content %}<div class="page-title-row"><div><h2>{{ data.get('course', {}).get('displayName') if data.get('course') else (data.get('kind') or row.category) }}</h2><p class="muted">Originale TrackMan-felt · hentet {{ row.fetched_at|datetime_local }}</p></div><a class="button secondary" href="{{ url_for('trackman.index') }}">Tilbake til TrackMan</a></div><section class="form-card">{{ fields(data) }}</section>{% endblock %}

@@ -8,10 +8,11 @@
         <p class="muted">Spør om score, baner, hull, putting, GIR, fairway, køller og utvikling</p>
     </div>
     <div class="page-title-actions">
-        <a class="button secondary" href="{{ url_for('stats.index') }}">Vanlig statistikk</a>
+        <a class="button secondary" href="{{ url_for('stats.index', environment=environment) }}">Vanlig statistikk</a>
     </div>
 </div>
 
+<div class="tee-tabs trackman-tabs" aria-label="Velg rundetype">{% for key, label in environments.items() %}<a class="{{ 'active' if environment == key else '' }}" href="{{ url_for('stats.ai_stats', environment=key) }}">{{ label }}</a>{% endfor %}</div>
 <section class="golfbox-chat-shell">
     <div class="form-card">
         <h3>Forslag</h3>
@@ -21,7 +22,7 @@
             {% endfor %}
         </div>
         <p class="muted">
-            AI-en bruker fullførte Shanklife-runder fra andre baner enn Ballerud/BalleTour.
+            AI-en bruker valgt rundetype. Egne TrackMan-runder følger med; automatisk putting og delvise runder er merket. Ballerud/BalleTour er utelatt fra utendørsgrunnlaget.
             Nevn gjerne spiller, bane, hull eller tee for et mer presist svar.
         </p>
     </div>
@@ -68,7 +69,7 @@
         {% endif %}
     </div>
 
-    <form method="post" class="golfbox-chat-form">
+    <form method="post" class="golfbox-chat-form"><input type="hidden" name="environment" value="{{ environment }}">
         <label for="prompt">Spørsmål</label>
         <textarea
             id="prompt"

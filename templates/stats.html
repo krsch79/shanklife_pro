@@ -5,7 +5,7 @@
 <div class="page-title-row stats-page-title">
     <div>
         <h2>Shanklife Pro-statistikk</h2>
-        <p class="muted">Fullførte runder med statistikk</p>
+        <p class="muted">Runder med registrert score og statistikk</p>
     </div>
 </div>
 
@@ -14,7 +14,7 @@
     {% for player in players %}
     <a
         class="{% if selected_player and selected_player.id == player.id %}active{% endif %}"
-        href="{{ url_for('stats.index', player_id=player.id) }}"
+        href="{{ url_for('stats.index', player_id=player.id, environment=environment) }}"
     >
         {{ player.name }}
     </a>
@@ -23,6 +23,8 @@
 {% endif %}
 
 {% if selected_player %}
+<div class="tee-tabs trackman-tabs" aria-label="Velg rundetype">{% for key, label in environments.items() %}<a class="{{ 'active' if environment == key else '' }}" href="{{ url_for('stats.index', player_id=selected_player.id, environment=key) }}">{{ label }}</a>{% endfor %}</div>
+<p class="muted">TrackMan-runder er private og vises for din egen spiller. Automatisk putting og hull med gimmie teller ikke i puttesnittet. Lagspill er utelatt fra individuelle snitt. Delvis spilte runder bidrar med registrerte hull; beste runde krever en fullført runde. <a href="{{ url_for('trackman.index') }}">TrackMan-arkiv og datadekning</a></p>
 <header class="stats-player-heading">
     <div>
         <h3>{{ selected_player.name }}</h3>
@@ -49,6 +51,7 @@
     </div>
 </section>
 
+<p class="muted">Retning på greenmiss, bunker, fairway per kølle og puttelengder bygger foreløpig på utendørsregistreringer. Køllevalg og slaglengder inkluderer tilgjengelige TrackMan-utslag.</p>
 <div class="stats-sections">
     <details class="stats-section">
         <summary>
@@ -106,8 +109,8 @@
                         <tbody>
                             {% for row in stats.round_rows %}
                             <tr>
-                                <td><a href="{{ url_for('rounds.round_score', round_id=row.round_id) }}">#{{ row.round_id }}{% if row.holes == 9 %}<sup title="9-hullsrunde" aria-label=" – 9 hull">*</sup>{% endif %}</a><br><span class="muted">{{ row.started_at|datetime_local }}</span></td>
-                                <td>{{ row.course_name }}</td>
+                                <td><a href="{% if row.trackman_id %}{{ url_for('trackman.round_detail', round_id=row.trackman_id) }}{% else %}{{ url_for('rounds.round_score', round_id=row.round_id) }}{% endif %}">{{ 'TrackMan' if row.trackman_id else '#' ~ row.round_id }}{% if row.holes == 9 %}<sup title="9-hullsrunde" aria-label=" – 9 hull">*</sup>{% endif %}</a><br><span class="muted">{{ row.started_at|datetime_local }} · {{ 'Simulator' if row.environment == 'simulator' else 'Utendørs' }}</span>{% if row.trackman_id and not row.completed %}<br><small>Delvis spilt</small>{% endif %}</td>
+                                <td>{{ row.course_name }}{% if row.team %}<br><small>Lagspill</small>{% endif %}</td>
                                 <td>{{ row.tee_name }}</td>
                                 <td>{{ row.total if row.total is not none else "-" }}</td>
                                 <td>{% if row.to_par is not none %}{% if row.to_par > 0 %}+{% endif %}{{ row.to_par }}{% else %}-{% endif %}</td>

@@ -10,6 +10,8 @@ from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
 from extensions import db
+from services import trackman_models  # Register private archive tables before create_all.
+from routes.trackman import trackman_bp
 from models import Club, Course, CourseHole, Player, Round, RoundPlayer, User
 from routes.main import main_bp
 from routes.players import players_bp
@@ -519,6 +521,7 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(series_bp)
     app.register_blueprint(stats_bp)
+    app.register_blueprint(trackman_bp)
     app.register_blueprint(balletour_bp)
     app.register_blueprint(golfbox_scores_bp)
     app.register_blueprint(api_bp)

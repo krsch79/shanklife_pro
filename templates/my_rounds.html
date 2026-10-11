@@ -6,7 +6,7 @@
     <div>
         <p class="eyebrow">Rundehistorikk</p>
         <h2>Mine runder</h2>
-        <p class="muted">Pågående og fullførte Shanklife-runder.</p>
+        <p class="muted">Shanklife-runder og importerte TrackMan-runder.</p>
     </div>
     <div class="button-row compact">
         <a class="button" href="{{ url_for('rounds.new_stats_round') }}">Ny runde</a>
@@ -15,13 +15,14 @@
     </div>
 </div>
 
+<div class="tee-tabs trackman-tabs" aria-label="Velg rundetype">{% for key, label in environments.items() %}<a class="{{ 'active' if environment == key else '' }}" href="{{ url_for('profile.my_rounds', environment=key) }}">{{ label }}</a>{% endfor %}</div>
 <section class="round-filter-panel">
-    <form method="get" class="my-round-filters">
+    <form method="get" class="my-round-filters"><input type="hidden" name="environment" value="{{ environment }}">
         <div>
             <label for="status">Status</label>
             <select id="status" name="status">
                 <option value="">Alle</option>
-                <option value="ongoing" {% if filters.status == "ongoing" %}selected{% endif %}>Pågående</option>
+                <option value="ongoing" {% if filters.status == "ongoing" %}selected{% endif %}>Pågående / delvis spilt</option>
                 <option value="finished" {% if filters.status == "finished" %}selected{% endif %}>Fullførte</option>
             </select>
         </div>
@@ -76,7 +77,7 @@
 </section>
 
 <div class="round-result-heading">
-    <p><strong>{{ round_rows|length }}</strong> av {{ total_round_count }} runder</p>
+    <p><strong>{{ round_rows|length + trackman_rows|length }}</strong> av {{ total_round_count }} runder</p>
 </div>
 
 <div class="my-round-list">
@@ -120,11 +121,12 @@
         </div>
     </article>
     {% else %}
-    <section class="empty-state-card">
+    {% if not trackman_rows %}<section class="empty-state-card">
         <h3>Ingen runder matcher filtrene</h3>
         <p class="muted">Nullstill filtrene eller velg andre kriterier.</p>
         <a class="button secondary" href="{{ url_for('profile.my_rounds') }}">Nullstill filtre</a>
-    </section>
+    </section>{% endif %}
     {% endfor %}
+{% for row in trackman_rows %}<article class="my-round-card"><div class="my-round-main"><p class="eyebrow">{{ row.started_at|datetime_local }} · {{ 'Simulator' if row.environment == 'simulator' else 'Utendørs' }} · TrackMan</p><h3>{{ row.course_name }}</h3><p>{{ row.holes }} spilte hull · {{ 'Fullført' if row.completed else 'Delvis spilt' }}{% if row.team %} · Lagspill – utelatt fra individuelle snitt{% endif %}{% if row.automatic_putting %} · Automatisk putting / ikke målt{% endif %}</p></div><div class="my-round-score"><strong>{{ row.total if row.total is not none else '—' }}</strong><a href="{{ url_for('trackman.round_detail', round_id=row.trackman_id) }}">Åpne rundedata</a></div></article>{% endfor %}
 </div>
 {% endblock %}

@@ -13,6 +13,7 @@ from services.play_formats import MATCHPLAY
 from services.round_length import round_holes
 from services.shanklife_ai_stats import ask_shanklife_stats_ai
 from services.stats_summary import round_score_summary
+from services.trackman_rounds import ENVIRONMENTS, environment_filter, merge_stats, user_rounds
 
 stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
 
@@ -27,6 +28,7 @@ def _exclude_balletour_course(query):
 @stats_bp.route("/ai", methods=["GET", "POST"])
 @login_required
 def ai_stats():
+    environment = environment_filter(request.values.get("environment"))
     chat_messages = session.get("shanklife_stats_ai_chat", [])
     if request.method == "GET":
         chat_messages = []
@@ -41,7 +43,7 @@ def ai_stats():
         elif prompt:
             chat_messages.append({"role": "user", "text": prompt})
             try:
-                result = ask_shanklife_stats_ai(prompt, current_user=g.current_user)
+                result = ask_shanklife_stats_ai(prompt, current_user=g.current_user, environment=environment)
                 chat_messages.append({
                     "role": "assistant",
                     "text": result["answer"],
@@ -59,6 +61,7 @@ def ai_stats():
 
     return render_template(
         "shanklife_ai_stats.html",
+        environment=environment, environments=ENVIRONMENTS,
         chat_messages=chat_messages,
         example_prompts=[
             "Hva bør jeg trene mest på basert på rundene mine?",
@@ -330,12 +333,13 @@ def _round_stat_summary(round_player):
             fairway_attempts += 1
             fairway_counts[stat.fairway_result] += 1
 
-    gir_attempts = len([entry for entry in entries if entry.id in stats_by_entry_id])
+    gir_attempts = sum(stat.putts is not None and entry.id in par_by_entry_id for stat, entry in stats_rows)
     gir_count = _gir_count(stats_rows, par_by_entry_id)
     total = sum(entry.strokes for entry in entries) if entries else None
     par = sum(par_by_entry_id.get(entry.id, 0) for entry in entries)
     return {
         "round_id": round_player.round_id,
+        "environment": "outdoor",
         "started_at": round_player.round.started_at,
         "course_name": round_player.round.course.name,
         "tee_name": round_player.selected_tee.name if round_player.selected_tee else "—",
@@ -353,8 +357,8 @@ def _round_stat_summary(round_player):
     }
 
 
-def _player_stats(player):
-    round_players = _tracked_round_players(player)
+def _player_stats(player, environment="outdoor"):
+    round_players = _tracked_round_players(player) if environment != "simulator" else []
     round_player_ids = [round_player.id for round_player in round_players]
     completed = _completed_rounds(round_players)
     entries = (
@@ -450,9 +454,11 @@ def _player_stats(player):
             putt_distance_by_round[entry.round_id] += stat.last_putt_distance_m
 
     round_summary = round_score_summary(completed)
-    gir_attempts = len([entry for entry in entries if entry.id in {stat.score_entry_id for stat, _entry in stats_rows}])
+    gir_attempts = sum(stat.putts is not None and entry.id in par_by_entry_id for stat, entry in stats_rows)
     gir_count = _gir_count(stats_rows, par_by_entry_id)
     return {
+        "_samples": {"gir_count": gir_count, "gir_attempts": gir_attempts, "putts": [stat.putts for stat, _entry in stats_rows if stat.putts is not None], "fairway": dict(fairway_counts), "fairway_attempts": fairway_attempts, "clubs": {club_names.get(club_id, "Ukjent"): {**bucket, "fw_count": bucket["count"]} for club_id, bucket in by_club.items()}},
+        "_completed": completed,
         "round_count": len(round_players),
         "completed_round_count": len(completed),
         **round_summary,
@@ -505,9 +511,11 @@ def index():
         selected_player = players[0]
     if not selected_player:
         return render_template("stats.html", players=players, selected_player=None, stats={})
+    environment = environment_filter(request.args.get("environment"))
+    own_player = selected_player.id == g.current_user.player_id
+    imported = user_rounds(g.current_user.id, environment) if own_player else []
+    stats = merge_stats(_player_stats(selected_player, environment), imported)
     return render_template(
-        "stats.html",
-        players=players,
-        selected_player=selected_player,
-        stats=_player_stats(selected_player),
+        "stats.html", players=players, selected_player=selected_player, stats=stats,
+        environment=environment, environments=ENVIRONMENTS, own_player=own_player,
     )

@@ -27,3 +27,5 @@
 
 - Before read-only database probes, resolve the configured SQLite filename from app.py/environment; the default is instance/shanklife_pro.db, not instance/shanklife.db. Open with mode=ro and require the expected schema before querying.
 - Use explicit type="text" for text inputs in new forms: static/style.css styles input[type="text"], so omitted types render as unstyled browser defaults. Verify the rendered form before deployment.
+
+- TrackMan schema-driven reads must bound query size before any HTTP request. Recursive expansion of facility/course/tournament graphs can create gigabyte queries; treat those as context references, expand only golf measurement paths deeply, and reject queries above 250 KB before sending. Retain excluded/required fields in the coverage manifest.

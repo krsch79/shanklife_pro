@@ -16,6 +16,7 @@ from services.garmin_golf import garmin_connection_available
 from services.golfbox import clear_user_golfbox_credentials, golfbox_connection_summary, save_user_golfbox_credentials
 from services.play_formats import MATCHPLAY
 from services.round_length import round_holes
+from services.trackman_rounds import ENVIRONMENTS, environment_filter, row_summary, user_rounds
 
 profile_bp = Blueprint("profile", __name__)
 
@@ -122,17 +123,22 @@ def me():
 @profile_bp.route("/me/rounds")
 @login_required
 def my_rounds():
-    all_round_players = _personal_round_players(g.current_user.player)
+    environment = environment_filter(request.args.get("environment"))
+    all_round_players = _personal_round_players(g.current_user.player) if environment != "simulator" else []
+    imported = user_rounds(g.current_user.id, environment)
 
     available_years = sorted(
-        {round_player.round.started_at.year for round_player in all_round_players},
+        {round_player.round.started_at.year for round_player in all_round_players} | {r.started_at.year for r in imported if r.started_at},
         reverse=True,
     )
+    trackman_courses = {}
+    for imported_round in imported:
+        trackman_courses.setdefault(imported_round.course_name, -imported_round.id)
     available_courses = sorted(
         {
             (round_player.round.course.id, round_player.round.course.name)
             for round_player in all_round_players
-        },
+        } | {(identity, name + " (TrackMan)") for name, identity in trackman_courses.items()},
         key=lambda item: item[1].lower(),
     )
     available_tees = sorted(
@@ -140,7 +146,7 @@ def my_rounds():
             round_player.selected_tee.name
             for round_player in all_round_players
             if round_player.selected_tee
-        },
+        } | {json.loads(r.summary).get("tee_name") for r in imported if json.loads(r.summary).get("tee_name")},
         key=str.lower,
     )
 
@@ -187,10 +193,27 @@ def my_rounds():
             continue
         filtered_round_players.append(round_player)
 
+    trackman_rows = []
+    for r in imported:
+        row = row_summary(r)
+        if filters["year"] and (not r.started_at or r.started_at.year != filters["year"]):
+            continue
+        if filters["status"] and ("finished" if r.completed else "ongoing") != filters["status"]:
+            continue
+        if filters["course_id"] and (filters["course_id"] > 0 or trackman_courses[r.course_name] != filters["course_id"]):
+            continue
+        if filters["garmin"] == "synced":
+            continue
+        if filters["tee"] and row["tee_name"] != filters["tee"]:
+            continue
+        if filters["holes"] and r.holes_to_play != filters["holes"]:
+            continue
+        trackman_rows.append(row)
     return render_template(
         "my_rounds.html",
+        trackman_rows=trackman_rows, environment=environment, environments=ENVIRONMENTS,
         round_rows=[_round_row(round_player) for round_player in filtered_round_players],
-        total_round_count=len(all_round_players),
+        total_round_count=len(all_round_players) + len(imported),
         filters=filters,
         available_years=available_years,
         available_courses=available_courses,

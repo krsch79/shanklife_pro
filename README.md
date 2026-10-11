@@ -79,3 +79,6 @@ Produksjonsdatabasen og runtime-data ligger under `instance/` og `uploads/` og e
 - Produksjonsprosessen startes og overvåkes av `shanklife-pro.service`; `scripts/deploy.sh` installerer tjenesten og bruker fortsatt `run.sh` som felles runtime-startpunkt. Driftskontroller skal verifisere både systemd, faktisk prosess, port og health-endepunkt.
 - Eldre 9-hullsrunder uten `starting_hole_number` tolkes som «Første 9». Nye runder valideres mot både antall hull og tillatt start-hull.
 - Produktendringer dokumenteres i `SHANKLIFE_CHANGELOG.md` eller `BALLETOUR_CHANGELOG.md`. Relevante åpne oppgaver spores i GitHub Issues.
+
+TrackMan simulator rounds, raw archives, OAuth setup, source filters, completeness
+checks and scheduled synchronization are documented in [TRACKMAN.md](TRACKMAN.md).
