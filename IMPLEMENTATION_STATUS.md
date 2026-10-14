@@ -1,38 +1,44 @@
-# Sportsmodus implementation status
+# Sportsmodus delivery and continuation
 
-Updated 2026-10-14. In progress; not deployed.
+Updated 2026-10-14. Web/API 2.0.0 deployed and verified. Signed iOS 2.0.0 (21) archive delivered; user explicitly selected archive delivery only, so no TestFlight upload is pending.
 
 ## Agreed scope
-Sportsmodus; one Shanklife product with BalleTour as its tour; web, API and native iOS together; no offline scoring. Keep existing tournament calculation/ranking and access/ownership boundaries. Preserve old URLs and historical results.
+One Shanklife product in Sportsmodus with BalleTour as its tour; web, API and native iOS together. Online scoring only. Preserve tournament calculation/ranking, historical results, old URLs, ownership and central access boundaries. Qualification (20 rounds) is displayed separately from ranking.
 
-## Workspace and baseline
-- Clone: /tmp/shanklife-sportsmodus.nqnY0T/repo
-- Branch: codex/sportsmodus
-- Baseline: 876745006f4b5390fefc04a0b0fd750debe5218a (1.9.66)
-- Runtime for local tests: /tmp/shanklife-sportsmodus.nqnY0T/venv311
-- Production source is the SMB checkout; all implementation is in this clone.
-- Analysis/design and agreed plan are in the chat's durable artifact directory: /Users/kristianschiander/.codex/visualizations/2026/10/13/01a134c1-d370-7be0-a079-84e7fa60c717
+## Delivered
+- Shared five-area navigation: home, rounds, insight, tour and profile, with desktop sidebar and mobile navigation.
+- Personal home, combined owned outdoor/TrackMan history, shared profile/integrations, progressive player setup and quick score controls. Existing functions remain reachable through the common shell.
+- Explicit tour attachment and idempotent legacy migration. A new private Ballerud round stays private. Legacy tour history, statistics/API queries and admin cleanup use consistent selection.
+- Online saves retain the current input on failure and allow retry. No persistent offline queue. Full completion presents the result before optional GolfBox submission.
+- Native five-area navigation, owned API data, authenticated web functions and score controls. Embedded web functions show one navigation bar. PWA resources are versioned and private responses are not cached.
 
-## Implemented in staging
-- Explicit BalleTour attachment, idempotent legacy migration, consistent tour/statistics/API queries and safe admin tour cleanup.
-- Sportsmodus shell, personal home, combined owned rounds/TrackMan history, insight, common profile, progressive player setup and online quick scoring. Old URLs retained. Common PWA scope.
-- Native five-area navigation, shared data and authenticated web functions, compact tour progress/rules and online score controls. Fixed initially blank native scoring loader; saved score tested through next/previous hole.
-- Production remains baseline 1.9.66 and clean. Implementation f4a1ee1 is pushed to main and codex/sportsmodus. First rollout was deliberately stopped during backup before code cutover to fix final primary-button contrast and duplicate iOS tab bars. Baseline 1.9.66 was restored and verified; its old rollback timer is stopped. Read-only preflight: 101 rounds, 1233 score entries, 108 round players, 195 TrackMan projections, 60 legacy tour rounds, 20 required qualifying rounds. Migration selection matches existing tour selection. Database about 3.2 GB; never copy it into Git.
+## Production
+- Application source commit: 9e51d6c7c5068a7435e26cf0d4d4475dffcef933, pushed to GitHub main and codex/sportsmodus before deployment. Later documentation-only commits do not change this application version.
+- Previous source: 876745006f4b5390fefc04a0b0fd750debe5218a (1.9.66).
+- Pi: SSH alias shanklife-pi; source /home/kristian/shanklife_pro, also mounted at /Volumes/Shared/shanklife_pro. Develop in a clean clone, never directly in the SMB production source.
+- Deployment finished 2026-10-14 at 08:51 Pi journal time. Controller shanklife-sportsmodus-release-KnVXYm.service exited successfully. Its independent rollback timer was disarmed after verification.
+- Private recovery directory: /home/kristian/shanklife-release-backups/sportsmodus.KnVXYm. Contains consistent SQLite backup, double-checked SHA-256, baseline Git bundle and controller state. Never commit or publish this directory or database.
+- Maintenance covered the stop, backup, migration and restart. Before unlocking, full core-row digests and the legacy 60-round tour selection matched the baseline: 101 rounds, 1233 score entries, 108 round players, 195 TrackMan projections. Existing core records were preserved.
+- shanklife-pro.service enabled and active; expected /tmp/shanklife_pro_venv/bin/python app.py process and port 5055 verified; maintenance flag absent. Both public HTTPS health endpoints reported 2.0.0.
+- Authenticated production home, rounds, insight, tour and overview API returned 200. Private simulator history ownership and scorecard access verified. Real Chrome displayed the authenticated Sportsmodus home.
+- Deployment email to Kristian confirmed by both mailer return value and success log. Controller markers backup-ready, migration-verified, verified and mail-verified exist.
 
-## Verification checkpoints
-- Python 3.11: 165 tests passed, including migration/access/legacy series, complete web finish flow and pre-import maintenance guard. Exact production pre-unlock metric gate also passed on a legacy-schema fixture.
-- Web: core views checked at 320, 393, 852 landscape, 1280 and 1440; no document-wide horizontal overflow. Local browser creation on Ballerud stayed a normal round and saved birdie/par across forward/backward hole navigation.
-- iOS Release compilation passed. `native-ui-polished.xcresult (2 tests passed, including absence of duplicate native tab bar)`: two UI tests passed, including next/previous, server save, full completion/read-only result and authenticated common profile. Final signed archive with the tab-bar refinement: `/tmp/shanklife-sportsmodus.nqnY0T/ShanklifeSportsmodusPolished.xcarchive`. Archive succeeded. TestFlight choice requested asynchronously; no upload authorized yet.
-- Local QA server: `/tmp/shanklife-sportsmodus.nqnY0T/demo_server.py`, Python 3.11, 127.0.0.1:5057, disposable synthetic user demo/demo-demo. No mail/weather/integration writes. Stop exact server process when finished.
-- Simulator: iOS 27.0 runtime installed; iPhone 18 Pro F0923B62-22AD-4A52-A784-4E8677589BF4. Full logs and results are in the staging parent directory; durable browser evidence is in the artifact directory.
+## Validation and limits
+- Python 3.11: 165 tests passed, including migration/data preservation, access/ownership, legacy series, full web finish flow and maintenance guards.
+- Browser: checked 320, 393, 852 landscape, 1280 and 1440 widths; no document-wide horizontal overflow. Synthetic full round flow and saved navigation verified. Controlled 503 retained 3 strokes; retry saved the same 3 and displayed server confirmation.
+- Native: 2 XCTest UI tests passed, including server save, next/previous, completion/read-only result and authenticated shared profile with no duplicate tab bar. Signed Release archive succeeded and signature verified. Simulator-only login/test hooks absent from Release; no runtime database or environment files bundled.
+- Physical-device GPS, real start-time bookings/cancellations, GolfBox score submission and invitation delivery were not exercised against external services. Do not claim those external actions were performed.
+- Other service balletour-survey.service also uses the SQLite database. The release rollback restores source while retaining additive schema and current data; never blindly replace the live database while other writers run. Recovery tooling remains private in the backup directory.
 
-## Required remaining work
-1. Web success/503/retry now verified: retained 3 strokes, retry saved the same 3 and showed server confirmation. Evidence: sportsmodus-save-retry-qa.json. No offline storage. Finish final evidence export and roll out.
-2. Rollout controller ready outside repository: `/tmp/shanklife-sportsmodus.nqnY0T/release_guard.py`. It pauses main app/its cron, takes consistent SQLite backup with SHA, gates legacy row digests and round selection before unlock, and arms 15-minute independent source rollback. The survey service also reads this DB and stays running; automatic rollback deliberately retains the additive schema/database to preserve other writers. Keep private runtime outside repository.
-3. Deploy complete web/API change through Pi script only, confirm actual service/process/5055/public pro/app health and migration counts, then verified deployment email.
-4. Native signed archive/distribution after checking available signing and Apple access. Report exact native delivery state; do not claim TestFlight based on an unsigned build.
+## Artifacts and development
+- Staging clone: /tmp/shanklife-sportsmodus.nqnY0T/repo; Python 3.11 test environment: /tmp/shanklife-sportsmodus.nqnY0T/venv311.
+- Durable artifact directory: /Users/kristianschiander/.codex/visualizations/2026/10/13/01a134c1-d370-7be0-a079-84e7fa60c717.
+- Final signed native archive: Shanklife-2.0.0-21-final-xcarchive.zip in that artifact directory. This is an Xcode archive, not a TestFlight release or an installable App Store distribution.
+- Actual web/native screenshots and browser QA JSON evidence are in the same artifact directory. Native detailed results: /tmp/shanklife-sportsmodus.nqnY0T/native-ui-polished.xcresult; build logs and archive also in that staging parent.
+- Local synthetic QA server is no longer required; stop only its exact process when closing QA. It is not production.
+- No further implementation or publication is pending within the approved delivery. Future native distribution requires a user request and appropriate Apple distribution/export workflow.
 
-## Resume
-Read this file, git status and AGENTS.md before making changes. Check current usage limits and production state. Continue the first incomplete item. Never infer that a running command succeeded: obtain its exit code.
+## Continuation
+Read AGENTS.md, this file, git status and current production state before further changes. Temporary paths may disappear; production and GitHub are the source of truth for code. Never infer success from a running session: obtain its exit code.
 
-User resume command: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
+User resume command if a future quota interruption occurs: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
