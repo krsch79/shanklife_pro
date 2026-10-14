@@ -22,6 +22,7 @@ final class SportsModeUITests: XCTestCase {
     XCTAssertTrue(
       app.webViews.staticTexts["Min side"].waitForExistence(timeout: 20), app.debugDescription)
     XCTAssertFalse(app.webViews.secureTextFields["Passord"].exists)
+    XCTAssertFalse(app.tabBars.firstMatch.exists)
     attach(app, "Felles profil med serverinnlogging")
   }
   func testOnlineScoreSurvivesPreviousAndNextHole() throws {

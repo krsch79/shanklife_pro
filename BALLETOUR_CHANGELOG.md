@@ -8,6 +8,7 @@ Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pr
 - Viser kvalifiseringsstatus og konkurransereglene tydelig; dagens rangering og historiske resultater beholdes.
 - Bevarer vanlige runder på tourbanen ved administrativ sletting av tourrunder.
 - Samler installasjon og profil med Shanklife, og gir native scoreføring store hurtigvalg og lagring før hullbytte.
+- Gir tydelig knappkontrast og én bunnmeny når den native appen åpner felles webfunksjoner.
 
 ## [1.9.63] - 2026-08-29
 - Viser GIR, fairwaytreff og antall putter per spiller direkte på hvert avsluttet rundekort.

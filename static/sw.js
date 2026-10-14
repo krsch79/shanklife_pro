@@ -1,6 +1,6 @@
-const CACHE = "shanklife-shell-2.0.0-r4";
+const CACHE = "shanklife-shell-2.0.0-r5";
 const PUBLIC_ASSETS = [
-  "/static/sports.css?v=2.0.0-r2",
+  "/static/sports.css?v=2.0.0-r5",
   "/static/sports.js?v=2.0.0-r4",
   "/static/sports-icons.svg",
   "/static/style.css?v=2.0.0",

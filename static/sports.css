@@ -206,7 +206,7 @@ body.sports-body {
   color:#d3dce7;
   margin:0
 }
-.sports-hero .sports-hero-action {
+.sports-body .sports-hero .sports-hero-action {
   background:var(--sports-accent);
   color:#162437;
   border-color:var(--sports-accent);
@@ -462,6 +462,7 @@ body.sports-body {
   box-shadow:none
 }
 .sports-body .button {
+  color:#fff;
   display:inline-flex;
   align-items:center;
   justify-content:center;

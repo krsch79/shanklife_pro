@@ -417,6 +417,7 @@ struct SportsWebScreen: View {
         Text("Ugyldig adresse.")
       }
     }.navigationTitle(title).navigationBarTitleDisplayMode(.inline)
+      .toolbar(.hidden, for: .tabBar)
   }
 }
 struct SportsAuthenticatedWebView: UIViewRepresentable {
