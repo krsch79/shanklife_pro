@@ -31,7 +31,7 @@
       select.addEventListener('change', update); update();
     });
     const note = document.createElement('p'); note.className = 'sports-submit-note'; note.setAttribute('role', 'status');
-    note.textContent = 'Endringer lagres på serveren når du velger Lagre eller bytter hull. Nettforbindelse kreves.';
+    note.textContent = new URL(location.href).searchParams.get('lagret') === '1' ? 'Sist lagret på serveren. Nye endringer lagres med Lagre eller hullbytte.' : 'Endringer lagres på serveren når du velger Lagre eller bytter hull. Nettforbindelse kreves.';
     form.append(note);
     form.addEventListener('change', () => { note.textContent = 'Endret på dette hullet. Velg Lagre eller Neste hull for å lagre på serveren.'; });
     form.addEventListener('submit', async event => {
@@ -49,14 +49,16 @@
         const popup = document.getElementById('loading-popup'); popup?.classList.remove('is-visible'); popup?.setAttribute('aria-hidden', 'true');
       };
       try {
-        const response = await fetch(form.action, {method: 'POST', body: payload, credentials: 'same-origin'});
+        const response = await fetch(form.getAttribute('action') || location.href, {method: 'POST', body: payload, credentials: 'same-origin'});
         if (!response.ok) throw new Error(`Serveren kunne ikke bekrefte lagringen (${response.status}).`);
         if (new URL(response.url).pathname === '/login') throw new Error('Økten er utløpt. Logg inn på nytt i en annen fane og prøv igjen.');
         const html = new DOMParser().parseFromString(await response.text(), 'text/html');
         const errors = [...html.querySelectorAll('.flash-error')].map(e => e.textContent.trim());
         if (errors.length) throw new Error(errors.join(' '));
         note.textContent = 'Bekreftet på serveren.';
-        window.location.assign(response.url);
+        const destination = new URL(response.url);
+        if (/^\/rounds\/\d+\/hole\/\d+$/.test(destination.pathname)) destination.searchParams.set('lagret', '1');
+        window.location.assign(destination.href);
       } catch (error) {
         reset(); note.setAttribute('role', 'alert');
         note.textContent = `${error.message || 'Forbindelsen ble brutt.'} Valgene dine er beholdt på denne siden. Prøv Lagre igjen når forbindelsen er tilbake.`;

@@ -63,6 +63,8 @@ ssh shanklife-pi 'cd /home/kristian/shanklife_pro && ./scripts/deploy.sh'
 
 Deployskriptet setter vedlikeholdsmodus, tar databasebackup, fast-forwarder fra GitHub, installerer avhengigheter, syntakssjekker, installerer/aktiverer systemd-tjenesten og restarter appen. Etter deploy skal følgende verifiseres:
 
+Ved datamigrering kan `SHANKLIFE_PRE_UNLOCK_CHECK=/absolutt/sti/til/kontroll.py` kreve en ekstra kontroll før vedlikeholdsflagget fjernes. En feil skal beholde vedlikehold og utløse den forberedte tilbakeføringen. Den særskilte Sportsmodus-utrullingen tar konsistent SQLite-backup og SHA-256 mens hovedappen er stanset, pauser bare prosjektets cronjobber og bruker en uavhengig systemd-timer for tilbakeføring av koden. GPS Survey bruker også databasen og skal ikke miste sine skriveresultater: automatisk koderollback beholder den additive databasestrukturen. En full databaserestaurering fra backup krever kontroll av alle delte skrivere.
+
 - `shanklife-pro.service` er aktiv og aktivert for automatisk oppstart;
 - prosessen `/tmp/shanklife_pro_venv/bin/python app.py` kjører og port `5055` lytter;
 - `instance/maintenance.lock` er fjernet;

@@ -45,3 +45,5 @@
 - Obtain the `xcodebuild` process exit code before launching another test against the same simulator or DerivedData directory. Printed XCTest results can precede a delayed Xcode driver exit; if stuck, identify the driver by its exact result-bundle argument, stop only that process, and verify its exit first.
 
 - A non-debug Flask QA server caches Jinja templates. Restart it after final template edits before browser assertions, and verify the rendered asset URL rather than assuming source-file edits are live. Use a new service-worker asset/cache revision when testing changed cached JavaScript or CSS.
+
+- On score forms, controls named `action` shadow `HTMLFormElement.action`. Fetch the destination from `form.getAttribute("action") || location.href`, and verify a successful save and retry in the browser; a simulated server error alone does not prove the destination is correct.

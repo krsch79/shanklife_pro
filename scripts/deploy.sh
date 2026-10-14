@@ -67,7 +67,7 @@ stop_maintenance_server() {
 }
 
 install_golfbox_scheduler() {
-    scheduler_line="* * * * * cd $APP_DIR && $PYTHON_BIN scripts/run_scheduled_golfbox_bookings.py >> /tmp/shanklife_pro_golfbox_scheduler.log 2>&1"
+    scheduler_line="* * * * * [ ! -e $MAINTENANCE_FILE ] && cd $APP_DIR && $PYTHON_BIN scripts/run_scheduled_golfbox_bookings.py >> /tmp/shanklife_pro_golfbox_scheduler.log 2>&1"
     tmp_cron="$(mktemp)"
     crontab -l 2>/dev/null | awk '
         /# shanklife-golfbox-scheduler-start/ {skip=1; next}
@@ -174,6 +174,11 @@ fi
 
 sudo systemctl is-active --quiet "$SERVICE_NAME"
 ps -ef | grep "/tmp/shanklife_pro_venv/bin/python app.py" | grep -v grep
+
+if [ -n "${SHANKLIFE_PRE_UNLOCK_CHECK:-}" ]; then
+    echo "Kontrollerer migrering før vedlikehold åpnes..."
+    "$PYTHON_BIN" "$SHANKLIFE_PRE_UNLOCK_CHECK"
+fi
 
 echo "Tar Shanklife Pro ut av vedlikeholdsmodus..."
 disable_maintenance

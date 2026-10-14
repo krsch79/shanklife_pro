@@ -10,6 +10,7 @@ Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTou
 - Viser rundens resultat først etter fullføring; GolfBox-innsending er et eget valgfritt steg.
 - Viser egne TrackMan-runder som lesbare scorekort og statistikk med registrert hullgrunnlag.
 - Samler den native iPhone-navigasjonen og retter en tom visning ved åpning av vanlig runde.
+- Utsetter planlagt GolfBox-arbeid under vedlikehold og kontrollerer migreringen før appen åpnes etter oppgradering.
 
 ## [1.9.66] - 2026-10-11
 
