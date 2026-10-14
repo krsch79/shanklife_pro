@@ -1,3 +1,4 @@
+from services.tour_context import series_round_condition, is_series_round
 from datetime import datetime
 
 from sqlalchemy import func
@@ -47,7 +48,7 @@ def _tee_context(series, tee):
 def _completed_round_totals(series, player_id, tee_ids=None):
     query = (
         RoundPlayer.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(Round.status == "finished")
         .filter(RoundPlayer.player_id == player_id)
     )
@@ -118,7 +119,7 @@ def get_balletour_overview(tee="gul"):
     series = _series_or_error()
     tee_key, tee_ids = _tee_context(series, tee)
 
-    round_query = Round.query.join(RoundPlayer).filter(Round.course_id == series.course_id)
+    round_query = Round.query.join(RoundPlayer).filter(series_round_condition(series))
     if tee_ids:
         round_query = round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
 
@@ -186,7 +187,7 @@ def list_balletour_rounds(status="finished", player_name=None, limit=10, tee="gu
     limit = max(1, min(limit, 50))
 
     selected_player = _find_balletour_player(player_name)
-    query = Round.query.filter(Round.course_id == series.course_id)
+    query = Round.query.filter(series_round_condition(series))
     if status != "all":
         query = query.filter(Round.status == status)
     if tee_ids or selected_player:
@@ -246,7 +247,7 @@ def get_balletour_player_summary(player_name, tee="gul"):
     totals = _completed_round_totals(series, player.id, tee_ids)
     round_players = (
         RoundPlayer.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(RoundPlayer.player_id == player.id)
     )
     if tee_ids:
@@ -266,7 +267,7 @@ def get_balletour_player_summary(player_name, tee="gul"):
                 & (CourseHole.hole_number == ScoreEntry.hole_number),
             )
             .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
-            .filter(Round.course_id == series.course_id)
+            .filter(series_round_condition(series))
             .filter(RoundPlayer.id.in_(round_player_ids))
             .filter(ScoreEntry.strokes.isnot(None))
             .with_entities(ScoreEntry.strokes, CourseHole.par, ScoreStat.putts)

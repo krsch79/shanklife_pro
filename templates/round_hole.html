@@ -15,12 +15,17 @@
             <h2>{{ round.course.name }}</h2>
         </div>
         <div class="hole-entry-actions">
+            {% if round.status == 'ongoing' %}
+            <button class="button secondary compact-button" type="submit" name="action" value="save" form="hole-entry-form">Lagre</button>
+            <button class="button secondary compact-button" type="submit" name="action" value="scorecard" form="hole-entry-form">Scorekort</button>
+            {% else %}
             <a
                 class="button secondary compact-button"
                 href="{% if is_balletour_scoring_page %}{{ url_for('rounds.balletour_round_scorecard', round_id=round.id, hole=hole.hole_number) }}{% else %}{{ url_for('rounds.round_score', round_id=round.id) }}{% endif %}"
             >
                 Scorekort
             </a>
+            {% endif %}
             {% if admin_edit_mode %}
             <button
                 type="submit"

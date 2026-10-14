@@ -5,7 +5,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, g, jsonify, make_response, redirect, request, send_file, session, url_for
+from flask import Flask, abort, g, jsonify, make_response, redirect, request, send_file, session, url_for
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
 
@@ -13,6 +13,8 @@ from extensions import db
 from services import trackman_models  # Register private archive tables before create_all.
 from routes.trackman import trackman_bp
 from models import Club, Course, CourseHole, Player, Round, RoundPlayer, User
+from services.version import APP_VERSION
+from services.sportsmode import product_access
 from routes.main import main_bp
 from routes.players import players_bp
 from routes.courses import courses_bp
@@ -26,7 +28,7 @@ from routes.stats import stats_bp
 from routes.balletour import balletour_bp
 from routes.golfbox_scores import golfbox_scores_bp
 from routes.api import api_bp
-from services.balletour import is_balletour_player
+from services.balletour import get_balletour_series, is_balletour_player
 from services.golfbox import migrate_golfbox_password_tokens
 from services.physical_holes import assign_physical_identities_from_loop_signatures, infer_physical_hole_identity
 from services.play_formats import MATCHPLAY, STROKE_PLAY, matchplay_hole_result_label, play_format_label
@@ -85,6 +87,10 @@ def ensure_schema_updates(app):
             add_column_if_missing("courses", "legacy_id", "legacy_id INTEGER")
 
         if "rounds" in table_names:
+            add_column_if_missing("rounds", "series_id", "series_id INTEGER")
+            add_column_if_missing("rounds", "tour_context_set", "tour_context_set BOOLEAN DEFAULT 0 NOT NULL")
+            with db.engine.begin() as conn:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_rounds_series_id ON rounds (series_id)"))
             add_column_if_missing("rounds", "played_hole_count", "played_hole_count INTEGER")
             add_column_if_missing("rounds", "starting_hole_number", "starting_hole_number INTEGER")
             add_column_if_missing("rounds", "play_format", "play_format VARCHAR(30) DEFAULT 'stroke_play' NOT NULL")
@@ -304,7 +310,7 @@ def required_access_slug():
 
 def access_denied_response(slug):
     if (request.endpoint or "").startswith("api."):
-        response = jsonify({
+        return jsonify({
             "error": {
                 "code": "forbidden",
                 "message": f"Du har ikke tilgang til {slug}.",
@@ -399,6 +405,9 @@ def create_app():
     ensure_course_data_corrections(app)
     ensure_physical_hole_identities(app)
     seed_initial_user(app)
+    from services.tour_context import migrate_legacy_tour_context
+    with app.app_context():
+        migrate_legacy_tour_context()
 
     @app.template_filter("datetime_local")
     def datetime_local(value):
@@ -447,7 +456,30 @@ def create_app():
                 return jsonify({"error": {"code": "unauthorized", "message": "Du må logge inn først."}}), 401
             return redirect(url_for("auth.login", next=request.path))
         slug = required_access_slug()
-        if not app_access_for_user(g.current_user.id, slug)["has_access"]:
+        shared_endpoints = {"main.index", "main.sports_start", "main.sports_insight", "main.sports_rounds", "main.sports_tour",
+                            "profile.me", "profile.my_rounds", "profile.notification_settings", "profile.golfbox_settings",
+                            "auth.change_password", "api.me", "api.bootstrap", "api.sports_overview", "api.sports_rounds"}
+        round_endpoints = {"rounds.round_detail", "rounds.continue_round", "rounds.round_hole", "rounds.round_score",
+                           "rounds.balletour_round_scorecard", "rounds.round_shot_map", "rounds.upload_round_hole_image",
+                           "rounds.autosave_score", "rounds.autosave_score_stat"}
+        if endpoint in round_endpoints:
+            from services.sportsmode import product_access
+            from services.tour_context import is_balletour_round
+            round_obj = db.session.get(Round, request.view_args["round_id"])
+            if round_obj is None:
+                abort(404)
+            key = "tour" if is_balletour_round(round_obj) else "shanklife"
+            if not product_access(g.current_user)[key]:
+                return access_denied_response("balletour" if key == "tour" else slug)
+        elif endpoint.startswith("api.balletour_"):
+            from services.sportsmode import product_access
+            if not product_access(g.current_user)["tour"]:
+                return access_denied_response("balletour")
+        elif endpoint in shared_endpoints:
+            from services.sportsmode import product_access
+            if not any(product_access(g.current_user).values()):
+                return access_denied_response(slug)
+        elif not app_access_for_user(g.current_user.id, slug)["has_access"]:
             return access_denied_response(slug)
         return None
 
@@ -456,6 +488,9 @@ def create_app():
         current_user = g.get("current_user")
         return {
             "current_user": current_user,
+            "sports_access": product_access(current_user),
+            "app_version": APP_VERSION,
+            "balletour_series": get_balletour_series() if current_user else None,
             "current_user_is_balletour_player": is_balletour_player(current_user),
             "current_user_missing_balletour_email": (
                 bool(current_user)
@@ -472,19 +507,19 @@ def create_app():
         host = (request.host or "").split(":", 1)[0].lower()
         profile = request.args.get("app", "").strip().lower()
         if profile == "balletour":
-            name = "BalleTour2026"
-            short_name = "BalleTour"
+            name = "Shanklife Sportsmodus"
+            short_name = "Shanklife"
             start_url = "/balletour/"
-            scope = "/balletour/"
-            icon_prefix = "balletour"
-            theme_color = "#244b3f"
+            scope = "/"
+            icon_prefix = "shanklife"
+            theme_color = "#182a41"
         else:
-            name = "Shanklife App" if host == "app.shanklife.no" else "Shanklife Pro"
+            name = "Shanklife Sportsmodus"
             short_name = "Shanklife"
             start_url = "/"
             scope = "/"
             icon_prefix = "shanklife"
-            theme_color = "#0f766e"
+            theme_color = "#182a41"
         response = jsonify({
             "id": start_url,
             "name": name,

@@ -194,8 +194,11 @@ def archive_detail(archive_id):
 @login_required
 def round_detail(round_id):
     row = TrackManRound.query.filter_by(id=round_id, user_id=g.current_user.id).first_or_404()
-    archived = TrackManArchive.query.filter_by(user_id=g.current_user.id, category="scorecards", remote_id=row.remote_id).first_or_404()
-    return redirect(url_for("trackman.archive_detail", archive_id=archived.id))
+    archived = TrackManArchive.query.filter_by(user_id=g.current_user.id, category="scorecards", remote_id=row.remote_id).first()
+    from services.trackman_rounds import hole_putting
+    summary = json.loads(row.summary)
+    holes = [{**hole, **hole_putting(hole, summary)} for hole in summary["holes"]]
+    return render_template("trackman_round.html", row=row, summary=row_summary(row), holes=holes, archived=archived)
 
 
 @trackman_bp.route("/export")

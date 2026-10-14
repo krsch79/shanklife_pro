@@ -1,3 +1,4 @@
+from services.tour_context import exclude_balletour, is_balletour_round
 import json
 from email.utils import parseaddr
 
@@ -38,19 +39,13 @@ def _selected_balletour_notification_player_ids(user):
 
 
 def _exclude_balletour_course(query):
-    balletour_course_id = get_balletour_course_id()
-    if balletour_course_id:
-        return query.filter(Round.course_id != balletour_course_id)
-    return query
+    return exclude_balletour(query)
 
 
 def _personal_round_players(player):
-    query = (
-        RoundPlayer.query.filter_by(player_id=player.id)
-        .join(Round)
-        .order_by(Round.started_at.desc())
-    )
-    return _exclude_balletour_course(query).all()
+    from services.sportsmode import personal_round_players
+    return personal_round_players(g.current_user)
+
 
 
 def _round_row(round_player):
@@ -68,7 +63,10 @@ def _round_row(round_player):
         and len(scored_entries) == len(holes)
     )
     score_to_par = total - par if completed_score and round_obj.play_format != MATCHPLAY else None
+    from services.sportsmode import local_round_item
+    item = local_round_item(round_player)
     return {
+        "score_display": item["score"], "is_tour": item["is_tour"],
         "round_player": round_player,
         "round": round_obj,
         "course": round_obj.course,

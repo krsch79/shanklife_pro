@@ -14,10 +14,10 @@ struct ShanklifeScoringLoaderView: View {
             if let detail {
                 ShanklifeScoringView(initialDetail: detail, setup: setup)
                     .environmentObject(session)
-            } else if isLoading {
-                ProgressView("Laster runde")
             } else if let errorMessage {
-                ContentUnavailableView("Kunne ikke laste runden", systemImage: "exclamationmark.triangle", description: Text(errorMessage))
+                SportsError(message: errorMessage) { Task { await load() } }
+            } else {
+                ProgressView("Laster runde").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .task { await load() }
@@ -69,16 +69,23 @@ struct ShanklifeScoringView: View {
     var body: some View {
         List {
             headerSection
-            scorecardSection
+            if detail.status == "finished" {
+                Section { NavigationLink("Se resultat og scorekort") { SportsWebScreen(path: "/rounds/\(detail.id)/score", title: "Resultat") } }
+            }
 
-            if let hole = currentHole {
+            if let hole = currentHole, detail.status == "ongoing" {
                 Section {
-                    Picker("Hull", selection: $currentHoleNumber) {
+                    Picker("Hull", selection: Binding(get: { currentHoleNumber }, set: { target in
+                        guard let old = holes.firstIndex(where: { $0.holeNumber == currentHoleNumber }),
+                              let next = holes.firstIndex(where: { $0.holeNumber == target }) else { return }
+                        Task { await saveHole(move: next - old) }
+                    })) {
                         ForEach(holes) { hole in
                             Text("\(hole.holeNumber)").tag(hole.holeNumber)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
+                    .disabled(isSaving)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Hull \(hole.holeNumber)")
@@ -95,7 +102,7 @@ struct ShanklifeScoringView: View {
                 Section {
                     HStack {
                         Button {
-                            moveHole(-1)
+                            Task { await saveHole(move: -1) }
                         } label: {
                             Label("Forrige", systemImage: "chevron.left")
                         }
@@ -129,6 +136,8 @@ struct ShanklifeScoringView: View {
                 }
             }
 
+            Section { DisclosureGroup("Scorekort") { scorecardSection } }
+
             if let errorMessage {
                 Section {
                     Text(errorMessage)
@@ -144,6 +153,8 @@ struct ShanklifeScoringView: View {
             }
         }
         .navigationTitle(detail.course.name)
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar { if detail.status == "ongoing" { Button("Lagre") { Task { await saveHole(move: 0) } }.disabled(isSaving) } }
         .onAppear {
             loadInputsForCurrentHole()
         }
@@ -200,7 +211,6 @@ struct ShanklifeScoringView: View {
     }
 
     private var scorecardSection: some View {
-        Section("Scorekort") {
             ScrollView(.horizontal, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 6) {
@@ -249,19 +259,13 @@ struct ShanklifeScoringView: View {
                 }
                 .padding(.vertical, 4)
             }
-        }
     }
 
     private func playerSection(_ player: BalleTourRoundDetailPlayer, hole: BalleTourSetupHole) -> some View {
         let input = binding(for: player.roundPlayerID)
         return Section(player.name) {
-            Picker("Score", selection: input.strokes) {
-                Text("-").tag(Optional<Int>.none)
-                ForEach(hole.scoreOptions, id: \.self) { value in
-                    Text("\(value)").tag(Optional(value))
-                }
-            }
-            .pickerStyle(.segmented)
+            SportsScoreControl(score: input.strokes, par: hole.par, options: hole.scoreOptions)
+            Text("Lagre eller bytt hull for å sende endringene. Nettforbindelse kreves.").font(.caption).foregroundStyle(.secondary)
 
             if player.tracksStats {
                 OptionMenuRow(
@@ -306,6 +310,7 @@ struct ShanklifeScoringView: View {
     private func greenControls(_ input: Binding<BalleTourHolePlayerInput>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Picker("Green", selection: greenStatus(input)) {
+                Text("Uregistrert").tag("")
                 Text("Treff").tag("hit")
                 Text("Miss").tag("miss")
                 Text("Bunker").tag("bunker")
@@ -318,6 +323,7 @@ struct ShanklifeScoringView: View {
                 Text("Høyre").tag("right")
             }
             .pickerStyle(.segmented)
+            .disabled(input.wrappedValue.green == nil)
 
             Picker("Lengde", selection: greenVertical(input)) {
                 Text("Pin high").tag("")
@@ -325,6 +331,7 @@ struct ShanklifeScoringView: View {
                 Text("Lang").tag("long")
             }
             .pickerStyle(.segmented)
+            .disabled(input.wrappedValue.green == nil)
         }
     }
 
@@ -365,7 +372,7 @@ struct ShanklifeScoringView: View {
 
     private func greenInput(from score: BalleTourHoleScore?) -> BalleTourGreenInput? {
         guard let raw = score?.greenResult else {
-            return BalleTourGreenInput(status: "hit", directions: ["pin"])
+            return nil
         }
         let parts = raw.split(separator: ":", maxSplits: 1).map(String.init)
         if parts.count == 2 {
@@ -570,12 +577,12 @@ private extension Binding where Value == BalleTourHolePlayerInput {
 
 private func greenStatus(_ input: Binding<BalleTourHolePlayerInput>) -> Binding<String> {
     Binding<String>(
-        get: { input.wrappedValue.green?.status ?? "hit" },
+        get: { input.wrappedValue.green?.status ?? "" },
         set: {
             var value = input.wrappedValue
             var green = value.green ?? BalleTourGreenInput(status: "hit", directions: ["pin"])
             green.status = $0
-            value.green = green
+            value.green = $0.isEmpty ? nil : green
             input.wrappedValue = value
         }
     )

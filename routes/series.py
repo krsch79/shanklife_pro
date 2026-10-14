@@ -1,3 +1,4 @@
+from services.tour_context import series_round_condition, is_series_round
 from collections import defaultdict
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
@@ -49,7 +50,7 @@ def _series_gallery_tag_options(series):
         db.session.query(RoundImageTag.tag)
         .join(RoundImage)
         .join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .distinct()
         .all()
     )
@@ -57,7 +58,7 @@ def _series_gallery_tag_options(series):
         db.session.query(Player.name)
         .join(RoundImage, RoundImage.tagged_player_id == Player.id)
         .join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(RoundImage.tagged_player_id.isnot(None))
         .distinct()
         .all()
@@ -79,7 +80,7 @@ def _score_vs_par(total, par):
 def _completed_round_players(series, tee_ids=None):
     query = (
         RoundPlayer.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(Round.status == "finished")
     )
     if tee_ids:
@@ -157,13 +158,13 @@ def overview(series_id):
     tee_ids = tee_ids_for_key(series.course, tee_key)
     tees = CourseTee.query.filter_by(course_id=series.course_id).order_by(CourseTee.display_order).all()
     leaderboard_rows = _leaderboard_rows(series, tee_ids)
-    round_query = Round.query.join(RoundPlayer).filter(Round.course_id == series.course_id)
+    round_query = Round.query.join(RoundPlayer).filter(series_round_condition(series))
     if tee_ids:
         round_query = round_query.filter(RoundPlayer.selected_tee_id.in_(tee_ids))
     round_count = round_query.distinct().count()
     image_count = (
         RoundImage.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
     )
     if tee_ids:
         image_count = (
@@ -206,7 +207,7 @@ def player_profile(series_id, player_id):
     tee_ids = tee_ids_for_key(series.course, tee_key)
     round_players_query = (
         RoundPlayer.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(RoundPlayer.player_id == player.id)
         .order_by(Round.started_at.desc())
     )
@@ -230,7 +231,7 @@ def player_profile(series_id, player_id):
             (CourseHole.course_id == Round.course_id)
             & (CourseHole.hole_number == ScoreEntry.hole_number),
         )
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(RoundPlayer.player_id == player.id)
         .filter(ScoreEntry.strokes.isnot(None))
         .with_entities(ScoreEntry.strokes, CourseHole.par)
@@ -245,7 +246,7 @@ def player_profile(series_id, player_id):
     images = (
         RoundImage.query.join(Round)
         .outerjoin(RoundImageTag)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(or_(
             RoundImage.tagged_player_id == player.id,
             func.lower(RoundImageTag.tag) == player.name.lower(),
@@ -301,7 +302,7 @@ def club_stats(series_id):
         ScoreEntry.query.join(RoundPlayer)
         .join(Round)
         .join(Club, ScoreEntry.tee_club_id == Club.id)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(ScoreEntry.strokes.isnot(None))
         .with_entities(
             RoundPlayer.player_id,
@@ -322,7 +323,7 @@ def club_stats(series_id):
             ScoreEntry.query.join(RoundPlayer)
             .join(Round)
             .join(Club, ScoreEntry.tee_club_id == Club.id)
-            .filter(Round.course_id == series.course_id)
+            .filter(series_round_condition(series))
             .filter(RoundPlayer.selected_tee_id.in_(tee_ids))
             .filter(ScoreEntry.strokes.isnot(None))
             .with_entities(
@@ -533,7 +534,7 @@ def gallery(series_id):
         RoundImage.query.join(Round)
         .outerjoin(RoundImageTag)
         .outerjoin(Player, RoundImage.tagged_player_id == Player.id)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
     )
 
     if selected_tags:

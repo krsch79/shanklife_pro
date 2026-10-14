@@ -3,109 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f766e">
+    <meta name="theme-color" content="#182a41">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Shanklife">
     <title>{% block title %}Shanklife Pro{% endblock %}</title>
     <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='shanklife-favicon.png') }}">
-    {% set install_balletour = (request.endpoint and request.endpoint.startswith('balletour.')) or request.path.startswith('/balletour') or request.args.get('next', '').startswith('/balletour') %}
-    <link rel="manifest" href="{{ url_for('web_manifest', app='balletour' if install_balletour else '') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='balletour-icon-180.png' if install_balletour else 'shanklife-icon-180.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.9.66">
+    <link rel="manifest" href="{{ url_for('web_manifest') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='shanklife-icon-180.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.0.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sports.css') }}?v=2.0.0-r2">
+    <script src="{{ url_for('static', filename='sports.js') }}?v=2.0.0-r2" defer></script>
     {% block head_extra %}{% endblock %}
 </head>
-<body>
-    {% set is_balletour_page = request.endpoint and (request.endpoint.startswith('balletour.') or (series is defined and series.name in ['Balletour', 'BalleTour'])) %}
-    {% set is_balletour_scoring_page = is_balletour_scoring_page|default(false) %}
-    <header class="site-header {% if is_balletour_scoring_page or is_balletour_page %}balletour-header{% endif %} {% if request.endpoint == 'rounds.round_hole' and not is_balletour_scoring_page %}shanklife-scoring-header{% endif %}">
-        <div class="container">
-            <h1 class="site-brand">
-                <span class="brand-logos">
-                    {% if is_balletour_scoring_page or is_balletour_page %}
-                    <a href="{{ url_for('balletour.index') }}">
-                        <img src="{{ url_for('static', filename='balletourlogo.png') }}" alt="BalleTour2026" class="site-logo balletour-logo">
-                    </a>
-                    {% else %}
-                    <a href="{{ url_for('main.index') }}">
-                        <img src="{{ url_for('static', filename='shanklife.png') }}" alt="Shanklife score" class="site-logo">
-                    </a>
-                    {% if request.endpoint == 'main.index' and current_user_is_balletour_player %}
-                    <a href="{{ url_for('balletour.index') }}">
-                        <img src="{{ url_for('static', filename='balletourlogo.png') }}" alt="BalleTour2026" class="site-logo balletour-logo">
-                    </a>
-                    {% endif %}
-                    {% endif %}
-                </span>
-            </h1>
-            {% if not is_balletour_scoring_page %}
-            <nav>
-                {% if is_balletour_page %}
-                <a href="{{ url_for('balletour.live_leaderboard') }}">Live leaderboard</a>
-                <a href="{{ url_for('balletour.stats') }}">Statistikk</a>
-                <a href="{{ url_for('balletour.ai_stats') }}">AI statistikk</a>
-                <a href="{{ url_for('balletour.ai_tools') }}">GolfBox AI</a>
-                {% if current_user %}
-                <a href="{{ url_for('balletour.me') }}">Min side</a>
-                {% endif %}
-                {% if series is defined %}
-                <a href="{{ url_for('series.club_stats', series_id=series.id) }}">Køllestatistikk</a>
-                <a href="{{ url_for('series.gallery', series_id=series.id) }}">Galleri</a>
-                {% endif %}
-                {% if current_user and current_user.is_admin %}
-                <a href="{{ url_for('admin.admin_home') }}">Admin</a>
-                {% endif %}
-                {% else %}
-                <a href="{{ url_for('main.index') }}">Hjem</a>
-                <a href="{{ url_for('players.players') }}">Spillere</a>
-                <a href="{{ url_for('courses.courses') }}">Baner</a>
-                <a href="{{ url_for('rounds.new_round') }}">Ny runde</a>
-                {% if current_user %}
-                <a href="{{ url_for('stats.index') }}">Statistikk</a>
-                <a href="{{ url_for('stats.ai_stats') }}">AI statistikk</a>
-                <a href="{{ url_for('profile.me') }}">Min side</a>
-                {% if current_user.is_admin %}
-                <a href="{{ url_for('admin.admin_home') }}">Admin</a>
-                {% endif %}
-                {% endif %}
-                <a href="{{ url_for('rounds.ongoing_rounds') }}">Pågående</a>
-                <a href="{{ url_for('rounds.finished_rounds') }}">Fullførte</a>
-                <a href="{{ url_for('leaderboard.live_leaderboard') }}">Live leaderboard</a>
-                {% if current_user_is_balletour_player %}
-                <a href="{{ url_for('balletour.index') }}">BalleTour2026</a>
-                {% endif %}
-                {% if current_user %}
-                <form method="post" action="{{ url_for('auth.logout') }}" class="nav-form">
-                    <button type="submit">Logg ut</button>
-                </form>
-                {% else %}
-                <a href="{{ url_for('auth.login') }}">Logg inn</a>
-                {% endif %}
-                {% endif %}
-            </nav>
-            {% endif %}
-        </div>
+<body class="sports-body {% if request.endpoint == 'rounds.round_hole' %}sports-scoring{% endif %}">
+    {% set endpoint = request.endpoint or '' %}
+    {% set current_area = 'home' %}
+    {% if endpoint.startswith('balletour.') or endpoint.startswith('series.') or endpoint == 'main.sports_tour' %}{% set current_area = 'tour' %}
+    {% elif endpoint.startswith('stats.') or endpoint == 'main.sports_insight' %}{% set current_area = 'insight' %}
+    {% elif endpoint.startswith('rounds.') or endpoint in ['profile.my_rounds', 'main.sports_rounds', 'main.sports_start'] %}{% set current_area = 'rounds' %}
+    {% elif endpoint.startswith('profile.') or endpoint.startswith('trackman.') or endpoint.startswith('admin.') or endpoint == 'auth.change_password' %}{% set current_area = 'profile' %}{% endif %}
+    <a class="sports-skip" href="#main-content">Til innholdet</a>
+    <header class="sports-header">
+        <a class="sports-brand" href="{{ url_for('main.index') }}">SHANKLIFE<span aria-hidden="true"> /</span></a>
+        <span class="sports-header-label">SPORTSMODUS</span>
+        {% if current_user %}<a class="sports-account" href="{{ url_for('profile.me') }}"><span class="sports-avatar" aria-hidden="true">{{ (current_user.player.name if current_user.player else current_user.username)[:1] }}</span><span>{{ current_user.player.name if current_user.player else current_user.username }}</span></a>{% endif %}
     </header>
-
-    <main class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-wrapper">
-                    {% for category, message in messages %}
-                        <div class="flash flash-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-        {% if current_user_missing_balletour_email and request.endpoint != "profile.notification_settings" %}
-        <div class="flash flash-warning">
-            Du mangler registrert e-postadresse for BalleTour-varsler.
-            <a href="{{ url_for('profile.notification_settings') }}">Legg inn e-post og varselvalg</a>.
-        </div>
+    <div class="sports-shell {% if not current_user %}sports-shell-public{% endif %}">
+        {% if current_user %}
+        <nav class="sports-nav" aria-label="Hovedmeny">
+            {% for area,label,icon,target in [('home','Hjem','home','main.index'),('rounds','Runder','flag','main.sports_rounds'),('insight','Innsikt','chart','main.sports_insight'),('tour','Tour','trophy','main.sports_tour'),('profile','Profil','person','profile.me')] %}
+            <a href="{{ url_for(target) }}" {% if area == current_area %}aria-current="page"{% endif %}><svg aria-hidden="true"><use href="{{ url_for('static', filename='sports-icons.svg') }}#{{ icon }}"></use></svg><span>{{ label }}</span></a>
+            {% endfor %}
+            <div class="sports-nav-extra">
+                {% if sports_access.shanklife %}<a href="{{ url_for('courses.courses') }}">Baner</a><a href="{{ url_for('players.players') }}">Spillere</a>{% endif %}
+                {% if sports_access.tour %}<a href="{{ url_for('balletour.ai_tools') }}">Starttider</a>{% endif %}
+                <a href="{{ url_for('leaderboard.live_leaderboard') }}">Live</a>
+                {% if current_user.is_admin %}<a href="{{ url_for('admin.admin_home') }}">Administrasjon</a>{% endif %}
+                <a href="{{ url_for('main.changelog') }}" class="sports-version">v{{ app_version }}</a>
+            </div>
+        </nav>
         {% endif %}
-
+        <main class="container sports-main" id="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-wrapper">{% for category,message in messages %}<div class="flash flash-{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
+        {% if current_user_missing_balletour_email and endpoint != 'profile.notification_settings' %}<div class="flash flash-warning">Legg inn e-post for BalleTour-varsler. <a href="{{ url_for('profile.notification_settings') }}">Velg varsler</a></div>{% endif %}
         {% block content %}{% endblock %}
-    </main>
+        </main>
+    </div>
     <div class="loading-popup" id="loading-popup" role="status" aria-live="polite" aria-hidden="true">
         <div class="loading-card">
             <div class="bouncing-golf-ball" aria-hidden="true">

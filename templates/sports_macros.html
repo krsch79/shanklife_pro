@@ -1,0 +1,8 @@
+{% macro round_row(row) %}
+<article class="sports-round-row">
+    <span class="sports-source" aria-label="{{ 'TrackMan' if row.source == 'trackman' else 'BalleTour' if row.is_tour else 'Shanklife' }}">{{ 'TM' if row.source == 'trackman' else 'BT' if row.is_tour else 'S' }}</span>
+    <div class="sports-round-info"><h3><a href="{{ row.url }}">{{ row.course }}</a></h3><p>{{ row.date_display }} · {{ row.length_label }} · {{ row.tee }} tee</p><div class="sports-row-tags"><span>{{ row.format }}</span>{% if row.is_tour %}<span>BalleTour</span>{% endif %}{% if row.private %}<span>Privat · {{ 'Simulator' if row.environment == 'simulator' else 'Utendørs' if row.environment == 'outdoor' else 'Ukjent miljø' }}</span>{% endif %}<span>{{ 'Fullført' if row.status == 'finished' and row.complete else 'Delvis spilt' if row.source == 'trackman' else 'Pågående' if row.status == 'ongoing' else 'Fullført · delvis score' }}</span></div></div>
+    <div class="sports-round-score"><strong>{{ row.score }}</strong>{% if row.to_par %}<small>{{ row.to_par }} mot par{% if not row.complete %} · spilte hull{% endif %}</small>{% endif %}</div>
+    <a class="button secondary compact-button" href="{{ row.url }}">{{ 'Fortsett' if row.status == 'ongoing' and not row.private else 'Åpne' }}</a>
+</article>
+{% endmacro %}

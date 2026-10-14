@@ -1,0 +1,7 @@
+{% extends 'base.html' %}{% block title %}Start runde — Shanklife{% endblock %}{% block content %}
+<div class="sports-page-heading"><div><p class="eyebrow">SPILL GOLF</p><h2>Klar for første tee?</h2><p class="muted">Velg hva slags runde du vil spille. Bane, spillere og tee kommer i neste steg.</p></div></div>
+<div class="sports-choice-grid">
+{% if sports_access.shanklife %}<a class="sports-choice" href="{{ url_for('rounds.new_round') }}"><span class="sports-source">S</span><h3>En vanlig runde.</h3><p>Valgfri bane. 9 eller 18 hull, slagspill eller matchplay. Før score og velg hvem som skal ha statistikk.</p><strong>Velg bane og spillere →</strong></a>{% endif %}
+{% if sports_access.tour %}<a class="sports-choice" href="{{ url_for('balletour.new_round') }}"><span class="sports-source">BT</span><h3>En BalleTour-runde.</h3><p>Tourens bane, medlemmer og statistikkkrav. Runden inngår også i din personlige historikk.</p><strong>Start i BalleTour →</strong></a>{% endif %}
+</div><p class="sports-help">En vanlig runde på Ballerud er privat og teller ikke automatisk i BalleTour. Tourtilknytningen følger valget ditt her.</p>
+{% endblock %}

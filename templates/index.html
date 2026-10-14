@@ -1,55 +1,11 @@
-{% extends "base.html" %}
-{% block title %}Forside - Shanklife Pro{% endblock %}
-
+{% extends 'base.html' %}{% from 'sports_macros.html' import round_row %}
+{% block title %}Shanklife — Hjem{% endblock %}
 {% block content %}
-<div class="page-title-row">
-    <h2>Forside</h2>
-    <a class="version-link" href="{{ url_for('main.changelog') }}">v{{ app_version }}</a>
-</div>
-
-<div class="card-grid">
-    {% if current_user %}
-    <a class="card-link" href="{{ url_for('profile.me') }}">
-        <h3>Min side</h3>
-        <p>Se dine runder og statistikk.</p>
-    </a>
-
-    <a class="card-link" href="{{ url_for('stats.index') }}">
-        <h3>Statistikk</h3>
-        <p>Se greentreff, putting og utslag på par 4/5.</p>
-    </a>
-
-    {% if current_user_is_balletour_player %}
-    <a class="card-link" href="{{ url_for('balletour.index') }}">
-        <h3>BalleTour2026</h3>
-        <p>Start BalleTour-runde og se alle spilte runder.</p>
-    </a>
-    {% endif %}
-    {% endif %}
-
-    <a class="card-link" href="{{ url_for('rounds.new_round') }}">
-        <h3>Start ny runde</h3>
-        <p>Velg spillere, tee og hvem som skal føre statistikk.</p>
-    </a>
-
-    <a class="card-link" href="{{ url_for('players.players') }}">
-        <h3>Spillere</h3>
-        <p>{{ player_count }} registrerte spillere</p>
-    </a>
-
-    <a class="card-link" href="{{ url_for('courses.courses') }}">
-        <h3>Baner</h3>
-        <p>{{ course_count }} registrerte baner</p>
-    </a>
-
-    <a class="card-link {% if ongoing_count == 0 %}disabled-card{% endif %}" href="{{ url_for('rounds.ongoing_rounds') }}">
-        <h3>Pågående runder</h3>
-        <p>{{ ongoing_count }} pågående</p>
-    </a>
-
-    <a class="card-link {% if finished_count == 0 %}disabled-card{% endif %}" href="{{ url_for('rounds.finished_rounds') }}">
-        <h3>Fullførte runder</h3>
-        <p>{{ finished_count }} fullførte</p>
-    </a>
-</div>
+<div class="sports-page-heading"><div><p class="eyebrow">DITT SPILL · DIN TOUR</p><h2>Hei, {{ dashboard.name }}.</h2></div><a class="sports-version" href="{{ url_for('main.changelog') }}">v{{ app_version }}</a></div>
+<section class="sports-hero">
+    <div><p class="eyebrow">SHANKLIFE SPORTSMODUS</p><h3>{% if dashboard.active_rounds %}RUNDEN DIN.<br>RETT VIDERE.{% else %}FØRSTE TEE.<br>FULL KONTROLL.{% endif %}</h3><p>Score, statistikk og fellesskapet ditt. Samlet.</p><a class="button sports-hero-action" href="{{ dashboard.active_rounds[0].url if dashboard.active_rounds else url_for('main.sports_start') }}">{{ 'Fortsett ' ~ dashboard.active_rounds[0].course if dashboard.active_rounds else 'Start en runde' }} <span aria-hidden="true">→</span></a></div>
+    <div class="sports-hero-result">{% if dashboard.recent_rounds %}{% set last = dashboard.recent_rounds[0] %}<p>SISTE RUNDE</p><strong>{{ last.score }}</strong><span>{{ last.course }}</span><small>{{ last.length_label }} · {{ last.format }}{% if last.to_par %} · {{ last.to_par }} mot par{% endif %}</small>{% else %}<p>DITT HANDICAP</p><strong>{{ '%.1f'|format(dashboard.hcp) if dashboard.hcp is not none else '—' }}</strong><span>Klar for en ny runde.</span>{% endif %}</div>
+</section>
+<div class="sports-metric-strip"><div><span>Handicap</span><strong>{{ '%.1f'|format(dashboard.hcp) if dashboard.hcp is not none else '—' }}</strong></div><div><span>Mine runder</span><strong>{{ dashboard.round_count }}</strong></div><div><span>{{ 'Tourkvalifisering · gul tee' if dashboard.tour else 'Pågående runder' }}</span><strong>{{ (dashboard.tour.rounds|string ~ ' / ' ~ dashboard.tour.required|string) if dashboard.tour else dashboard.active_rounds|length }}</strong>{% if dashboard.tour %}<small>{{ 'Kvalifisert' if dashboard.tour.qualified else 'Under kvalifisering' }}</small>{% endif %}</div></div>
+<div class="sports-dashboard-grid"><section class="sports-panel"><div class="sports-section-heading"><h3>Siste runder</h3><a href="{{ url_for('main.sports_rounds') }}">Alle runder →</a></div>{% for row in dashboard.recent_rounds[:3] %}{{ round_row(row) }}{% else %}<p class="muted">Ingen runder ennå. Start din første runde når du er klar.</p>{% endfor %}</section><section class="sports-panel"><p class="eyebrow">FELLESSKAPET DITT</p><h3>BalleTour.</h3>{% if dashboard.tour %}<p>{{ dashboard.tour.course }} · {{ dashboard.tour.tee }} tee</p><div class="sports-tour-progress"><strong>{{ dashboard.tour.total_vs_par }}</strong><span>Summert mot par · {{ dashboard.tour.rounds }} runder</span></div><p class="muted">{{ dashboard.tour.required }} runder kreves for kvalifisering. Rangeringen bruker dagens konkurranseregel.</p><a class="button" href="{{ url_for('balletour.index') }}">Åpne touren →</a>{% else %}<p class="muted">BalleTour har egne medlemmer og regler. Din personlige golfhistorikk er samlet i Runder.</p><a class="button secondary" href="{{ url_for('main.sports_tour') }}">Om touren</a>{% endif %}{% if dashboard.access.tour %}<div class="sports-panel-divider"></div><a href="{{ url_for('balletour.ai_tools') }}">Finn eller administrer en starttid →</a>{% endif %}</section></div>
 {% endblock %}

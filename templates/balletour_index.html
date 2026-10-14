@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}BalleTour2026{% endblock %}
+{% block title %}BalleTour — Shanklife{% endblock %}
 
 {% block content %}
 <div class="page-title-row balletour-title-row">
     <div>
-        <h2>BalleTour2026</h2>
+        <h2>BalleTour.</h2>
         <p class="muted">{{ series.course.name }} · {{ series.course.hole_count }} hull</p>
     </div>
     <a class="version-link" href="{{ url_for('balletour.changelog') }}">v{{ app_version }}</a>
@@ -31,6 +31,8 @@
     <div class="stat-card"><strong>{{ score_type_totals.double_bogeys_or_worse }}</strong><span>Dobbelbogeys+</span></div>
 </div>
 
+<details class="sports-tour-rules"><summary>Konkurranseregel og kvalifisering</summary><p>Rangeringen bruker summert score mot par fra alle fullførte runder i valgt tee-klasse. Lavest total rangeres først; snittscore brukes ved lik total. {{ series.min_qualifying_rounds }} runder kreves for kvalifisering. Spillere under kvalifisering vises fortsatt i dagens rangering og er tydelig merket.</p></details>
+<nav class="sports-tour-subnav" aria-label="BalleTour"><a href="{{ url_for('balletour.stats') }}">Statistikk</a><a href="{{ url_for('balletour.live_leaderboard') }}">Live</a><a href="{{ url_for('balletour.players') }}">Spillere</a><a href="{{ url_for('series.gallery',series_id=series.id) }}">Galleri</a><a href="{{ url_for('series.club_stats',series_id=series.id) }}">Køllevalg</a><a href="{{ url_for('balletour.ai_tools') }}">Starttider</a></nav>
 <h3>Leaderboard</h3>
 <div class="table-wrap">
     <table class="balletour-leaderboard">
@@ -46,12 +48,12 @@
         </thead>
         <tbody>
             {% for row in leaderboard_rows %}
-            <tr>
+            <tr data-current-player="{{ 'true' if current_user and row.player.id == current_user.player_id else 'false' }}">
                 <td>{{ row.rank }}</td>
                 <td>
                     <a href="{{ url_for('balletour.finished_rounds', player_id=row.player.id, tee=selected_tee_key) }}">
                         {{ display_name(row.player) }}
-                    </a>
+                    </a><span class="sports-qualification {{ 'qualified' if row.qualified else '' }}">{{ 'Kvalifisert' if row.qualified else (row.rounds_played|string ~ ' / ' ~ series.min_qualifying_rounds|string ~ ' · under kvalifisering') }}</span>
                 </td>
                 <td>{{ row.rounds_played }}</td>
                 <td>{{ row.total_vs_par_display }}</td>

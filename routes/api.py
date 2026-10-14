@@ -1,3 +1,4 @@
+from services.tour_context import series_round_condition
 from functools import wraps
 
 import json
@@ -57,6 +58,7 @@ from services.round_length import (
 )
 from services.balletour import BALLETOUR_MENU_LABEL, get_balletour_series, is_balletour_player
 from services.balletour import get_balletour_memberships
+from services.sportsmode import product_access
 from services.balletour_mcp import (
     get_balletour_overview as build_balletour_overview,
     get_balletour_player_summary,
@@ -134,8 +136,8 @@ def _user_payload(user):
             "profile_image_url": f"/uploads/{player.profile_image_filename}" if player.profile_image_filename else None,
         } if player else None,
         "products": {
-            "shanklife": True,
-            "balletour": is_balletour_player(user),
+            "shanklife": product_access(user)["shanklife"],
+            "balletour": product_access(user)["tour"],
         },
     }
 
@@ -169,7 +171,7 @@ def _round_payload(round_obj):
 
 
 def _require_balletour_access():
-    if not is_balletour_player(g.current_user):
+    if not product_access(g.current_user)["tour"]:
         return jsonify({"error": {"code": "forbidden", "message": "Denne brukeren har ikke BalleTour-tilgang."}}), 403
     return None
 
@@ -946,7 +948,7 @@ def login():
     )
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": {"code": "invalid_credentials", "message": "Feil brukernavn eller passord."}}), 401
-    if not _app_access_for_user(user.id, _required_access_slug())["has_access"]:
+    if not any(product_access(user).values()):
         return jsonify({"error": {"code": "forbidden", "message": "Du har ikke tilgang til denne appen."}}), 403
 
     try:
@@ -982,7 +984,7 @@ def bootstrap():
             {
                 "id": "shanklife",
                 "name": "Shanklife Pro",
-                "enabled": True,
+                "enabled": product_access(g.current_user)["shanklife"],
                 "navigation": [
                     {"id": "rounds", "title": "Runder"},
                     {"id": "stats", "title": "Statistikk"},
@@ -993,7 +995,7 @@ def bootstrap():
             {
                 "id": "balletour",
                 "name": BALLETOUR_MENU_LABEL,
-                "enabled": is_balletour_player(g.current_user),
+                "enabled": product_access(g.current_user)["tour"],
                 "navigation": [
                     {"id": "rounds", "title": "Runder"},
                     {"id": "leaderboard", "title": "Live"},
@@ -1129,8 +1131,6 @@ def shanklife_create_round():
     course = Course.query.get(course_id)
     if not course:
         return _json_error("not_found", "Valgt bane finnes ikke.", 404)
-    if _balletour_series_or_error() and get_balletour_series().course_id == course.id:
-        return _json_error("bad_request", "BalleTour-runder må startes fra BalleTour.", 400)
 
     try:
         played_hole_count = int(data.get("played_hole_count") or course.hole_count)
@@ -1425,7 +1425,7 @@ def balletour_create_round():
     if g.current_user.player_id not in seen_player_ids:
         return _json_error("bad_request", "Du må være med i runden du starter.")
 
-    round_obj = _create_round(series.course, round_players_payload, stats_user_id=g.current_user.id)
+    round_obj = _create_round(series.course, round_players_payload, stats_user_id=g.current_user.id, series_id=series.id)
     try:
         weather_payload = fetch_bekkestua_weather(round_obj.started_at)
         round_obj.weather_json = json.dumps(weather_payload, ensure_ascii=True)
@@ -1448,7 +1448,7 @@ def balletour_round_detail(round_id):
     if not series:
         return jsonify({"error": {"code": "not_found", "message": "Fant ikke BalleTour-serien."}}), 404
 
-    round_obj = Round.query.filter_by(id=round_id, course_id=series.course_id).first()
+    round_obj = Round.query.filter(series_round_condition(series)).filter_by(id=round_id).first()
     if not round_obj:
         return jsonify({"error": {"code": "not_found", "message": "Fant ikke BalleTour-runden."}}), 404
 
@@ -1466,7 +1466,7 @@ def balletour_save_hole(round_id, hole_number):
     if not series:
         return _json_error("not_found", "Fant ikke BalleTour-serien.", 404)
 
-    round_obj = Round.query.filter_by(id=round_id, course_id=series.course_id).first()
+    round_obj = Round.query.filter(series_round_condition(series)).filter_by(id=round_id).first()
     if not round_obj:
         return _json_error("not_found", "Fant ikke BalleTour-runden.", 404)
 
@@ -1495,7 +1495,7 @@ def balletour_finish_round(round_id):
     if not series:
         return _json_error("not_found", "Fant ikke BalleTour-serien.", 404)
 
-    round_obj = Round.query.filter_by(id=round_id, course_id=series.course_id).first()
+    round_obj = Round.query.filter(series_round_condition(series)).filter_by(id=round_id).first()
     if not round_obj:
         return _json_error("not_found", "Fant ikke BalleTour-runden.", 404)
     if round_obj.status != "ongoing":
@@ -1614,3 +1614,20 @@ def shanklife_stats():
     for row in payload["round_rows"]:
         row["started_at"] = row["started_at"].isoformat() if row["started_at"] else None
     return jsonify({"environment": environment, "stats": payload})
+
+
+@api_bp.get("/sports/overview")
+@api_login_required
+def sports_overview():
+    from services.sportsmode import dashboard_payload
+    return jsonify(dashboard_payload(g.current_user))
+
+
+@api_bp.get("/sports/rounds")
+@api_login_required
+def sports_rounds():
+    from services.sportsmode import personal_round_items
+    from services.trackman_rounds import environment_filter
+    source = request.args.get("source", "all")
+    if source not in {"all", "shanklife", "balletour", "trackman"}: source = "all"
+    return jsonify({"rounds": personal_round_items(g.current_user, environment_filter(request.args.get("environment")), source)})

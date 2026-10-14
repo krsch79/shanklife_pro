@@ -1,3 +1,4 @@
+from services.tour_context import exclude_balletour, is_balletour_round
 import json
 import math
 from pathlib import Path
@@ -229,6 +230,7 @@ def _create_round(
     played_hole_count=None,
     starting_hole_number=1,
     play_format=STROKE_PLAY,
+    series_id=None,
 ):
     selected_hole_count = played_hole_count or course.hole_count
     if selected_hole_count not in allowed_round_hole_counts(course):
@@ -247,6 +249,8 @@ def _create_round(
     play_format = normalize_play_format(play_format)
     round_obj = Round(
         course_id=course.id,
+        series_id=series_id,
+        tour_context_set=True,
         status="ongoing",
         play_format=play_format,
         started_at=server_now(),
@@ -955,7 +959,7 @@ def _round_uses_club_tracking(round_obj):
     if any(round_player.tracks_stats for round_player in round_obj.round_players):
         return True
     balletour_series = get_balletour_series()
-    if balletour_series and round_obj.course_id == balletour_series.course_id:
+    if is_balletour_round(round_obj):
         return True
     if round_obj.course.legacy_source == "golftracker":
         return True
@@ -963,15 +967,14 @@ def _round_uses_club_tracking(round_obj):
 
 
 def _is_balletour_round(round_obj):
-    balletour_course_id = get_balletour_course_id()
-    return bool(balletour_course_id and round_obj.course_id == balletour_course_id)
+    return is_balletour_round(round_obj)
 
 
 def _shanklife_rounds_query():
     query = Round.query
     balletour_course_id = get_balletour_course_id()
     if balletour_course_id:
-        query = query.filter(Round.course_id != balletour_course_id)
+        query = exclude_balletour(query)
     return query
 
 
@@ -1017,8 +1020,8 @@ def _current_user_round_player(round_obj):
 
 
 def _after_finish_redirect(round_obj):
-    if _current_user_round_player(round_obj) and not _round_is_matchplay(round_obj):
-        return redirect(url_for("golfbox_scores.prepare", round_id=round_obj.id))
+    if _is_balletour_round(round_obj):
+        return redirect(url_for("balletour.round_detail", round_id=round_obj.id))
     return redirect(url_for("rounds.round_score", round_id=round_obj.id))
 
 
@@ -1591,7 +1594,7 @@ def _previous_hole_history(round_obj, round_players, hole):
             .filter(ScoreEntry.strokes.isnot(None))
         )
         if balletour_course_id:
-            query = query.filter(Round.course_id != balletour_course_id)
+            query = exclude_balletour(query)
         if physical_filter:
             group, loop, physical_hole_number = physical_filter
             query = query.filter(func.lower(history_hole.physical_course_group) == group)
@@ -2254,6 +2257,12 @@ def round_hole(round_id, hole_number):
 
         db.session.commit()
 
+        if action == "save":
+            flash("Hullet er lagret.", "success")
+            return redirect(edit_url(hole_number))
+        if action == "scorecard":
+            target = "rounds.balletour_round_scorecard" if _is_balletour_round(round_obj) else "rounds.round_score"
+            return redirect(url_for(target, round_id=round_obj.id, hole=hole_number))
         if action == "save_exit":
             flash("Runden er oppdatert.", "success")
             return redirect(url_for("rounds.round_score", round_id=round_obj.id))

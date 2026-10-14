@@ -1,6 +1,6 @@
-# Shanklife Pro
+# Shanklife Sportsmodus
 
-Shanklife Pro er hovedapplikasjonen i Shanklife-økosystemet. Den dekker scoreføring og statistikk for Shanklife-runder, BalleTour, delte brukere, GolfBox-integrasjon, Garmin-synkronisering, varsler og enkelte administrative arbeidsflyter.
+Shanklife samler personlig golf og BalleTour i én Sportsmodus-opplevelse. Den dekker scoreføring og statistikk for Shanklife-runder, BalleTour, delte brukere, GolfBox-integrasjon, Garmin-synkronisering, varsler og enkelte administrative arbeidsflyter.
 
 ## Arkitektur
 
@@ -15,12 +15,22 @@ Shanklife Pro er hovedapplikasjonen i Shanklife-økosystemet. Den dekker scoref�
 - `scripts/` inneholder deploy, backup, vedlikeholdsserver, planlagte jobber og driftsverktøy.
 - `balletour_survey/` er en separat sideapp med egen README og runtime.
 
+## Sportsmodus 2.0
+
+Fem hovedområder er felles for web og iOS: Hjem, Runder, Innsikt, Tour og Profil. `routes/main.py` leverer den personlige oversikten; `/api/v1/sports/overview` og `/api/v1/sports/rounds` bruker samme eieravgrensede lesemodell i `services/sportsmode.py`. Eksisterende runde-, integrasjons-, administrasjons- og touradresser beholdes. Nye installasjoner bruker ett Shanklife-manifest; det gamle BalleTour-manifestet beholder sin installasjons-ID, men utvider virkeområdet til den samlede appen.
+
+`Round.series_id` og `Round.tour_context_set` skiller en ny vanlig runde fra en BalleTour-runde, også på samme bane. Ved første oppstart etter oppgradering legges de to kolonnene og en indeks til. `migrate_legacy_tour_context()` fester tidligere baneklassifiserte BalleTour-runder til touren og markerer de øvrige som vanlige runder. Senere oppstarter kan ikke gjøre en allerede merket vanlig runde om til tourrunde. Andre eldre klubbserier beholder sitt eksisterende banebaserte beregningsgrunnlag. Score, resultat, rundelengde og private TrackMan-arkiver skrives ikke om av denne migreringen. Backup før oppgradering er nødvendig for tilbakeføring av denne førstegangsklassifiseringen.
+
+Den personlige historikken viser egne `RoundPlayer`-rader og bare brukerens egne TrackMan-projeksjoner. Shanklife-tilgang følger `shanklife-pro` på web og `shanklife-app` på appverten; tourtilgang krever `balletour` og tourmedlemskap. Felles sider og autentisering godtar minst én av disse tilgangene; rundevisning og scoreføring krever riktig produkttilgang for selve runden. Tourberegningen, tee-filtrene og kvalifiseringskravet beholdes. Kvalifisering er en egen status og endrer ikke sorteringsrekkefølgen.
+
+`static/sports.css`, `sports.js` og `sports-icons.svg` utgjør den nye visuelle rammen. Score lagres ved Lagre, hullbytte og åpning av scorekort. Par velges aldri automatisk. Scoreføring krever nett; det finnes ingen vedvarende lokal scorekø. Service worker lagrer bare offentlig statisk innhold, aldri private sider eller API-svar. GPS, bilder, GolfBox, Garmin, TrackMan, AI-statistikk og starttidsfunksjoner bruker eksisterende tjenester.
+
 ## Lokal utvikling
 
 Ikke utvikle direkte i `/Volumes/Shared/shanklife_pro`; denne SMB-mappen er produksjonskilden på Raspberry Pi-en. Bruk en ren klone under `/tmp` eller en annen lokal arbeidsmappe.
 
 ```bash
-python3 -m venv /tmp/shanklife-pro-dev
+python3.11 -m venv /tmp/shanklife-pro-dev
 /tmp/shanklife-pro-dev/bin/pip install -r requirements.txt
 cp .env.example .env
 DATABASE_URL=sqlite:////tmp/shanklife-pro-dev.db /tmp/shanklife-pro-dev/bin/python app.py
@@ -33,7 +43,7 @@ Appen lytter som standard på port `5055`. `.env` er lokal og skal aldri committ
 Bruk et ferskt midlertidig virtuelt miljø på macOS, fordi eksisterende miljøer under `/tmp` kan være utdaterte eller mangle native avhengigheter.
 
 ```bash
-python3 -m venv /tmp/shanklife-pro-test
+python3.11 -m venv /tmp/shanklife-pro-test
 /tmp/shanklife-pro-test/bin/pip install -r requirements.txt
 /tmp/shanklife-pro-test/bin/python -m py_compile $(git ls-files '*.py')
 /tmp/shanklife-pro-test/bin/python -m unittest discover -s tests -p 'test_*.py'

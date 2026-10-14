@@ -1,3 +1,4 @@
+from services.tour_context import is_balletour_round
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 from sqlalchemy.exc import IntegrityError
 
@@ -20,8 +21,7 @@ def _round_player_for_current_user(round_obj):
 
 
 def _is_balletour_round(round_obj):
-    series = get_balletour_series()
-    return bool(series and round_obj.course_id == series.course_id)
+    return is_balletour_round(round_obj)
 
 
 def _return_endpoint(round_obj):

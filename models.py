@@ -372,6 +372,8 @@ class Round(db.Model):
     finished_at = db.Column(db.DateTime, nullable=True)
     played_hole_count = db.Column(db.Integer, nullable=True)
     starting_hole_number = db.Column(db.Integer, nullable=True)
+    series_id = db.Column(db.Integer, db.ForeignKey("series.id"), nullable=True, index=True)
+    tour_context_set = db.Column(db.Boolean, nullable=False, default=False, server_default="0")
     stats_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     weather_json = db.Column(db.Text, nullable=True)
     notes = db.Column(db.Text, nullable=True)

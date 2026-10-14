@@ -2,6 +2,15 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [2.0.0] - 2026-10-14
+
+- Samler Shanklife og BalleTour i én Sportsmodus-opplevelse med felles navigasjon, personlig hjem og rundehistorikk.
+- Skiller private runder fra tourrunder på samme bane og viser matchplay som kampresultat.
+- Gir scoreføringen store hurtigvalg, lagring før scorekort og enkel tilføying av medspillere. Ved lagringsfeil beholdes valgene på skjermen for ny innsending.
+- Viser rundens resultat først etter fullføring; GolfBox-innsending er et eget valgfritt steg.
+- Viser egne TrackMan-runder som lesbare scorekort og statistikk med registrert hullgrunnlag.
+- Samler den native iPhone-navigasjonen og retter en tom visning ved åpning av vanlig runde.
+
 ## [1.9.66] - 2026-10-11
 
 - Viser registrerte putter, gimmies og automatisk tildelte putter separat, samlet og per TrackMan-runde.

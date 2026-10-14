@@ -9,8 +9,8 @@
         <p class="muted">Shanklife-runder og importerte TrackMan-runder.</p>
     </div>
     <div class="button-row compact">
-        <a class="button" href="{{ url_for('rounds.new_stats_round') }}">Ny runde</a>
-        <a class="button secondary" href="{{ url_for('stats.index') }}">Min statistikk</a>
+        <a class="button" href="{{ url_for('main.sports_start') }}">Ny runde</a>
+        <a class="button secondary" href="{{ url_for('main.sports_insight') }}">Min statistikk</a>
         <a class="button secondary" href="{{ url_for('profile.me') }}">Min side</a>
     </div>
 </div>
@@ -90,7 +90,7 @@
                     <h3>{{ row.course.name }}</h3>
                 </div>
                 <div class="my-round-score">
-                    <strong>{{ row.total if row.total is not none else "—" }}</strong>
+                    <strong>{{ row.score_display }}</strong>
                     <span>{% if row.score_to_par is not none %}{{ row.score_to_par_display }} mot par{% else %}Score{% endif %}</span>
                 </div>
             </div>
@@ -99,7 +99,7 @@
                 <span>{{ round_length_label(row.round) }}</span>
                 <span>{{ row.tee_name }} tee</span>
                 <span>HCP {{ "%.1f"|format(row.round_player.hcp_for_round) }}</span>
-                <span>{{ play_format_label(row.round.play_format) }}</span>
+                <span>{{ play_format_label(row.round.play_format) }}</span>{% if row.is_tour %}<span class="round-status-pill">BalleTour</span>{% endif %}
                 <span class="round-status-pill {{ row.round.status }}">{{ row.status_label }}</span>
                 {% if row.garmin_synced %}
                 <span class="garmin-sync-status synced">Synkronisert med Garmin</span>

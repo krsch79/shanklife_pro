@@ -1,3 +1,4 @@
+from services.tour_context import series_round_condition, is_series_round
 import json
 import os
 from collections import defaultdict
@@ -213,7 +214,7 @@ def _round_players(series, player_ids):
         return []
     return (
         RoundPlayer.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(Round.status == "finished")
         .filter(RoundPlayer.player_id.in_(player_ids))
         .order_by(Round.started_at.desc(), RoundPlayer.id.asc())

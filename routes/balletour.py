@@ -1,3 +1,4 @@
+from services.tour_context import series_round_condition, is_series_round
 import json
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
@@ -83,7 +84,7 @@ def _balletour_memberships_with_rounds(series, memberships, tee_ids=None, status
     query = (
         db.session.query(RoundPlayer.player_id)
         .join(Round, Round.id == RoundPlayer.round_id)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(RoundPlayer.player_id.in_(player_ids))
     )
     if statuses:
@@ -220,7 +221,7 @@ def _best_hole_score_table(series, memberships, tee_ids=None):
             )
             .join(ScoreEntry, ScoreEntry.round_player_id == RoundPlayer.id)
             .join(Round, Round.id == RoundPlayer.round_id)
-            .filter(Round.course_id == series.course_id)
+            .filter(series_round_condition(series))
             .filter(Round.status == "finished")
             .filter(RoundPlayer.player_id.in_(player_ids))
             .filter(ScoreEntry.strokes.isnot(None))
@@ -308,7 +309,7 @@ def _balletour_leaderboard_rows(series, memberships, tee_ids=None):
     for player_id, player in players.items():
         round_players = (
             RoundPlayer.query.join(Round)
-            .filter(Round.course_id == series.course_id)
+            .filter(series_round_condition(series))
             .filter(Round.status == "finished")
             .filter(RoundPlayer.player_id == player_id)
         )
@@ -470,7 +471,7 @@ def _green_bucket(status, directions):
 def _completed_balletour_round_players(series, player_ids=None, tee_ids=None):
     query = (
         RoundPlayer.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(Round.status == "finished")
     )
     if player_ids:
@@ -635,7 +636,7 @@ def _balletour_player_stats(series, memberships, selected_player, selected_hole_
 
     round_players = (
         RoundPlayer.query.join(Round)
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(RoundPlayer.player_id == selected_player.id)
         .filter(Round.status == "finished")
         .order_by(Round.started_at.desc())
@@ -930,7 +931,7 @@ def _balletour_score_type_totals(series, tee_ids=None):
             (CourseHole.course_id == Round.course_id)
             & (CourseHole.hole_number == ScoreEntry.hole_number),
         )
-        .filter(Round.course_id == series.course_id)
+        .filter(series_round_condition(series))
         .filter(Round.status == "finished")
         .filter(ScoreEntry.strokes.isnot(None))
     )
@@ -965,7 +966,7 @@ def index():
         memberships = get_balletour_memberships()
         tee_key = selected_tee_key(request.args.get("tee"))
         tee_ids = tee_ids_for_key(series.course, tee_key)
-        round_query = Round.query.join(RoundPlayer).filter(Round.course_id == series.course_id)
+        round_query = Round.query.join(RoundPlayer).filter(series_round_condition(series))
         finished_round_query = round_query.filter(Round.status == "finished")
         ongoing_round_query = round_query.filter(Round.status == "ongoing")
         if tee_ids:
@@ -1025,7 +1026,7 @@ def me():
         round_players = (
             RoundPlayer.query.filter_by(player_id=player.id)
             .join(Round)
-            .filter(Round.course_id == series.course_id)
+            .filter(series_round_condition(series))
             .order_by(Round.started_at.desc())
             .all()
         )
@@ -1057,7 +1058,7 @@ def me():
                     & (CourseHole.hole_number == ScoreEntry.hole_number),
                 )
                 .outerjoin(ScoreStat, ScoreStat.score_entry_id == ScoreEntry.id)
-                .filter(Round.course_id == series.course_id)
+                .filter(series_round_condition(series))
                 .filter(RoundPlayer.id.in_(round_player_ids))
                 .filter(ScoreEntry.strokes.isnot(None))
                 .with_entities(
@@ -1478,7 +1479,7 @@ def new_round():
             flash("Du kan ikke ha samme spiller mer enn én gang i samme runde.", "error")
             return _balletour_new_round_state(series, players)
 
-        round_obj = _create_round(course, round_players_payload, stats_user_id=g.current_user.id)
+        round_obj = _create_round(course, round_players_payload, stats_user_id=g.current_user.id, series_id=series.id)
         try:
             weather_payload = fetch_bekkestua_weather(round_obj.started_at)
             round_obj.weather_json = json.dumps(weather_payload, ensure_ascii=True)
@@ -1505,7 +1506,7 @@ def ongoing_rounds():
     with balletour_data_context():
         series = _balletour_or_404()
         rows = (
-            Round.query.filter_by(course_id=series.course_id, status="ongoing")
+            Round.query.filter(series_round_condition(series)).filter_by(status="ongoing")
             .order_by(Round.started_at.desc())
             .all()
         )
@@ -1527,7 +1528,7 @@ def live_leaderboard():
         if view_mode not in ("gross", "net"):
             view_mode = "gross"
         tee_key = selected_tee_key(request.args.get("tee"))
-        boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key, course_id=series.course_id)
+        boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key, course_id=series.course_id, series_id=series.id)
         return render_template(
             "live_leaderboard.html",
             series=series,
@@ -1552,7 +1553,7 @@ def live_leaderboard_partial():
         if view_mode not in ("gross", "net"):
             view_mode = "gross"
         tee_key = selected_tee_key(request.args.get("tee"))
-        boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key, course_id=series.course_id)
+        boards = build_live_leaderboards(view_mode=view_mode, tee_key=tee_key, course_id=series.course_id, series_id=series.id)
         return render_template(
             "live_leaderboard_content.html",
             boards=boards,
@@ -1588,7 +1589,7 @@ def finished_rounds():
             if player_id in player_ids and player_id not in selected_player_ids:
                 selected_player_ids.append(player_id)
 
-        query = Round.query.filter_by(course_id=series.course_id, status="finished")
+        query = Round.query.filter(series_round_condition(series)).filter_by(status="finished")
         if tee_ids:
             query = query.join(RoundPlayer).filter(RoundPlayer.selected_tee_id.in_(tee_ids))
         if selected_player_ids:
@@ -1618,7 +1619,7 @@ def round_detail(round_id):
     with balletour_data_context():
         series = _balletour_or_404()
         round_obj = Round.query.get_or_404(round_id)
-        if round_obj.course_id != series.course_id or round_obj.status != "finished":
+        if not is_series_round(round_obj, series) or round_obj.status != "finished":
             abort(404)
 
         tee_key = selected_tee_key(request.args.get("tee"))

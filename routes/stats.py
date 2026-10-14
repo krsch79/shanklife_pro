@@ -1,3 +1,4 @@
+from services.tour_context import exclude_balletour, is_balletour_round
 import math
 from collections import defaultdict
 
@@ -19,10 +20,7 @@ stats_bp = Blueprint("stats", __name__, url_prefix="/stats")
 
 
 def _exclude_balletour_course(query):
-    balletour_course_id = get_balletour_course_id()
-    if balletour_course_id:
-        return query.filter(Round.course_id != balletour_course_id)
-    return query
+    return exclude_balletour(query)
 
 
 @stats_bp.route("/ai", methods=["GET", "POST"])

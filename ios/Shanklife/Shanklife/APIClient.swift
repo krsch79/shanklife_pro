@@ -21,6 +21,18 @@ struct APIClient {
     var baseURL: URL
     var session: URLSession = .shared
 
+    func sportsOverview() async throws -> SportsOverview {
+        try await request(path: "/api/v1/sports/overview")
+    }
+
+    func sportsRounds(source: String = "all", environment: String = "all") async throws -> SportsRoundsResponse {
+        try await request(path: "/api/v1/sports/rounds?source=\(source)&environment=\(environment)")
+    }
+
+    func sportsStats(environment: String = "all") async throws -> SportsStatsResponse {
+        try await request(path: "/api/v1/shanklife/stats?environment=\(environment)")
+    }
+
     func login(username: String, password: String) async throws -> AppUser {
         let response: LoginResponse = try await request(
             path: "/api/v1/auth/login",

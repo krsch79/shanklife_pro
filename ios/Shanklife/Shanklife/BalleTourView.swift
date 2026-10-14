@@ -9,10 +9,11 @@ struct BalleTourView: View {
     @State private var finishedRounds: [BalleTourRoundListItem] = []
     @State private var ongoingRounds: [BalleTourRoundListItem] = []
     @State private var mySummary: BalleTourPlayerSummaryResponse?
-    @State private var selectedSection = BalleTourSection.rounds
+    @State private var selectedSection = BalleTourSection.leaderboard
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var didInitialLoad = false
+    @State private var requestID = UUID()
 
     var body: some View {
         List {
@@ -31,9 +32,11 @@ struct BalleTourView: View {
 
             if let overview {
                 overviewSection(overview)
-                activeRoundsSection
-                teeSection(overview)
-                sectionPicker
+                if !ongoingRounds.isEmpty { activeRoundsSection }
+                Section {
+                    Picker("Tee", selection: $selectedTee) { ForEach(overview.teeOptions) { option in Text(option.label).tag(option.key) } }.pickerStyle(.segmented)
+                    Picker("Visning", selection: $selectedSection) { ForEach(BalleTourSection.allCases) { section in Label(section.title, systemImage: section.systemImage).tag(section) } }.pickerStyle(.menu)
+                }.onChange(of: selectedTee) { _,_ in Task { await load() } }
 
                 switch selectedSection {
                 case .leaderboard:
@@ -49,7 +52,9 @@ struct BalleTourView: View {
                 }
             }
         }
+        .listSectionSpacing(16)
         .navigationTitle("BalleTour")
+        .tint(SportsPalette.action)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 NavigationLink {
@@ -85,46 +90,20 @@ struct BalleTourView: View {
 
     private func overviewSection(_ overview: BalleTourOverviewResponse) -> some View {
         Section {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(overview.course.name)
-                    .font(.headline)
-
-                HStack(spacing: 10) {
-                    metric("Spillere", "\(overview.playerCount)", systemImage: "person.3")
-                    metric("Ferdige", "\(overview.finishedRoundCount)", systemImage: "checkmark.circle")
-                    metric("Pågår", "\(overview.ongoingRoundCount)", systemImage: "dot.radiowaves.left.and.right")
+            VStack(alignment: .leading, spacing: 14) {
+                Text(overview.course.name).font(.title2.weight(.bold))
+                Text("\(overview.playerCount) spillere · \(overview.finishedRoundCount) fullførte runder").font(.subheadline).foregroundStyle(.secondary)
+                if let own = overview.leaderboard.first(where: { $0.playerID == session.user?.player?.id }) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("\(own.roundsPlayed) / \(overview.minQualifyingRounds)").font(.title.weight(.heavy)).monospacedDigit()
+                        Text(own.qualified ? "Kvalifisert" : "Under kvalifisering").font(.caption.weight(.semibold))
+                    }
+                    ProgressView(value: Double(min(own.roundsPlayed, overview.minQualifyingRounds)), total: Double(max(1,overview.minQualifyingRounds))).tint(SportsPalette.ink)
                 }
-
-                Text("Kvalifisering: \(overview.minQualifyingRounds) tellende runder")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private func teeSection(_ overview: BalleTourOverviewResponse) -> some View {
-        Section {
-            Picker("Tee", selection: $selectedTee) {
-                ForEach(overview.teeOptions) { option in
-                    Text(option.label).tag(option.key)
+                DisclosureGroup("Slik teller konkurransen") {
+                    Text("Summen mot par fra alle fullførte runder på valgt tee bestemmer rekkefølgen. Minst \(overview.minQualifyingRounds) tellende runder kreves for kvalifisering. Statusen vises separat fra plasseringen.").font(.caption).foregroundStyle(.secondary).padding(.top,8)
                 }
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: selectedTee) { _, _ in
-                Task { await load() }
-            }
-        }
-    }
-
-    private var sectionPicker: some View {
-        Section {
-            Picker("Visning", selection: $selectedSection) {
-                ForEach(BalleTourSection.allCases) { section in
-                    Label(section.title, systemImage: section.systemImage).tag(section)
-                }
-            }
-            .pickerStyle(.segmented)
+            }.padding(.vertical,8)
         }
     }
 
@@ -214,7 +193,7 @@ struct BalleTourView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Fortsett runde #\(round.id)")
                                 .font(.headline)
-                            Text(round.players.map { "\($0.playerName) \($0.completedHoles)/18" }.joined(separator: ", "))
+                            Text(round.players.map { "\($0.playerName) \($0.completedHoles)/\(overview?.course.holeCount ?? 9)" }.joined(separator: ", "))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
@@ -338,24 +317,24 @@ struct BalleTourView: View {
             return
         }
 
+        let token = UUID(); requestID = token
+        let tee = selectedTee
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { if requestID == token { isLoading = false } }
 
         do {
-            async let overviewResponse = client.balletourOverview(tee: selectedTee)
+            async let overviewResponse = client.balletourOverview(tee: tee)
             async let playersResponse = client.balletourPlayers()
-            async let finishedResponse = client.balletourRounds(status: "finished", tee: selectedTee)
-            async let ongoingResponse = client.balletourRounds(status: "ongoing", tee: selectedTee)
-            async let meResponse = client.balletourMe(tee: selectedTee)
+            async let finishedResponse = client.balletourRounds(status: "finished", tee: tee)
+            async let ongoingResponse = client.balletourRounds(status: "ongoing", tee: tee)
+            async let meResponse = client.balletourMe(tee: tee)
 
-            overview = try await overviewResponse
-            players = try await playersResponse.players
-            finishedRounds = try await finishedResponse.rounds
-            ongoingRounds = try await ongoingResponse.rounds
-            mySummary = try await meResponse
+            let result = try await (overviewResponse, playersResponse, finishedResponse, ongoingResponse, meResponse)
+            guard requestID == token else { return }
+            overview = result.0; players = result.1.players; finishedRounds = result.2.rounds; ongoingRounds = result.3.rounds; mySummary = result.4
         } catch {
-            errorMessage = error.localizedDescription
+            if requestID == token { errorMessage = error.localizedDescription }
         }
     }
 }
@@ -555,11 +534,11 @@ enum BalleTourSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .leaderboard: "Live"
+        case .leaderboard: "Stilling"
         case .rounds: "Runder"
         case .players: "Spillere"
         case .me: "Meg"
-        case .stats: "Stats"
+        case .stats: "Statistikk"
         }
     }
 

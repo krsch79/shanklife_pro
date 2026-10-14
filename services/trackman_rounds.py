@@ -173,6 +173,7 @@ def merge_stats(stats, trackman_rows):
             samples["fairway_attempts"] += sum(fw)
     stats.update(round_score_summary(completed))
     stats["gir_percent"] = round(samples["gir_count"] / samples["gir_attempts"] * 100, 1) if samples["gir_attempts"] else None
+    stats["gir_attempts"] = samples["gir_attempts"]
     stats.update(putting_stats(putting))
     stats["fairway_attempts"] = samples["fairway_attempts"]
     for key in ("hit", "left", "right"):

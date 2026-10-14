@@ -37,7 +37,7 @@
     </div>
 
     <h3>Andre BalleTour-spillere</h3>
-    <div class="player-slots">
+    <div class="player-slots" data-progressive-players>
         {% for slot in other_slots %}
         <div class="player-slot" data-slot="{{ slot.slot }}">
             <label for="player_slot_{{ slot.slot }}">Spiller {{ slot.slot }}</label>

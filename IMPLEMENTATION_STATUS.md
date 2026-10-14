@@ -9,19 +9,28 @@ Sportsmodus; one Shanklife product with BalleTour as its tour; web, API and nati
 - Clone: /tmp/shanklife-sportsmodus.nqnY0T/repo
 - Branch: codex/sportsmodus
 - Baseline: 876745006f4b5390fefc04a0b0fd750debe5218a (1.9.66)
-- Runtime for local tests: /tmp/shanklife-sportsmodus.nqnY0T/venv
+- Runtime for local tests: /tmp/shanklife-sportsmodus.nqnY0T/venv311
 - Production source is the SMB checkout; all implementation is in this clone.
 - Analysis/design and agreed plan are in the chat's durable artifact directory: /Users/kristianschiander/.codex/visualizations/2026/10/13/01a134c1-d370-7be0-a079-84e7fa60c717
 
-## State
-Production unchanged. Initial architecture review underway. Fresh dependencies being installed. Xcode 27 available; simulator access requires unsandboxed xcrun. No simulator was booted at start.
+## Implemented in staging
+- Explicit BalleTour attachment, idempotent legacy migration, consistent tour/statistics/API queries and safe admin tour cleanup.
+- Sportsmodus shell, personal home, combined owned rounds/TrackMan history, insight, common profile, progressive player setup and online quick scoring. Old URLs retained. Common PWA scope.
+- Native five-area navigation, shared data and authenticated web functions, compact tour progress/rules and online score controls. Fixed initially blank native scoring loader; saved score tested through next/previous hole.
+- Production remains baseline 1.9.66 and clean. Read-only preflight: 101 rounds, 1233 score entries, 108 round players, 195 TrackMan projections, 60 legacy tour rounds, 20 required qualifying rounds. Migration selection matches existing tour selection. Database about 3.2 GB; never copy it into Git.
+
+## Verification checkpoints
+- Python 3.11: 164 tests passed after migration, access, legacy-series and web full-completion tests. Final browser network-failure check and iOS finish-flow QA remain.
+- Web: core views checked at 320, 393, 852 landscape, 1280 and 1440; no document-wide horizontal overflow. Local browser creation on Ballerud stayed a normal round and saved birdie/par across forward/backward hole navigation.
+- iOS Release compilation passed. `native-ui-4.xcresult`: two XCTest UI tests passed (navigation/authenticated profile; saved score through next/previous). Final completion/read-only handling needs the last Release/UI check. A previous signed archive was verified successfully, but must be rebuilt from final source before distribution.
+- Local QA server: `/tmp/shanklife-sportsmodus.nqnY0T/demo_server.py`, Python 3.11, 127.0.0.1:5057, disposable synthetic user demo/demo-demo. No mail/weather/integration writes. Stop exact server process when finished.
+- Simulator: iOS 27.0 runtime installed; iPhone 18 Pro F0923B62-22AD-4A52-A784-4E8677589BF4. Full logs and results are in the staging parent directory; durable browser evidence is in the artifact directory.
 
 ## Required remaining work
-1. Explicit tour attachment preserving legacy classification; consistent web/API queries and role checks.
-2. Sportsmodus shell and home with real personal data; unified round history/profile, round setup/scoring, tour, insight/start times and all retained features.
-3. Native Sportsmodus five-area navigation and shared data/API presentation.
-4. Meaningful migration/access/regression tests; browser desktop/mobile and native build/simulator checks.
-5. Documentation, both changelogs and version. Safe release with rollback, maintenance, GitHub and notification. No partial deployment.
+1. Final controlled web save-failure/retry QA and final iOS finish-flow test/build; inspect final screenshot artifacts. New web round, player add, save and scorecard persistence already verified.
+2. Prepare cold backup/SHA and autonomous rollback before maintenance cutover. Push the final verified commit, then deploy. Keep private runtime outside repository.
+3. Deploy complete web/API change through Pi script only, confirm actual service/process/5055/public pro/app health and migration counts, then verified deployment email.
+4. Native signed archive/distribution after checking available signing and Apple access. Report exact native delivery state; do not claim TestFlight based on an unsigned build.
 
 ## Resume
 Read this file, git status and AGENTS.md before making changes. Check current usage limits and production state. Continue the first incomplete item. Never infer that a running command succeeded: obtain its exit code.

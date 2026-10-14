@@ -32,7 +32,7 @@
     <p class="muted">Velg bane og rundelengde først. Deretter velger du spillere og tee for hver.</p>
 
     <h3>Velg spillere (maks 4)</h3>
-    <div class="player-slots">
+    <div class="player-slots" data-progressive-players>
         {% for slot in player_slots %}
         <div class="player-slot" data-slot="{{ slot.slot }}">
             <label for="player_slot_{{ slot.slot }}">Spiller {{ slot.slot }}</label>
@@ -47,17 +47,17 @@
             </select>
 
             <div class="new-player-fields" style="display: none;">
-                <input type="text" name="new_player_name_{{ slot.slot }}" value="{{ slot.new_name }}" placeholder="Navn" class="new-player-name">
-                <input type="text" name="new_player_hcp_{{ slot.slot }}" value="{{ slot.new_hcp }}" placeholder="HCP" class="new-player-hcp">
-                <select name="new_player_tee_{{ slot.slot }}" class="tee-select new-player-tee" data-selected="{{ slot.new_tee }}">
+                <input type="text" name="new_player_name_{{ slot.slot }}" aria-label="Navn for spiller {{ slot.slot }}" value="{{ slot.new_name }}" placeholder="Navn" class="new-player-name">
+                <input type="text" name="new_player_hcp_{{ slot.slot }}" aria-label="Handicap for spiller {{ slot.slot }}" value="{{ slot.new_hcp }}" placeholder="HCP" class="new-player-hcp">
+                <select name="new_player_tee_{{ slot.slot }}" aria-label="Tee for spiller {{ slot.slot }}" class="tee-select new-player-tee" data-selected="{{ slot.new_tee }}">
                     <option value="">Velg tee</option>
                 </select>
                 <div class="received-strokes-display muted" aria-live="polite"></div>
             </div>
 
             <div class="existing-player-fields" style="display: none;">
-                <input type="text" name="hcp_existing_{{ slot.slot }}" value="{{ slot.existing_hcp }}" placeholder="HCP" class="existing-player-hcp">
-                <select name="tee_existing_{{ slot.slot }}" class="tee-select existing-player-tee" data-selected="{{ slot.existing_tee }}">
+                <input type="text" name="hcp_existing_{{ slot.slot }}" aria-label="Handicap for spiller {{ slot.slot }}" value="{{ slot.existing_hcp }}" placeholder="HCP" class="existing-player-hcp">
+                <select name="tee_existing_{{ slot.slot }}" aria-label="Tee for spiller {{ slot.slot }}" class="tee-select existing-player-tee" data-selected="{{ slot.existing_tee }}">
                     <option value="">Velg tee</option>
                 </select>
                 <div class="received-strokes-display muted" aria-live="polite"></div>

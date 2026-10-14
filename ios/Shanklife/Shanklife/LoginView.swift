@@ -21,10 +21,10 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Image(systemName: "figure.golf")
                             .font(.system(size: 42))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(SportsPalette.ink)
                         Text("Shanklife")
                             .font(.title.bold())
-                        Text("Native prototype")
+                        Text("Sportsmodus · golfen din, samlet")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Text(appVersionDisplay)
@@ -34,12 +34,12 @@ struct LoginView: View {
                     .padding(.vertical, 8)
                 }
 
-                Section("Server") {
+                Section { DisclosureGroup("Tilkoblingsdetaljer") {
                     TextField("Base URL", text: $session.baseURLText)
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
-                }
+                } }
 
                 Section("Innlogging") {
                     TextField("Brukernavn", text: $username)
@@ -106,6 +106,14 @@ struct LoginView: View {
             return
         }
         didStartLocalAutoLogin = true
+        let environment = ProcessInfo.processInfo.environment
+        if environment["SPORTS_UI_QA"] == "1" {
+            session.baseURLText = "http://127.0.0.1:5057"
+            username = "demo"
+            password = "demo-demo"
+            Task { await session.login(username: username, password: password, rememberCredentials: false) }
+            return
+        }
         username = "kristian"
         password = "kristian"
         Task {

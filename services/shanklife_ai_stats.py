@@ -1,3 +1,4 @@
+from services.tour_context import exclude_balletour
 import json
 import os
 from collections import defaultdict
@@ -173,12 +174,11 @@ def _finished_shanklife_round_players():
         RoundPlayer.query.join(Round)
         .filter(Round.status == "finished")
         .filter(Round.play_format != MATCHPLAY)
-        .filter(~Round.course.has(Course.name.ilike("%Ballerud%")))
         .order_by(Round.started_at.desc(), RoundPlayer.id.asc())
     )
     balletour_course_id = get_balletour_course_id()
     if balletour_course_id:
-        query = query.filter(Round.course_id != balletour_course_id)
+        query = exclude_balletour(query)
     return query.all()
 
 

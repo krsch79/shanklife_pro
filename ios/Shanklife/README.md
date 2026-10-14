@@ -1,19 +1,22 @@
-# Shanklife iOS
+# Shanklife iOS Sportsmodus
 
-Native SwiftUI-klient for Shanklife Pro og BalleTour.
+SwiftUI-klienten samler Shanklife og BalleTour i Hjem, Runder, Innsikt, Tour og Profil. Standardserver er `https://app.shanklife.no`. Web/backend-deploy oppdaterer ikke en allerede installert native app; native 2.0.0 (21) må distribueres som egen signert iOS-utgivelse.
 
-## Lokal oppstart
+## Struktur og grenser
 
-1. Åpne `Shanklife.xcodeproj` i Xcode.
-2. Velg en iPhone-simulator eller fysisk iPhone.
-3. Start Flask-serveren lokalt på port `5055`.
-4. I appens login-skjerm bruker du base URL `http://127.0.0.1:5055` i simulatoren for lokal testing, eller standardadressen `https://app.shanklife.no` for deployet server.
+- `DashboardView.swift` gir femområdenavigasjon. `SportsModeViews.swift` viser personlige serverdata og de felles funksjonene.
+- `APIClient.swift` og `Models.swift` bruker de eieravgrensede Sportsmodus-endepunktene og eksisterende score-/statistikk-API. Rundetype og medlemskap kommer fra serveren.
+- `SessionStore.swift` håndterer innlogging, cookie-sesjon og eksisterende Keychain-lagring. Konto, originaldata, ferdige vanlige scorekort, starttider og administrasjon åpnes i en autentisert WKWebView med samme servercookie og ikke-vedvarende webdatastore. Passord sendes aldri i JavaScript eller URL.
+- Vanlige runder og tourrunder føres native. Store scorevalg viser birdie/par/bogey og hele listen ved trykk på scoren. Lagre og hullbytte sender til serveren; ved feil beholdes gjeldende hull og input. Det finnes ingen offline scorekø.
+- Ferdige tourrunder, tourstatistikk og baneoppretting bruker eksisterende native visninger. Eksterne tjenester trenger tilgjengelig server og nett.
+- Lokal automatisk testinnlogging er beskyttet med både `DEBUG` og `targetEnvironment(simulator)`. `SPORTS_UI_QA=1` aktiverer kun syntetisk localhost-fixture på 5057 og lagrer ikke testpassord i Keychain. Release inneholder ikke denne grenen.
 
-For fysisk iPhone og TestFlight brukes `https://app.shanklife.no`.
+## Bygg og test
 
-## Struktur
+Åpne `Shanklife.xcodeproj`, bruk delt scheme `Shanklife` og en tilgjengelig iOS-runtime. Lokal testserveradresse kan velges under Tilkoblingsdetaljer på innloggingssiden. Ikke rydd brukerens åpne Xcode-workspace eller xcuserdata.
 
-- `APIClient.swift` håndterer JSON-kall mot `/api/v1`.
-- `SessionStore.swift` eier innlogging, bootstrap og utlogging.
-- `ContentView.swift` bytter mellom login og hovedapp.
-- `DashboardView.swift` viser de to produktdelene: Shanklife Pro og BalleTour.
+```bash
+xcodebuild -project ios/Shanklife/Shanklife.xcodeproj -scheme Shanklife -configuration Release -destination 'generic/platform=iOS' -derivedDataPath /tmp/shanklife-release CODE_SIGNING_ALLOWED=NO
+```
+
+`ShanklifeUITests/SportsModeUITests.swift` prøver ekte navigasjon, felles innlogging og scorelagring gjennom hullbytte mot den disponible demo-serveren beskrevet i `IMPLEMENTATION_STATUS.md`. Start serveren og kontroller health før testen; ikke nullstill fixture eller opprett browser-runder mens XCTest kjører. Skjermbilder lagres som xcresult-vedlegg. Signering og Apple-opplasting krever egne kontroller av arkiv, team og provisioning. Et usignert Release-bygg er kompilasjonsbevis, ikke en publisert iPhone-utgivelse.

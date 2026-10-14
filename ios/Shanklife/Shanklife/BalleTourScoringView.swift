@@ -252,12 +252,18 @@ struct BalleTourScoringView: View {
                 }
             }
 
-            holeHeader
-            playerInputs
-            actionButtons
+            if detail.status == "ongoing" {
+                holeHeader
+                playerInputs
+                actionButtons
+            } else {
+                Section { NavigationLink("Se resultat og scorekort") { BalleTourRoundDetailView(roundID: detail.id) } }
+            }
             scorecardSection
         }
         .navigationTitle("Runde #\(detail.id)")
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar { if detail.status == "ongoing" { Button("Lagre") { Task { await saveHole() } }.disabled(isSaving) } }
         .onAppear {
             initializeInputsIfNeeded()
             Task { await loadSetupIfNeeded() }
@@ -312,13 +318,9 @@ struct BalleTourScoringView: View {
                         }
                     }
 
-                    Picker("Score", selection: binding(for: player.roundPlayerID).strokes) {
-                        Text("-").tag(Int?.none)
-                        ForEach(currentHole?.scoreOptions ?? scoreOptions(par: currentScoreFallback?.par ?? 3), id: \.self) { score in
-                            Text("\(score)").tag(Int?.some(score))
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    SportsScoreControl(score: binding(for: player.roundPlayerID).strokes,
+                                       par: currentHole?.par ?? currentScoreFallback?.par ?? 3,
+                                       options: currentHole?.scoreOptions ?? scoreOptions(par: currentScoreFallback?.par ?? 3))
 
                     OptionMenuRow(
                         title: "Kølle",
@@ -367,6 +369,7 @@ struct BalleTourScoringView: View {
         let input = binding(for: player.roundPlayerID)
         return VStack(alignment: .leading, spacing: 8) {
             Picker("Green", selection: greenStatusBinding(input)) {
+                Text("Uregistrert").tag("")
                 Text("Treff").tag("hit")
                 Text("Miss").tag("miss")
                 Text("Bunker").tag("bunker")
@@ -379,6 +382,7 @@ struct BalleTourScoringView: View {
                 Text("Høyre").tag("right")
             }
             .pickerStyle(.segmented)
+            .disabled(input.wrappedValue.green == nil)
 
             Picker("Lengde", selection: greenVerticalBinding(input)) {
                 Text("Pin high").tag("")
@@ -386,6 +390,7 @@ struct BalleTourScoringView: View {
                 Text("Lang").tag("long")
             }
             .pickerStyle(.segmented)
+            .disabled(input.wrappedValue.green == nil)
         }
     }
 
@@ -393,7 +398,7 @@ struct BalleTourScoringView: View {
         Section {
             HStack {
                 Button {
-                    moveHole(-1)
+                    Task { await saveHole(move: -1) }
                 } label: {
                     Label("Forrige", systemImage: "chevron.left")
                 }
@@ -438,7 +443,7 @@ struct BalleTourScoringView: View {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                         ForEach(player.scores) { score in
                             Button {
-                                currentHoleNumber = score.holeNumber
+                                Task { await saveHole(move: score.holeNumber - currentHoleNumber) }
                             } label: {
                                 VStack(spacing: 3) {
                                     Text("\(score.holeNumber)")
@@ -452,6 +457,7 @@ struct BalleTourScoringView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                             }
                             .buttonStyle(.plain)
+                            .disabled(isSaving || detail.status == "finished")
                         }
                     }
                 }
@@ -501,7 +507,7 @@ struct BalleTourScoringView: View {
 
     private func greenInput(from score: BalleTourHoleScore?) -> BalleTourGreenInput? {
         guard let raw = score?.greenResult else {
-            return BalleTourGreenInput(status: "hit", directions: ["pin"])
+            return nil
         }
         let parts = raw.split(separator: ":", maxSplits: 1).map(String.init)
         if parts.count == 2 {
@@ -697,12 +703,12 @@ private func scoreChip(_ score: Int?, par: Int?) -> some View {
 
 private func greenStatusBinding(_ input: Binding<BalleTourHolePlayerInput>) -> Binding<String> {
     Binding(
-        get: { input.wrappedValue.green?.status ?? "hit" },
+        get: { input.wrappedValue.green?.status ?? "" },
         set: { newValue in
             var value = input.wrappedValue
             var green = value.green ?? BalleTourGreenInput(status: "hit", directions: ["pin"])
             green.status = newValue
-            value.green = green
+            value.green = newValue.isEmpty ? nil : green
             input.wrappedValue = value
         }
     )

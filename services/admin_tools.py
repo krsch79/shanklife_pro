@@ -219,7 +219,8 @@ def clear_balletour_rounds(reset_connection=True, commit=True):
     if not series:
         raise ValueError("Fant ikke BalleTour-serien.")
 
-    rounds = Round.query.filter_by(course_id=series.course_id).all()
+    from services.tour_context import series_round_condition
+    rounds = Round.query.filter(series_round_condition(series)).all()
     deleted_count = len(rounds)
     try:
         _delete_round_image_files(rounds)
@@ -416,6 +417,7 @@ def _create_test_rounds_for_user(user, courses, rng, now, count):
         started_at = now - timedelta(days=(count - index) * rng.randint(2, 7), hours=rng.randint(7, 16))
         round_obj = Round(
             course_id=course.id,
+            tour_context_set=True,
             status="finished",
             started_at=started_at,
             finished_at=started_at + timedelta(hours=4, minutes=rng.randint(0, 45)),
@@ -539,6 +541,8 @@ def generate_balletour_test_rounds(count=20):
             host_user = users_by_player_id.get(host_player.id)
             round_obj = Round(
                 course_id=series.course_id,
+                series_id=series.id,
+                tour_context_set=True,
                 status="finished",
                 started_at=started_at,
                 finished_at=started_at + timedelta(hours=1, minutes=rng.randint(15, 45)),

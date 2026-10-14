@@ -2,6 +2,13 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [2.0.0] - 2026-10-14
+
+- BalleTour blir en tourdel i Shanklife med samme Sportsmodus-navigasjon og felles profil.
+- Viser kvalifiseringsstatus og konkurransereglene tydelig; dagens rangering og historiske resultater beholdes.
+- Bevarer vanlige runder på tourbanen ved administrativ sletting av tourrunder.
+- Samler installasjon og profil med Shanklife, og gir native scoreføring store hurtigvalg og lagring før hullbytte.
+
 ## [1.9.63] - 2026-08-29
 - Viser GIR, fairwaytreff og antall putter per spiller direkte på hvert avsluttet rundekort.
 - Legger til en egen rundestatistikkside med scorekort, nøkkeltall og detaljert statistikk hull for hull for hver avsluttet BalleTour-runde.

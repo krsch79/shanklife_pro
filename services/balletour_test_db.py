@@ -137,6 +137,8 @@ def reset_balletour_test_database(rounds_per_player=TEST_DATABASE_ROUNDS_PER_PLA
             host_user = users_by_player_id.get(host_player.id)
             round_obj = Round(
                 course_id=series.course_id,
+                series_id=series.id,
+                tour_context_set=True,
                 status="finished",
                 started_at=started_at,
                 finished_at=started_at + timedelta(hours=1, minutes=rng.randint(15, 45)),

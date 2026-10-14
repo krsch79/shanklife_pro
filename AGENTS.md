@@ -35,3 +35,13 @@
 
 - TrackMan hole.putts already includes the final conceded stroke when gimmeWasGiven is true. Keep the preceding putts in the statistics, subtract one only for the separate count without gimmies, and never add the gimme twice. Expose sample denominators, keep automatic putting separate, and derive historical updates from existing projections without rewriting the private archive.
 - Before nginx maintenance preflight, enumerate the actual files under /etc/nginx/sites-enabled and select those proxying to port 5055. The current vhosts are pro and app-shanklife; do not assume a file named shanklife-pro exists.
+
+- For Sportsmodus validation on macOS, use the explicit Python 3.11 executable to create the fresh test venv; PATH may select Python 3.14 in a new task. Keep the development/test Python minor compatible with the Pi.
+- Explicit nullable tour IDs must have a two-valued SQL predicate (guard `series_id IS NOT NULL` before equality). Negating a nullable equality otherwise silently excludes private rounds. Test both private and legacy tour rows.
+
+- Native UI QA must start only after the disposable fixture server has restarted and its health check passes. Keep fixture resets and browser round creation outside a running XCTest session; both clients share that fixture and can otherwise change the round the test resumes.
+- A SwiftUI loader must render a real initial placeholder before its `.task` runs. A `Group` whose initial branches all produce `EmptyView` can leave navigation blank without issuing the request; verify opening and saving a round in simulator QA, not only the tab bar.
+
+- Obtain the `xcodebuild` process exit code before launching another test against the same simulator or DerivedData directory. Printed XCTest results can precede a delayed Xcode driver exit; if stuck, identify the driver by its exact result-bundle argument, stop only that process, and verify its exit first.
+
+- A non-debug Flask QA server caches Jinja templates. Restart it after final template edits before browser assertions, and verify the rendered asset URL rather than assuming source-file edits are live. Use a new service-worker asset/cache revision when testing changed cached JavaScript or CSS.

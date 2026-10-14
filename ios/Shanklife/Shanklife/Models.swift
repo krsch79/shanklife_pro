@@ -927,3 +927,32 @@ struct BalleTourAllStatsRow: Decodable, Identifiable {
         case strokesGained = "strokes_gained"
     }
 }
+
+struct SportsAccess: Decodable { let shanklife: Bool; let tour: Bool }
+struct SportsTourProgress: Decodable {
+    let name: String; let course: String; let tee: String
+    let rounds: Int; let required: Int; let qualified: Bool; let rank: Int; let totalVsPar: String
+    enum CodingKeys: String, CodingKey { case name, course, tee, rounds, required, qualified, rank; case totalVsPar = "total_vs_par" }
+}
+struct SportsOverview: Decodable {
+    let name: String; let hcp: Double?; let access: SportsAccess
+    let activeRounds: [SportsRoundItem]; let recentRounds: [SportsRoundItem]; let roundCount: Int; let tour: SportsTourProgress?
+    enum CodingKeys: String, CodingKey { case name,hcp,access,tour; case activeRounds="active_rounds";case recentRounds="recent_rounds";case roundCount="round_count" }
+}
+struct SportsRoundsResponse: Decodable { let rounds: [SportsRoundItem] }
+struct SportsRoundItem: Decodable, Identifiable {
+    let id: String; let roundID: Int; let source: String; let course: String; let environment: String
+    let status: String; let complete: Bool; let playedHoles: Int; let holes: Int?; let lengthLabel: String
+    let tee: String; let startedAt: String; let dateDisplay: String; let format: String
+    let score: String; let toPar: String; let url: String; let isTour: Bool; let isMatchplay: Bool; let isPrivate: Bool
+    enum CodingKeys: String,CodingKey {
+        case id,source,course,environment,status,complete,holes,tee,format,score,url
+        case roundID="round_id";case playedHoles="played_holes";case lengthLabel="length_label";case startedAt="started_at";case dateDisplay="date_display";case toPar="to_par";case isTour="is_tour";case isMatchplay="is_matchplay";case isPrivate="private"
+    }
+}
+struct SportsStatsResponse: Decodable { let environment: String; let stats: SportsStats }
+struct SportsStats: Decodable {
+    let averageVsPar: Double?; let bestVsPar: Double?; let gir: Double?; let fairway: Double?; let putts: Double?
+    let completedRounds: Int; let scoredHoles: Int; let puttingHoles: Int?; let girAttempts: Int?; let fairwayAttempts: Int?
+    enum CodingKeys: String,CodingKey {case averageVsPar="avg_round_vs_par";case bestVsPar="best_round_vs_par";case gir="gir_percent";case fairway="fairway_hit_percent";case putts="avg_putts";case completedRounds="completed_round_count";case scoredHoles="scored_holes";case puttingHoles="putting_holes";case girAttempts="gir_attempts";case fairwayAttempts="fairway_attempts"}
+}

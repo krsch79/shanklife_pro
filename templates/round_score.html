@@ -8,12 +8,13 @@
         {% if round.status == 'finished' and current_user_round_player and not is_matchplay_round %}
         <a class="button" href="{{ url_for('golfbox_scores.prepare', round_id=round.id) }}">Send til GolfBox</a>
         {% endif %}
-        <a class="button secondary" href="{{ url_for('rounds.rounds') }}">Alle runder</a>
+        {% if round.status == 'ongoing' %}<a class="button" href="{{ url_for('rounds.continue_round', round_id=round.id) }}">Fortsett hull for hull</a>{% endif %}
+        <a class="button secondary" href="{{ url_for('main.sports_rounds') }}">Mine runder</a>
     </div>
 </div>
 
 <div class="form-card">
-    <p><strong>Status:</strong> {{ round.status }}</p>
+    <p><strong>Status:</strong> {{ 'Fullført' if round.status == 'finished' else 'Pågående' }}</p>
     <p><strong>Spilleform:</strong> {{ play_format_label(round.play_format) }}</p>
     <p><strong>Startet:</strong> {{ round.started_at|datetime_local }}</p>
     {% if round.finished_at %}
@@ -25,7 +26,7 @@
 
     {% if round.status == 'ongoing' %}
     <p>
-        <strong>Autosave:</strong>
+        <strong>Lagring:</strong>
         <span id="autosave-status" class="muted">Klar</span>
     </p>
     {% endif %}
