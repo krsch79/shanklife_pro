@@ -118,6 +118,88 @@ def validate_draft(raw, user):
             "unresolved_names": [str(n)[:80] for n in raw.get("unresolved_names", [])][:4]}
 
 
+def fetch_course_names(user):
+    """Read the same national club selector used by the existing booking resolver."""
+    credentials = gb._credentials_for_user(user)
+    with httpx.Client(follow_redirects=True, timeout=25, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        gb._login(client, credentials)
+        response = client.get(gb.GOLFBOX_BASE_URL + "/site/ressources/booking/chooseclub.asp")
+        response.raise_for_status()
+    names = {o["label"] for o in gb._select_options(response.text, "ddlClub")
+             if re.fullmatch(r"\{[0-9a-fA-F-]{36}\}", o["value"])}
+    if not names:
+        raise ValueError("GolfBox returnerte ingen baner.")
+    return sorted(names, key=str.casefold)
+
+
+def course_catalog(user, row, refresh=False):
+    cached = json.loads(row.cache_json).get("course_catalog") or {}
+    if not refresh and cached.get("fetched_at") and datetime.fromisoformat(cached["fetched_at"]) > server_now() - timedelta(hours=24):
+        return {k: v for k, v in {**cached, "status": "ok"}.items() if k != "resources"}
+    fallback = {"courses": sorted(set(gb.OSLO_AREA_COURSES + ["Hauger"]), key=str.casefold)}
+    if not gb.user_has_golfbox_credentials(user):
+        return {**fallback, "status": "configuration_required", "message": "Koble til GolfBox i Profil for å hente alle banene."}
+    db.session.commit()  # The network read must not hold a SQLite transaction.
+    try:
+        names = fetch_course_names(user)
+    except Exception:
+        return {**{k:v for k,v in (cached if cached.get("courses") else fallback).items() if k != "resources"}, "status": "unavailable", "stale": bool(cached.get("courses")),
+                "message": "Kunne ikke oppdatere banelisten fra GolfBox. " + ("Sist hentede liste vises." if cached.get("courses") else "Et begrenset utvalg vises.")}
+    entry = {"courses": names, "fetched_at": server_now().isoformat()}
+    # A simultaneous booking read may have updated the other cache fields.
+    db.session.refresh(row)
+    current = json.loads(row.cache_json)
+    row.cache_json = dumps({**current, "course_catalog": {**entry, "resources": (current.get("course_catalog") or {}).get("resources", {})}})
+    db.session.commit()
+    return {**entry, "status": "ok"}
+
+
+def fetch_course_resources(user, club_name):
+    with httpx.Client(follow_redirects=True, timeout=25, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        gb._login(client, gb._credentials_for_user(user))
+        response = client.get(gb.GOLFBOX_BASE_URL + "/site/ressources/booking/chooseclub.asp")
+        response.raise_for_status()
+        clubs = gb._select_options(response.text, "ddlClub")
+        club = gb._best_option_match(clubs, club_name)
+        if not club:
+            raise ValueError("Fant ikke klubben i GolfBox. Hent banelisten på nytt.")
+        response = client.post(gb.GOLFBOX_BASE_URL + "/site/ressources/booking/chooseclub.asp",
+            data={"command": "getClub", "commandValue": "", "ddlClub": club["value"]})
+        response.raise_for_status()
+        resources = gb._select_options(response.text, "ddlRessoruce")
+    courses = list(dict.fromkeys(gb._qualified_course_name(club["label"], resource["label"]) for resource in resources))
+    if not courses:
+        raise ValueError("GolfBox viser ingen bookbare baner for denne klubben.")
+    return {"club": club["label"], "courses": courses}
+
+
+def course_resources(user, row, club_name):
+    if not isinstance(club_name, str) or not 1 <= len(club_name.strip()) <= 120:
+        raise ValueError("Velg en klubb fra listen.")
+    if not gb.user_has_golfbox_credentials(user):
+        raise ValueError("Koble til din GolfBox-konto i Profil for å hente klubbens baner.")
+    catalog = json.loads(row.cache_json).get("course_catalog") or {}
+    key = gb._normalize_name(club_name)
+    cached = (catalog.get("resources") or {}).get(key)
+    if cached and datetime.fromisoformat(cached["fetched_at"]) > server_now() - timedelta(hours=24):
+        return cached
+    db.session.commit()
+    try:
+        result = fetch_course_resources(user, club_name)
+    except Exception:
+        if cached:
+            return {**cached, "stale": True, "message": "Sist hentede baner vises. GolfBox kontrollerer banen igjen før booking."}
+        raise ValueError("Kunne ikke hente klubbens baner fra GolfBox. Prøv igjen; ingen bane ble valgt.")
+    entry = {**result, "fetched_at": server_now().isoformat()}
+    db.session.refresh(row)
+    current = json.loads(row.cache_json)
+    catalog = current.get("course_catalog") or {}
+    resources = {**catalog.get("resources", {}), key: entry}
+    row.cache_json = dumps({**current, "course_catalog": {**catalog, "resources": resources}})
+    db.session.commit()
+    return entry
+
+
 def favorites(user):
     rows = GolfBoxFavorite.query.filter_by(user_id=user.id).order_by(GolfBoxFavorite.name).all()
     return [{"ref": "f:" + r.member_number, "name": r.name, "club": r.club_name,
@@ -148,7 +230,7 @@ def search_players(user, query):
     seen, results = set(), []
     for member in members:
         number = member["member_number"]
-        if number in seen or gb._membership_represents_user(user, member):
+        if number in seen or number in ({m["member_number"] for m in gb._user_memberships(user)} | {user.golfbox_member_number}):
             continue
         seen.add(number)
         results.append(own_favorites.get(number) or {"ref": "m:" + number,
@@ -180,15 +262,24 @@ def selected_members(draft, user, course):
                 raise ValueError("En favoritt er fjernet. Velg spilleren på nytt.")
             membership = {"player_name": f.name, "member_number": f.member_number, "club_name": f.club_name}
         else:
-            found = gb._lookup_golfbox_members_by_number(user, [ref[2:]])
-            membership = found.get(ref[2:])
+            membership = {"member_number": ref[2:]}
         if not membership or not membership.get("member_number"):
             raise ValueError("GolfBox-medlemskap mangler. Kontroller tilkoblingen eller velg riktig medlemskap.")
-        if ref != "self" and gb._membership_represents_user(user, membership):
+        own_numbers = {m["member_number"] for m in gb._user_memberships(user)} | {user.golfbox_member_number}
+        if ref != "self" and membership["member_number"] in own_numbers:
             raise ValueError("Du er allerede spiller 1. Velg en annen medspiller.")
         members.append(membership)
     if len({m["member_number"] for m in members}) != len(members):
         raise ValueError("Samme medlemskap er valgt flere ganger. Velg ulike spillere.")
+    # Every participant is one GolfBox person, even when they have several memberships.
+    verified = gb._lookup_golfbox_members_by_number(user, [m["member_number"] for m in members])
+    for member in members:
+        actual = verified.get(member["member_number"])
+        if not actual or not actual.get("golfbox_player_guid"):
+            raise ValueError("GolfBox kunne ikke bekrefte alle spillernes medlemskap. Velg riktig medlemsnummer og prøv igjen.")
+        member.update(actual)
+    if len({m["golfbox_player_guid"].lower() for m in members}) != len(members):
+        raise ValueError("Samme person er valgt med flere medlemskap. Velg ett medlemskap per spiller.")
     return members
 
 
@@ -203,7 +294,19 @@ def new_review(user, kind, payload, summary):
 def search(draft, user):
     if not gb.user_has_golfbox_credentials(user):
         return {"status": "configuration_required", "message": "Koble til din GolfBox-konto i Profil før du søker.", "available_slots": []}
-    result = gb.find_golfbox_availability_for_courses(courses=draft["courses"], players=draft["players"],
+    courses = []
+    row = workspace(user)
+    for name in draft["courses"]:
+        if " - " in name or " – " in name or gb._normalize_name(name) == "ballerud":
+            courses.append(name)
+        else:
+            courses.extend(course_resources(user, row, name)["courses"])
+    courses = list(dict.fromkeys(courses))
+    if len(courses) > 8:
+        raise ValueError("Velg inntil åtte konkrete baner/sløyfer før du søker.")
+    if not gb._user_memberships(user):
+        gb._ensure_membership_for_user(user, courses[0])
+    result = gb.find_golfbox_availability_for_courses(courses=courses, players=draft["players"],
         play_date=draft["date"], time_from=draft["time_from"], time_to=draft["time_to"], user=user)
     # The browser receives a view; selection later uses this server-held list.
     result["available_slots"] = result.get("available_slots", [])[:200]
@@ -233,22 +336,30 @@ def review_slot(index, state, user):
     payload.update(players=len(members), player_memberships=members)
     return new_review(user, "booking", payload, {"course": slot["course"], "date": slot["date"],
         "time": slot["time"], "players": [m["player_name"] for m in members],
-        "message": "Ledighet og medlemskap kontrolleres på nytt før reservasjonen bekreftes."})
+        "memberships": [{"name": m["player_name"], "club": m["club_name"], "member_number": m["member_number"]} for m in members],
+        "message": "GolfBox kontrollerer tilgang og medlemskap for denne banen. Ingen alternativ bane velges hvis bookingen avvises."})
 
 
 def review_job(raw, draft, user):
     if len(draft["courses"]) != 1:
         raise ValueError("Et automatisk oppdrag må gjelde én konkret bane.")
+    name = draft["courses"][0]
+    if " - " not in name and " – " not in name and gb._normalize_name(name) != "ballerud":
+        resources = course_resources(user, workspace(user), name)["courses"]
+        if len(resources) != 1:
+            raise ValueError("Velg én konkret bane/sløyfe hos klubben før du oppretter et automatisk oppdrag.")
+        draft = {**draft, "courses": resources}
     kind = raw.get("kind")
     if kind not in {"watch", "scheduled", "recurring"}:
         raise ValueError("Velg oppdragstype.")
     members = selected_members(draft, user, draft["courses"][0])
     interpretation = {**draft, "intent": "create_booking", "include_current_user": "self" in draft["player_refs"],
         "player_names": [m["player_name"] for m in members],
-        "member_numbers": [m["member_number"] for m in members if not gb._membership_represents_user(user, m)],
-        "member_number_names": {m["member_number"]: m["player_name"] for m in members}, "recurrence": {}}
+        "member_numbers": [m["member_number"] for m in members[1:]],
+        "member_number_names": {m["member_number"]: m["player_name"] for m in members[1:]}, "recurrence": {}}
     summary = {"course": draft["courses"][0], "date": draft["date"],
-        "time": draft["time_from"] + "–" + draft["time_to"], "players": [m["player_name"] for m in members]}
+        "time": draft["time_from"] + "–" + draft["time_to"], "players": [m["player_name"] for m in members],
+        "memberships": [{"name": m["player_name"], "club": m["club_name"], "member_number": m["member_number"]} for m in members]}
     if kind == "scheduled":
         execute = gb._parse_execute_at(str(raw.get("execute_at") or ""))
         if not execute or execute <= server_now():

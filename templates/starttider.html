@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Starttider — Shanklife{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='starttider.css') }}?v=2.1.1-r2"><script src="{{ url_for('static', filename='starttider.js') }}?v=2.1.1-r2" defer></script>{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='starttider.css') }}?v=2.1.2-r3"><script src="{{ url_for('static', filename='starttider.js') }}?v=2.1.2-r3" defer></script>{% endblock %}
 {% block content %}
 <div id="starttider" data-csrf="{{ csrf }}" data-base="{{ url_for('starttider.index') }}" data-self-name="{{ self_name }}">
 <script type="application/json" id="starttider-initial">{{ initial|tojson }}</script>
@@ -15,8 +15,15 @@
 <form id="st-search" class="st-search" data-no-loading="true">
 <div class="st-search-title"><div><h3>Mer spill. Mindre leting.</h3><p>Velg antall spillere nå. Legg til medspillere etter at du har funnet en tid.</p></div><button type="button" class="st-link" data-command="reset">Nytt søk</button></div>
 <div class="st-fields">
-<label class="st-field st-course">Bane eller baner<input type="text" name="courses" list="st-course-list" maxlength="500" placeholder="Ballerud, Haga" required autocomplete="off"><span class="st-help">Skill flere baner med komma.</span></label>
-<datalist id="st-course-list">{% for c in ['Ballerud','Haga','Oslo','Bærum','Grini','Asker','Oppegård','Drøbak'] %}<option value="{{ c }}">{% endfor %}</datalist>
+<div class="st-field st-course">
+<label for="st-course-query">Baner</label>
+<div id="st-chosen-courses" class="st-course-chips" role="list" aria-label="Valgte baner"></div>
+<div class="st-course-picker"><input type="text" id="st-course-query" maxlength="120" placeholder="Søk etter bane" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="st-course-matches" aria-describedby="st-course-help st-course-status"><div id="st-course-matches" class="st-course-matches" role="listbox" aria-label="Baneforslag" hidden></div></div>
+<span id="st-course-help" class="st-help">Søk etter klubb og velg bane/sløyfe. Velg inntil 8 baner.</span>
+<span id="st-course-status" class="st-help" role="status" aria-live="polite"></span>
+<button type="button" id="st-course-retry" class="st-link" data-command="retry-courses" hidden>Prøv å hente banelisten igjen</button>
+</div>
+<script type="application/json" id="st-course-options">{{ course_options|tojson }}</script>
 <label class="st-field">Spilledato<input type="date" name="date" min="{{ today }}" required></label>
 <div class="st-field st-time"><span>Tidsrom</span><div><label><span class="st-sr">Fra klokken</span><input type="time" name="time_from" required></label><span aria-hidden="true">–</span><label><span class="st-sr">Til klokken</span><input type="time" name="time_to" required></label></div></div>
 <label class="st-field">Antall spillere<select name="players">{% for n in [1,2,3,4] %}<option value="{{ n }}">{{ n }} {{ 'spiller' if n == 1 else 'spillere' }}</option>{% endfor %}</select></label>

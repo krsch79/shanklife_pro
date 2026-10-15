@@ -8,6 +8,8 @@
   let state = JSON.parse($('#starttider-initial').textContent), options = [], selected = [...state.draft.player_refs];
   let unresolved = [...(state.draft.unresolved_names || [])], bookings = [], jobs = [], page = 1, pageMore = false;
   let queue = Promise.resolve(), savingTimer, dirty = false, pendingSlot = null, showAll = false, activeTab = 'find';
+  let chosenCourses = [...state.draft.courses], courseOptions = JSON.parse($('#st-course-options').textContent), catalogLoaded = false, catalogLoading = false, courseIndex = -1;
+  let courseNotice = '', courseRetry = false, controlsLocked = false, activeClub = null, resourceCourses = [], resourceLoading = false, clubRequest = 0;
   let slotsShown = 20, inFlight = false, picking = false, picked = ['self'], lookupRows = [], lookupBusy = false, pickerVersion = 0;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const when = value => {
@@ -25,14 +27,64 @@
     if (dialog.open) $('#st-dialog-status').textContent = error ? text : '';
   }
   function currentDraft() {
-    return {courses:form.elements.courses.value.split(',').map(s => s.trim()).filter(Boolean), date:form.elements.date.value,
+    return {courses:[...chosenCourses], date:form.elements.date.value,
       time_from:form.elements.time_from.value, time_to:form.elements.time_to.value, players:Number(form.elements.players.value),
       player_refs:[...selected], unresolved_names:[...unresolved]};
   }
   function fill(draft) {
     ['date','time_from','time_to','players'].forEach(k => form.elements[k].value = draft[k]);
-    form.elements.courses.value = draft.courses.join(', ');
+    chosenCourses = [...draft.courses]; $('#st-course-query').value = ''; activeClub = null; resourceCourses = []; resourceLoading = false; clubRequest++; renderCourses();
     selected = [...draft.player_refs]; unresolved = [...(draft.unresolved_names || [])]; labels();
+  }
+  const courseKey = name => name.normalize('NFC').toLocaleLowerCase('nb').trim().replace(/\s+golfklubb$/, '');
+  function courseMatches() {
+    const query = $('#st-course-query').value.normalize('NFC').trim().toLocaleLowerCase('nb');
+    if (activeClub) return resourceCourses.filter(name => !chosenCourses.some(c => courseKey(c) === courseKey(name)));
+    return query ? courseOptions.filter(name => name.toLocaleLowerCase('nb').startsWith(query)).sort((a,b) => a.localeCompare(b,'nb')) : [];
+  }
+  function renderCourses() {
+    if (controlsLocked) return;
+    const input = $('#st-course-query'), matches = courseMatches(), list = $('#st-course-matches');
+    input.required = !chosenCourses.length; input.setCustomValidity('');
+    $('#st-chosen-courses').innerHTML = chosenCourses.map((name,i) => `<span class="st-course-chip" role="listitem"><span>${esc(name)}</span><button type="button" data-command="remove-course" data-index="${i}" aria-label="Fjern ${esc(name)}">×</button></span>`).join('');
+    list.innerHTML = matches.map((name,i) => `<button type="button" id="st-course-option-${i}" role="option" aria-selected="${i === courseIndex}" data-command="${activeClub ? 'add-course' : 'open-club'}" data-course="${esc(name)}" ${chosenCourses.length >= 8 ? 'disabled' : ''}>${esc(name)}<span aria-hidden="true">${activeClub ? '＋' : '→'}</span></button>`).join('');
+    const expanded = !!input.value.trim() && matches.length > 0 && document.activeElement === input;
+    list.hidden = !expanded; input.setAttribute('aria-expanded',String(expanded));
+    if (expanded && courseIndex >= 0 && courseIndex < matches.length) input.setAttribute('aria-activedescendant','st-course-option-' + courseIndex);
+    else input.removeAttribute('aria-activedescendant');
+    $('#st-course-status').textContent = resourceLoading ? 'Henter baner hos ' + activeClub + ' …' : activeClub ? (matches.length ? 'Velg en konkret bane/sløyfe hos ' + activeClub + '. GolfBox avgjør bookingtilgangen.' : 'Alle banene hos denne klubben er allerede valgt.') : catalogLoading ? 'Henter baner fra GolfBox …' : chosenCourses.length >= 8 ? '8 baner er valgt. Fjern en bane for å legge til en annen.' : input.value.trim() ? (matches.length ? `${matches.length} ${matches.length === 1 ? 'bane' : 'baner'} begynner med «${input.value.trim()}».` : 'Ingen flere baner begynner slik.') + (courseNotice ? ' ' + courseNotice : '') : courseNotice;
+    $('#st-course-retry').hidden = !courseRetry;
+  }
+  async function loadCourses(refresh = false) {
+    if (catalogLoading || (catalogLoaded && !refresh)) return;
+    catalogLoading = true; renderCourses();
+    try {
+      const data = await read('courses',refresh ? '&refresh=1' : '');
+      courseOptions = data.courses; catalogLoaded = true; courseNotice = data.message || ''; courseRetry = data.status !== 'ok';
+    } catch (error) { courseNotice = error.message + ' Et begrenset utvalg vises.'; courseRetry = true; }
+    finally { catalogLoading = false; courseIndex = -1; renderCourses(); }
+  }
+  async function openClub(name) {
+    const version = ++clubRequest;
+    activeClub = name; resourceCourses = []; resourceLoading = true; courseIndex = -1;
+    $('#st-course-query').value = name; $('#st-course-query').focus(); renderCourses();
+    try {
+      const data = await read('course_resources','&club=' + encodeURIComponent(name));
+      if (version !== clubRequest) return;
+      resourceCourses = data.courses;
+      if (resourceCourses.length === 1) { addCourse(resourceCourses[0]); return; }
+    } catch (error) {
+      if (version !== clubRequest) return;
+      activeClub = null; courseNotice = error.message;
+    } finally {
+      if (version === clubRequest) { resourceLoading = false; renderCourses(); }
+    }
+  }
+  function addCourse(name) {
+    if (chosenCourses.length >= 8 || chosenCourses.some(c => courseKey(c) === courseKey(name))) return;
+    if (activeClub) chosenCourses = chosenCourses.filter(c => courseKey(c) !== courseKey(activeClub));
+    chosenCourses.push(name); $('#st-course-query').value = ''; courseIndex = -1; activeClub = null; resourceCourses = []; resourceLoading = false; clubRequest++;
+    $('#st-course-query').focus(); renderCourses(); changed();
   }
   function labels() {
     return selected.map(ref => ref === 'self' ? root.dataset.selfName + ' (deg)' : options.find(p => p.ref === ref)?.name || ref.slice(2)).join(', ');
@@ -40,15 +92,18 @@
   function disable(value, light = false) {
     inFlight = value;
     if (light) return;
+    controlsLocked = value;
     $$('button:not([role="tab"]), input, select, textarea').forEach(el => {
       if (value) { el.dataset.wasDisabled = String(el.disabled); el.disabled = true; }
       else if (el.dataset.wasDisabled !== undefined) { el.disabled = el.dataset.wasDisabled === 'true'; delete el.dataset.wasDisabled; }
     });
+    if (!value) renderCourses();
   }
   async function read(kind, extra = '') {
     const response = await fetch(`${base}/data?kind=${kind}${extra}`, {credentials:'same-origin',cache:'no-store'});
     if (new URL(response.url).pathname === '/login') throw new Error('Økten er utløpt. Logg inn på nytt og åpne Starttider igjen.');
-    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error('Kunne ikke hente visningen. Prøv igjen.');
+    if (!response.ok) { const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {}; throw new Error(data.message || 'Kunne ikke hente visningen. Prøv igjen.'); }
+    if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Kunne ikke hente visningen. Prøv igjen.');
     return response.json();
   }
   function run(action, payload = {}, light = false) {
@@ -121,7 +176,7 @@
     const r = state.review;
     const titles = {booking:'Bekreft starttiden.',watch:'Aktiver overvåking.',scheduled:'Bekreft engangsforsøket.',recurring:'Bekreft ukentlig oppdrag.',cancel:'Avbestill starttiden?',stop:'Stoppe oppdraget?'};
     const buttons = {booking:'Bekreft booking',watch:'Aktiver overvåking',scheduled:'Aktiver engangsforsøk',recurring:'Aktiver ukentlig oppdrag',cancel:'Bekreft avbestilling',stop:'Stopp oppdrag'};
-    showDialog(titles[r.kind] || 'Kontroller valgene.', `<dl class="st-facts"><dt>Bane</dt><dd>${esc(r.course)}</dd><dt>Spilledato</dt><dd>${esc(r.date)}</dd><dt>Klokken</dt><dd>${esc(r.time)}</dd><dt>Spillere</dt><dd>${esc((r.players || []).join(', '))}</dd></dl><p class="st-help">${esc(r.message)}</p><p class="st-help">Oppsummeringen gjelder til ${esc(when(r.expires_at))}.</p><div class="st-inline"><button type="button" class="button st-primary" data-command="confirm">${buttons[r.kind]}</button><button type="button" class="button secondary" data-command="dismiss">Tilbake</button></div>`);
+    showDialog(titles[r.kind] || 'Kontroller valgene.', `<dl class="st-facts"><dt>Bane</dt><dd>${esc(r.course)}</dd><dt>Spilledato</dt><dd>${esc(r.date)}</dd><dt>Klokken</dt><dd>${esc(r.time)}</dd><dt>Spillere</dt><dd>${esc((r.players || []).join(', '))}</dd></dl>${r.memberships?.length ? '<p class="st-help"><strong>Medlemskap som brukes</strong><br>' + r.memberships.map(m => esc(m.name) + ' · ' + esc(m.club) + ' · ' + esc(m.member_number)).join('<br>') + '</p>' : ''}<p class="st-help">${esc(r.message)}</p><p class="st-help">Oppsummeringen gjelder til ${esc(when(r.expires_at))}.</p><div class="st-inline"><button type="button" class="button st-primary" data-command="confirm">${buttons[r.kind]}</button><button type="button" class="button secondary" data-command="dismiss">Tilbake</button></div>`);
   }
   function renderOutcome() {
     const result = state.outcome;
@@ -248,9 +303,24 @@
     clearTimeout(savingTimer);
     savingTimer = setTimeout(() => { if (form.checkValidity()) run('draft', {draft:currentDraft()}, true); }, 700);
   }
-  form.addEventListener('submit', event => { event.preventDefault(); slotsShown = 20; selected = ['self']; unresolved = []; run('search',{draft:currentDraft()}); });
+  form.addEventListener('submit', event => { event.preventDefault();
+    if ($('#st-course-query').value.trim()) { $('#st-course-query').setCustomValidity('Klikk på en bane i trefflisten for å legge den til.'); $('#st-course-query').reportValidity(); return; }
+    slotsShown = 20; selected = ['self']; unresolved = []; run('search',{draft:currentDraft()}); });
   form.addEventListener('change', event => { if (event.target.name) changed(); });
   form.addEventListener('input', event => { if (event.target.name) changed(); });
+  $('#st-course-query').addEventListener('focus', () => { renderCourses(); loadCourses(); });
+  $('#st-course-query').addEventListener('input', () => { clubRequest++; activeClub = null; resourceCourses = []; resourceLoading = false; courseIndex = -1; renderCourses(); });
+  $('#st-course-query').addEventListener('blur', () => { $('#st-course-matches').hidden = true; $('#st-course-query').setAttribute('aria-expanded','false'); });
+  $('#st-course-matches').addEventListener('pointerdown', event => { if (event.target.closest('button')) event.preventDefault(); });
+  $('#st-course-query').addEventListener('keydown', event => {
+    const matches = courseMatches();
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault(); courseIndex = matches.length ? (courseIndex < 0 ? (event.key === 'ArrowDown' ? 0 : matches.length - 1) : (courseIndex + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length) : -1; renderCourses();
+      if (courseIndex >= 0) $('#st-course-option-' + courseIndex).scrollIntoView({block:'nearest'});
+    } else if (event.key === 'Enter') {
+      event.preventDefault(); if (courseIndex >= 0 && matches[courseIndex]) { if (activeClub) addCourse(matches[courseIndex]); else openClub(matches[courseIndex]); }
+    } else if (event.key === 'Escape') { event.preventDefault(); $('#st-course-matches').hidden = true; event.target.setAttribute('aria-expanded','false'); event.target.removeAttribute('aria-activedescendant'); courseIndex = -1; }
+  });
   root.addEventListener('input', event => { if (event.target.id === 'st-people-search') renderPeople(event.target.value); });
   root.addEventListener('keydown', event => { if (event.target.id === 'st-people-search' && event.key === 'Enter') { event.preventDefault(); lookupPlayers(); } });
   dialog.addEventListener('close', () => { picking = false; pickerVersion++; lookupBusy = false; pendingSlot = null; });
@@ -269,6 +339,10 @@
     const b = event.target.closest('button'); if (!b || b.disabled) return;
     if (b.dataset.tab) { tab(b.dataset.tab); return; }
     const command = b.dataset.command; if (!command) return;
+    if (command === 'open-club') { openClub(b.dataset.course); return; }
+    if (command === 'add-course') { addCourse(b.dataset.course); return; }
+    if (command === 'remove-course') { chosenCourses.splice(Number(b.dataset.index),1); courseIndex = -1; renderCourses(); changed(); return; }
+    if (command === 'retry-courses') { $('#st-course-query').focus(); loadCourses(true); return; }
     if (command === 'close') { dialog.close(); pendingSlot = null; return; }
     if (command === 'all-people') { showAll = true; renderPeople(); return; }
     if (command === 'lookup-players') { lookupPlayers(); return; }

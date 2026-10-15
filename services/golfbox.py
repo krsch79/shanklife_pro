@@ -399,7 +399,7 @@ def find_golfbox_availability(
     club_guid = BALLERUD_CLUB_GUID
     resource_guid = BALLERUD_RESSOURCE_GUID
     resolved_course_name = DEFAULT_GOLFBOX_COURSE
-    if "ballerud" not in course_name.lower():
+    if "ballerud" not in course_name.lower() or " - " in course_name or " – " in course_name:
         resolved = _resolve_course(credentials, course_name)
         if not resolved:
             return {
@@ -416,6 +416,7 @@ def find_golfbox_availability(
         resource_guid = resolved["resource_guid"]
         resolved_course_name = resolved["course"]
 
+    preferred = _membership_for_user(user, course_name) if user and hasattr(user, "golfbox_home_club_name") else None
     available_slots = _fetch_slots(
         credentials=credentials,
         club_guid=club_guid,
@@ -425,6 +426,7 @@ def find_golfbox_availability(
         start_time=start_time,
         end_time=end_time,
         player_count=player_count,
+        member_club_guid=preferred.get("club_guid") if preferred else None,
     )
     return {
         "status": "ok",
@@ -485,7 +487,7 @@ def find_golfbox_availability_for_courses(
     }
 
 
-def _fetch_slots(credentials, club_guid, resource_guid, course_name, requested_date, start_time, end_time, player_count):
+def _fetch_slots(credentials, club_guid, resource_guid, course_name, requested_date, start_time, end_time, player_count, member_club_guid=None):
     booking_start = f"{requested_date.strftime('%Y%m%d')}T{start_time.strftime('%H%M%S')}"
     with httpx.Client(
         follow_redirects=True,
@@ -493,6 +495,8 @@ def _fetch_slots(credentials, club_guid, resource_guid, course_name, requested_d
         headers={"User-Agent": "Mozilla/5.0"},
     ) as client:
         _login(client, credentials)
+        if member_club_guid:
+            _switch_club(client, member_club_guid)
         response = client.get(
             f"{GOLFBOX_BASE_URL}/site/ressources/booking/grid.asp",
             params={
@@ -643,54 +647,32 @@ def _apply_golfbox_hcp_to_player(user, hcp):
 
 def _fetch_memberships(client, frontpage_html):
     current_identity = _parse_identity(frontpage_html)
-    current_club_name = current_identity.get("club_name")
-    switch_response = client.get(f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp")
-    switch_response.raise_for_status()
-    switch_url = str(switch_response.url)
-    clubs = _parse_switch_clubs(switch_response.text)
+    response = client.get(f"{GOLFBOX_BASE_URL}/site/security/switchClub.asp")
+    response.raise_for_status()
+    switch_url = str(response.url)
+    clubs = _parse_switch_clubs(response.text)
+    original = next((c for c in clubs if c["selected"]), None)
+    if not original:
+        original = next((c for c in clubs if _normalize_name(c["club_name"]) == _normalize_name(current_identity.get("club_name"))), None)
     memberships = []
-    original_club_guid = None
-    for club in clubs:
-        if club["selected"]:
-            original_club_guid = club["club_guid"]
-        response = client.post(
-            switch_url,
-            data={
-                "command": "switchClub",
-                "commandValue": club["club_guid"],
-            },
-        )
-        response.raise_for_status()
-        identity = _parse_identity(response.text)
-        if identity.get("member_number") and _normalize_name(identity.get("club_name")) == _normalize_name(club["club_name"]):
-            memberships.append(
-                {
-                    "club_name": identity.get("club_name") or club["club_name"],
-                    "club_guid": club["club_guid"],
-                    "member_number": identity["member_number"],
-                    "player_name": identity.get("player_name"),
-                    "hcp": identity.get("hcp"),
-                }
-            )
-    if original_club_guid:
-        client.post(
-            switch_url,
-            data={
-                "command": "switchClub",
-                "commandValue": original_club_guid,
-            },
-        )
-    elif current_club_name:
-        for membership in memberships:
-            if membership["club_name"] == current_club_name:
-                client.post(
-                    switch_url,
-                    data={
-                        "command": "switchClub",
-                        "commandValue": membership["club_guid"],
-                    },
-                )
-                break
+    try:
+        for club in clubs:
+            switched = client.post(switch_url, data={"command": "switchClub", "commandValue": club["club_guid"]})
+            switched.raise_for_status()
+            identity = _parse_identity(switched.text)
+            if not identity.get("member_number") or _normalize_name(identity.get("club_name")) != _normalize_name(club["club_name"]):
+                # GolfBox's switch response is a command acknowledgement, not the refreshed identity.
+                front = client.get(f"{GOLFBOX_BASE_URL}/site/my_golfbox/myFrontPage.asp")
+                front.raise_for_status()
+                identity = _parse_identity(front.text)
+            if not identity.get("member_number") or _normalize_name(identity.get("club_name")) != _normalize_name(club["club_name"]):
+                raise ValueError("GolfBox kunne ikke bekrefte medlemskapet etter klubbbytte. Eksisterende medlemskap beholdes.")
+            memberships.append({"club_name": identity["club_name"], "club_guid": club["club_guid"],
+                "member_number": identity["member_number"], "player_name": identity.get("player_name"), "hcp": identity.get("hcp")})
+    finally:
+        if original:
+            restored = client.post(switch_url, data={"command": "switchClub", "commandValue": original["club_guid"]})
+            restored.raise_for_status()
     return _dedupe_memberships(memberships)
 
 
@@ -761,7 +743,12 @@ def _switch_club(client, club_guid):
         },
     )
     response.raise_for_status()
-    return _parse_identity(response.text)
+    identity = _parse_identity(response.text)
+    if not identity.get("member_number"):
+        front = client.get(f"{GOLFBOX_BASE_URL}/site/my_golfbox/myFrontPage.asp")
+        front.raise_for_status()
+        identity = _parse_identity(front.text)
+    return identity
 
 
 def _parse_switch_clubs(page_html):
@@ -820,6 +807,12 @@ def _select_options(page_html, select_name):
     return options
 
 
+def _qualified_course_name(club_name, resource_name):
+    if _normalize_name(resource_name).startswith(_normalize_name(club_name)):
+        return resource_name
+    return club_name + " - " + resource_name
+
+
 def _resolve_course(credentials, course_name):
     requested = (course_name or "").strip().lower()
     if not requested:
@@ -833,7 +826,9 @@ def _resolve_course(credentials, course_name):
         choose_response = client.get(f"{GOLFBOX_BASE_URL}/site/ressources/booking/chooseclub.asp")
         choose_response.raise_for_status()
         clubs = _select_options(choose_response.text, "ddlClub")
-        selected_club = _best_option_match(clubs, requested)
+        requested_key = _normalize_name(requested)
+        qualified_clubs = [c for c in clubs if requested_key.startswith(_normalize_name(c["label"]) + " ")]
+        selected_club = max(qualified_clubs, key=lambda c: len(c["label"])) if qualified_clubs else _best_option_match(clubs, requested)
         if not selected_club:
             return None
         resource_response = client.post(
@@ -846,13 +841,19 @@ def _resolve_course(credentials, course_name):
         )
         resource_response.raise_for_status()
         resources = _select_options(resource_response.text, "ddlRessoruce")
-        selected_resource = resources[0] if resources else None
+        selected_resource = next((r for r in resources if _normalize_name(_qualified_course_name(selected_club["label"], r["label"])) == requested_key), None)
+        if selected_resource is None and requested_key == _normalize_name(selected_club["label"]):
+            selected_resource = resources[0] if resources else None  # Existing club-only jobs retain their previous behavior.
+        elif selected_resource is None and not qualified_clubs:
+            selected_resource = resources[0] if resources else None  # Legacy short club names.
+        # An explicit resource that was removed/renamed must never fall back to another course.
         if not selected_resource:
             return None
         return {
             "club_guid": selected_club["value"],
             "resource_guid": selected_resource["value"],
-            "course": selected_resource["label"],
+            "course": _qualified_course_name(selected_club["label"], selected_resource["label"]),
+            "club_name": selected_club["label"],
         }
 
 

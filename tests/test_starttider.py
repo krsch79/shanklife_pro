@@ -2,7 +2,7 @@
 import json
 import unittest
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from tests import test_sportsmode
 from services.time import server_now
@@ -22,11 +22,14 @@ class StarttiderTests(unittest.TestCase):
             u.golfbox_memberships_json = json.dumps([{'member_number':'65-1','club_name':'Ballerud','player_name':'Profilspiller','is_current_user':True}])
             f = GolfBoxFavorite(user_id=u.id,name='Erik Test',member_number='65-2',club_name='Ballerud')
             self.db.session.add(f); self.db.session.commit(); self.favorite_id = f.id
+        self.lookup_patch=patch('services.starttider.gb._lookup_golfbox_members_by_number',side_effect=lambda user,numbers:{n:{'member_number':n,'player_name':'Profilspiller' if n in ('65-1','308-2') else 'Erik Test' if n=='65-2' else 'Manuell','club_name':'Haga Golfklubb' if n=='308-2' else 'Ballerud','golfbox_player_guid':'self' if n in ('65-1','308-2') else 'guid-'+n} for n in numbers})
+        self.lookup_patch.start()
         self.assertEqual(self.client.get('/starttider').status_code,200)
         with self.client.session_transaction() as s: self.csrf = s['starttider_csrf']
         self.tomorrow = (server_now().date()+timedelta(days=1)).isoformat()
 
     def tearDown(self):
+        self.lookup_patch.stop()
         self.fixture.tearDown()
 
     def state(self):
@@ -184,7 +187,7 @@ class StarttiderTests(unittest.TestCase):
 
     def test_multiple_course_slot_can_be_reviewed(self):
         with patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=self.availability(booking_enabled=False)):
-            r=self.post('search',draft=self.draft(courses=['Haga','Ballerud']))
+            r=self.post('search',draft=self.draft(courses=['Haga Golfklubb - Hovedbane','Ballerud']))
         self.assertTrue(r.json['result']['booking_enabled'])
         self.assertEqual(self.post('review_slot',index=0).status_code,200)
 
@@ -205,7 +208,7 @@ class StarttiderTests(unittest.TestCase):
 
     def test_manual_member_number_looked_up_before_review(self):
         self.search(players=2)
-        with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value={'99-123':{'player_name':'Manuell','member_number':'99-123','club_name':'Haga'}}) as lookup:
+        with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value={'65-1':{'player_name':'Profilspiller','member_number':'65-1','club_name':'Ballerud','golfbox_player_guid':'self'},'99-123':{'player_name':'Manuell','member_number':'99-123','club_name':'Haga','golfbox_player_guid':'other'}}) as lookup:
             r=self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=['self','m:99-123']))
         self.assertEqual(r.status_code,200,r.json);lookup.assert_called_once();self.assertEqual(r.json['review']['players'],['Profilspiller','Manuell'])
 
@@ -336,3 +339,122 @@ class StarttiderTests(unittest.TestCase):
         with self.app.app_context():
             self.db.session.execute(self.db.text('UPDATE user_app_access SET has_access=0 WHERE user_id=:id AND app_id=2'),{'id':self.uid});self.db.session.commit()
         self.assertEqual(self.lookup('Erik').status_code,403)
+
+    def test_course_catalog_uses_golfbox_selector_and_no_booking(self):
+        from services import starttider as st
+        from models import User
+        page='<select name="ddlClub"><option value="0">Velg</option><option value="{11111111-1111-1111-1111-111111111111}">Hauger Golfklubb</option><option value="{22222222-2222-2222-2222-222222222222}">Haga Golfklubb</option><option value="{22222222-2222-2222-2222-222222222222}">Haga Golfklubb</option></select>'
+        client=MagicMock();client.get.return_value.text=page
+        with self.app.app_context(),patch('services.starttider.httpx.Client') as factory,patch('services.starttider.gb._login') as login:
+            factory.return_value.__enter__.return_value=client
+            names=st.fetch_course_names(self.db.session.get(User,self.uid))
+        self.assertEqual(names,['Haga Golfklubb','Hauger Golfklubb'])
+        login.assert_called_once();client.get.assert_called_once();client.post.assert_not_called()
+
+    def test_course_catalog_is_cached_without_changing_search_revision(self):
+        before=self.state()['revision']
+        with patch('services.starttider.fetch_course_names',return_value=['Haga Golfklubb - Hovedbane','Hauger Golfklubb - 18 hull']) as fetch:
+            first=self.client.get('/starttider/data?kind=courses')
+            second=self.client.get('/starttider/data?kind=courses')
+        fetch.assert_called_once();self.assertEqual(first.json['courses'],second.json['courses'])
+        self.assertEqual(first.headers['Cache-Control'],'no-store');self.assertEqual(self.state()['revision'],before)
+
+    def test_course_catalog_failure_keeps_last_good_and_booking_cache(self):
+        from models import GolfBoxWorkspace
+        old=(server_now()-timedelta(days=2)).isoformat()
+        with self.app.app_context():
+            row=self.db.session.get(GolfBoxWorkspace,self.uid)
+            row.cache_json=json.dumps({'bookings':[{'course':'Keep me'}],'course_catalog':{'courses':['Haga Golfklubb'],'fetched_at':old}});self.db.session.commit()
+        with patch('services.starttider.fetch_course_names',side_effect=TimeoutError()):
+            response=self.client.get('/starttider/data?kind=courses')
+        self.assertEqual(response.status_code,200);self.assertTrue(response.json['stale']);self.assertEqual(response.json['courses'],['Haga Golfklubb'])
+        with self.app.app_context():
+            cache=json.loads(self.db.session.get(GolfBoxWorkspace,self.uid).cache_json)
+        self.assertEqual(cache['bookings'],[{'course':'Keep me'}]);self.assertEqual(cache['course_catalog']['fetched_at'],old)
+
+    def test_course_catalog_first_failure_has_visible_fallback_and_retries(self):
+        with patch('services.starttider.fetch_course_names',side_effect=TimeoutError()):
+            failed=self.client.get('/starttider/data?kind=courses')
+        self.assertEqual(failed.json['status'],'unavailable');self.assertIn('Hauger',failed.json['courses'])
+        with patch('services.starttider.fetch_course_names',return_value=['Hauger Golfklubb']):
+            retried=self.client.get('/starttider/data?kind=courses&refresh=1')
+        self.assertEqual(retried.json['status'],'ok');self.assertEqual(retried.json['courses'],['Hauger Golfklubb'])
+
+    def test_course_catalog_survives_bookings_refresh_and_confirmation(self):
+        from models import GolfBoxWorkspace
+        with patch('services.starttider.fetch_course_names',return_value=['Haga Golfklubb']):
+            self.client.get('/starttider/data?kind=courses')
+        with patch('services.starttider.gb.upcoming_golfbox_bookings',return_value={'status':'ok','bookings':[]}):
+            self.client.get('/starttider/data?kind=bookings&refresh=1')
+        action=self.review()
+        with patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=self.availability()),patch('services.starttider.gb.confirm_golfbox_booking',return_value={'status':'booking_created','message':'Bekreftet'}):
+            self.post('confirm',id=action)
+        with self.app.app_context():
+            cache=json.loads(self.db.session.get(GolfBoxWorkspace,self.uid).cache_json)
+        self.assertEqual(cache['course_catalog']['courses'],['Haga Golfklubb']);self.assertNotIn('bookings',cache)
+
+    def test_course_catalog_keeps_existing_access_and_personal_credential_boundary(self):
+        from models import User
+        with self.app.app_context():
+            self.db.session.get(User,self.uid).golfbox_password_token=None;self.db.session.commit()
+        with patch('services.starttider.fetch_course_names') as fetch:
+            response=self.client.get('/starttider/data?kind=courses')
+        self.assertEqual(response.json['status'],'configuration_required');fetch.assert_not_called()
+        with self.app.app_context():
+            self.db.session.execute(self.db.text('UPDATE user_app_access SET has_access=0 WHERE user_id=:id AND app_id=2'),{'id':self.uid});self.db.session.commit()
+        self.assertEqual(self.client.get('/starttider/data?kind=courses').status_code,403)
+
+    def test_multiple_clicked_courses_survive_draft_search_and_slot_review(self):
+        response=self.post('draft',draft=self.draft(courses=['Haga Golfklubb - Hovedbane','Hauger Golfklubb - 18 hull']))
+        self.assertEqual(response.status_code,200,response.json)
+        self.client.get('/starttider')
+        self.assertEqual(self.state()['draft']['courses'],['Haga Golfklubb - Hovedbane','Hauger Golfklubb - 18 hull'])
+        with patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=self.availability()) as find:
+            response=self.post('search',draft=self.state()['draft'])
+        self.assertEqual(find.call_args.kwargs['courses'],['Haga Golfklubb - Hovedbane','Hauger Golfklubb - 18 hull'])
+        self.assertEqual(self.post('review_slot',index=0).status_code,200)
+
+    def test_club_resource_endpoint_caches_both_haga_courses(self):
+        names=['Haga Golfklubb - Hovedbane','Haga Golfklubb - Aksjonærsløyfen']
+        with patch('services.starttider.fetch_course_resources',return_value={'club':'Haga Golfklubb','courses':names}) as fetch:
+            first=self.client.get('/starttider/data?kind=course_resources&club=Haga%20Golfklubb')
+            second=self.client.get('/starttider/data?kind=course_resources&club=Haga%20Golfklubb')
+        self.assertEqual(first.json['courses'],names);fetch.assert_called_once();self.assertEqual(first.json,second.json)
+        self.assertEqual(first.headers['Cache-Control'],'no-store')
+
+    def test_legacy_club_search_expands_both_courses_but_job_requires_concrete_one(self):
+        names=['Haga Golfklubb - Hovedbane','Haga Golfklubb - Aksjonærsløyfen']
+        with patch('services.starttider.fetch_course_resources',return_value={'club':'Haga Golfklubb','courses':names}),patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=self.availability()) as find:
+            result=self.post('search',draft=self.draft(courses=['Haga']))
+        self.assertEqual(result.status_code,200,result.json);self.assertEqual(find.call_args.kwargs['courses'],names)
+        self.assertEqual(self.post('review_job',draft=self.draft(courses=['Haga']),job={'kind':'watch'}).status_code,400)
+
+    def test_haga_review_selects_haga_membership_and_preserves_resource_on_rejection(self):
+        from models import User,GolfBoxAction,GolfBoxWorkspace
+        with self.app.app_context():
+            user=self.db.session.get(User,self.uid)
+            user.golfbox_memberships_json=json.dumps([{'player_name':'Profilspiller','club_name':'Ballerud Golfklubb','member_number':'65-1','club_guid':'ballerud'},{'player_name':'Profilspiller','club_name':'Haga Golfklubb','member_number':'308-2','club_guid':'haga'}]);self.db.session.commit()
+        result=self.availability(available_slots=[{'date':self.tomorrow,'time':'16:20','course':'Haga Golfklubb - Aksjonærsløyfen','club_guid':'haga','resource_guid':'shareholder','available_spots':4}])
+        with patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=result):
+            self.post('search',draft=self.draft(courses=['Haga Golfklubb - Aksjonærsløyfen']))
+        reviewed=self.post('review_slot',index=0)
+        self.assertEqual(reviewed.status_code,200,reviewed.json)
+        self.assertEqual(reviewed.json['review']['memberships'][0]['member_number'],'308-2')
+        with patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=result),patch('services.starttider.gb.confirm_golfbox_booking',return_value={'status':'booking_failed','message':'GolfBox avviste tilgang'}) as book:
+            confirmed=self.post('confirm',id=reviewed.json['review']['id'])
+        self.assertEqual(confirmed.json['outcome']['status'],'booking_failed');book.assert_called_once()
+        self.assertEqual(book.call_args.args[0]['resource_guid'],'shareholder')
+
+    def test_two_memberships_of_same_companion_cannot_fill_two_places(self):
+        self.search(players=3)
+        people={'65-1':{'player_name':'Profilspiller','member_number':'65-1','club_name':'Ballerud','golfbox_player_guid':'self'},'99-123':{'player_name':'Anne','member_number':'99-123','club_name':'Haga','golfbox_player_guid':'anne'},'10-456':{'player_name':'Anne','member_number':'10-456','club_name':'Oslo','golfbox_player_guid':'anne'}}
+        with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value=people):
+            result=self.post('review_slot',index=0,draft=self.draft(players=3,player_refs=['self','m:99-123','m:10-456']))
+        self.assertEqual(result.status_code,400);self.assertIn('Samme person',result.json['message'])
+
+    def test_different_people_with_similar_names_are_distinct_by_guid(self):
+        self.search(players=2)
+        people={'65-1':{'player_name':'Profilspiller','member_number':'65-1','club_name':'Ballerud','golfbox_player_guid':'self'},'99-123':{'player_name':'Profilspiller Jensen','member_number':'99-123','club_name':'Haga','golfbox_player_guid':'another'}}
+        with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value=people):
+            result=self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=['self','m:99-123']))
+        self.assertEqual(result.status_code,200,result.json)

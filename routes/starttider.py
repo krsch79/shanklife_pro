@@ -47,7 +47,8 @@ def index():
     row = st.workspace(g.current_user)
     return render_template("starttider.html", initial=st.public_state(row), csrf=session["starttider_csrf"],
         connection=gb.golfbox_connection_summary(g.current_user), today=server_now().date().isoformat(),
-        self_name=g.current_user.golfbox_player_name or g.current_user.player.name)
+        self_name=g.current_user.golfbox_player_name or g.current_user.player.name,
+        course_options=sorted(set(gb.OSLO_AREA_COURSES + ["Hauger"]), key=str.casefold))
 
 
 @starttider_bp.get("/data")
@@ -58,6 +59,13 @@ def data():
     row = st.workspace(user)
     if kind == "state":
         return jsonify(st.public_state(row))
+    if kind == "course_resources":
+        try:
+            return jsonify(st.course_resources(user, row, request.args.get("club")))
+        except ValueError as exc:
+            return jsonify(message=str(exc)), 400
+    if kind == "courses":
+        return jsonify(st.course_catalog(user, row, refresh=request.args.get("refresh") == "1"))
     if kind == "favorites":
         options = st.favorites(user)
         from models import GolfBoxFavorite
@@ -93,7 +101,8 @@ def data():
         if result.get("status") == "ok":
             cache = {**result, "fetched_at": server_now().isoformat()}
             db.session.refresh(row)
-            row.cache_json = st.dumps(cache)
+            catalog = json.loads(row.cache_json).get("course_catalog")
+            row.cache_json = st.dumps({**cache, **({"course_catalog": catalog} if catalog else {})})
             db.session.commit()
             return jsonify(cache)
         return jsonify({**result, "bookings": cache.get("bookings", []), "fetched_at": cache.get("fetched_at"),
@@ -197,7 +206,9 @@ def action():
                 state["review"] = st.new_review(user, "booking", p, {"course": p["course"], "date": p["date"],
                     "time": p["time"], "players": [m["player_name"] for m in p["player_memberships"]],
                     "message": "En tid er ledig nå. Bekreft denne reservasjonen separat."})
-            row.cache_json = "{}"  # New reservation/cancellation must be read from GolfBox.
+            # Invalidate bookings while retaining the independently fetched catalog.
+            catalog = json.loads(row.cache_json).get("course_catalog")
+            row.cache_json = st.dumps({"course_catalog": catalog} if catalog else {})
         elif operation == "dismiss":
             state.pop("review", None)
         elif operation == "sync_favorites":

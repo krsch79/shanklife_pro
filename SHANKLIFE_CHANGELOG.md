@@ -2,6 +2,15 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [2.1.2] - 2026-10-15
+
+- Lar deg søke etter baner mens du skriver: «H» viser baner på H, og «Ha» viser blant annet Haga og Hauger.
+- Legger hver bane du klikker på i en liste med valgte baner, med mulighet for å fjerne dem igjen. Du trenger ikke lenger skrive kommaseparerte banenavn.
+- Henter klubber og konkrete baner/sløyfer fra GolfBox. Haga hovedbane og Aksjonærsløyfen er separate valg som beholdes gjennom søk og booking.
+- Leser alle medlemskap korrekt etter klubbbytte, velger ditt medlemskap for spilleklubben og viser medlemsnummer før bekreftelse.
+- Kontrollerer GolfBox-spilleridentiteten slik at samme person ikke kan legges inn to ganger med ulike medlemskap.
+- Gjenbruker banelisten i ett døgn og beholder sist hentede liste ved midlertidige feil. Velger aldri en annen bane hvis en konkret bane er fjernet eller bookingen avvises.
+
 ## [2.1.1] - 2026-10-15
 
 - Forenkler søk etter starttid: velg bare antall spillere før du søker, og legg til medspillere etter valgt tidspunkt.

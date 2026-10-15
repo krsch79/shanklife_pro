@@ -1,4 +1,30 @@
-# Starttider 2.1.1 delivery
+# Starttider 2.1.2 delivery
+
+Updated 2026-10-15. Implementation, automated tests and browser QA complete; production rollout pending.
+
+## Current requested refinement
+
+User requested prefix filtering (H, Ha), click-to-add course selection and removable selected courses. Follow-up clarified that clubs can have multiple courses (Haga main course/shareholder loop) and players can have multiple memberships. No production code changes have been made during development.
+
+- Baseline 3e0dcacf07e910f7240e5fd508afa0eb49ad34f9, version 2.1.1. Isolated clone /tmp/shanklife-courses.sjhFYM/repo. Python 3.11 test environment /tmp/shanklife-sportsmodus.nqnY0T/venv311.
+- Authenticated real GolfBox club selector has 154 entries; Haga/Hauger verified. Club resources are fetched on selection; one course adds directly, multiple courses require an explicit choice. Qualified names preserve the exact resource through search, review and new jobs. Removed explicit resources fail; no fallback to the first course. Existing legacy club-only jobs keep their original behavior; new jobs require one explicit course. Legacy/AI club-only searches expand resources with a maximum of eight actual courses.
+- Owner-scoped catalog/resource caches use existing workspace cache_json, expire after 24 hours and preserve bookings cache/revision. Known fallback clubs plus retry on first failure, last good list on later failure. No new tables or data migration.
+- Existing membership discovery parsed only the POST acknowledgement after switchClub. GolfBox does not include updated identity there. Refreshing myFrontPage.asp after a switch verifies actual club/member number. The exact corrected functions were read-only probed on the Pi: two memberships found, Haga present, original club restored, both memberships share one GolfBox player GUID. No DB writes, booking window, reservation or cancellation used in this probe.
+- Availability switches to the account's membership for the playing club where available. Review always keeps account first and shows each player's chosen membership. Membership numbers are verified together before review; duplicate person GUIDs across different memberships are rejected. Companion membership choice is explicit. GolfBox remains authoritative for booking rights and existing payment/access stops remain.
+- 221 Python tests passed, including 49 Starttider tests and 7 dedicated GolfBox resource/membership tests. Includes correct second-resource resolution, no fallback when removed, preserved legacy jobs, fresh membership identity/restore on failure, resource-specific availability, duplicate people, owner membership display and rejection without resource fallback.
+- Native iOS uses the existing authenticated webview; no new binary or TestFlight upload. Static assets/cache use 2.1.2-r3.
+
+## Rollout checkpoint
+
+Browser QA verified H→Ha filtering, Haga course split, click-to-add, single-course direct add, removal, multiple course payload, reload persistence, future-dated search, self-first picker and review using Haga membership. Synthetic booking completed before the final layout-only CSS revision; final review was rechecked. 320/393/1440 views have no document-wide overflow. Screenshots are in the current visualization directory (starttider-212-*). Commit and push, then use guarded maintenance with verified backup/core-data gates and auto rollback. Require both public health endpoints, authenticated catalog/Haga resource routes, real membership read and deployment email. Never create a live reservation for QA.
+
+Shared /Volumes/Shared/AGENTS.md is unchanged. Project AGENTS.md documents authoritative SSH Git checks when SMB reports an index error and the correct switchClub/fresh-identity/resource handling.
+
+Resume command if quota interrupts: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
+
+---
+
+# Historical: Starttider 2.1.1 delivery
 
 Updated 2026-10-15. Implemented, tested, pushed, deployed and production-verified.
 
