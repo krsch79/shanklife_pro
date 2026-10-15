@@ -1,10 +1,10 @@
 # Starttider 2.1.2 delivery
 
-Updated 2026-10-15. Implementation, automated tests and browser QA complete; production rollout pending.
+Updated 2026-10-15. Implemented, tested, pushed, deployed and production-verified.
 
 ## Current requested refinement
 
-User requested prefix filtering (H, Ha), click-to-add course selection and removable selected courses. Follow-up clarified that clubs can have multiple courses (Haga main course/shareholder loop) and players can have multiple memberships. No production code changes have been made during development.
+User requested prefix filtering (H, Ha), click-to-add course selection and removable selected courses. Follow-up clarified that clubs can have multiple courses (Haga main course/shareholder loop) and players can have multiple memberships. Development used the isolated clone; production code changed only under the guarded maintenance rollout.
 
 - Baseline 3e0dcacf07e910f7240e5fd508afa0eb49ad34f9, version 2.1.1. Isolated clone /tmp/shanklife-courses.sjhFYM/repo. Python 3.11 test environment /tmp/shanklife-sportsmodus.nqnY0T/venv311.
 - Authenticated real GolfBox club selector has 154 entries; Haga/Hauger verified. Club resources are fetched on selection; one course adds directly, multiple courses require an explicit choice. Qualified names preserve the exact resource through search, review and new jobs. Removed explicit resources fail; no fallback to the first course. Existing legacy club-only jobs keep their original behavior; new jobs require one explicit course. Legacy/AI club-only searches expand resources with a maximum of eight actual courses.
@@ -14,9 +14,19 @@ User requested prefix filtering (H, Ha), click-to-add course selection and remov
 - 221 Python tests passed, including 49 Starttider tests and 7 dedicated GolfBox resource/membership tests. Includes correct second-resource resolution, no fallback when removed, preserved legacy jobs, fresh membership identity/restore on failure, resource-specific availability, duplicate people, owner membership display and rejection without resource fallback.
 - Native iOS uses the existing authenticated webview; no new binary or TestFlight upload. Static assets/cache use 2.1.2-r3.
 
-## Rollout checkpoint
+## Production rollout and evidence
 
-Browser QA verified H→Ha filtering, Haga course split, click-to-add, single-course direct add, removal, multiple course payload, reload persistence, future-dated search, self-first picker and review using Haga membership. Synthetic booking completed before the final layout-only CSS revision; final review was rechecked. 320/393/1440 views have no document-wide overflow. Screenshots are in the current visualization directory (starttider-212-*). Commit and push, then use guarded maintenance with verified backup/core-data gates and auto rollback. Require both public health endpoints, authenticated catalog/Haga resource routes, real membership read and deployment email. Never create a live reservation for QA.
+- Application source 9a3654a21fc23a03d3838453595cced9c02d8136, pushed to main and codex/starttider-courses before deployment. Later documentation-only commits do not change this runtime version.
+- Completed 2026-10-15 at 21:44:46 Europe/Oslo. Controller shanklife-starttider-release-5KM9o2.service exited successfully; independent 25-minute rollback timer is inactive.
+- Private recovery state /home/kristian/shanklife-release-backups/starttider.5KM9o2 contains consistent SQLite snapshot, double-verified checksum, baseline/release bundles, original cron and controllers. Markers backup-ready, migration-verified, verified and mail-verified exist. Never publish the recovery directory or runtime files.
+- Both public hosts returned actual static maintenance HTML with HTTP 503 during the entire stop/backup/restart window. Existing core row counts/digests and tour selection matched before unlock. No schema migration. Other shared database service stayed running; rollback preserves current data rather than overwriting its changes.
+- Actual systemd unit read, service enabled/active, exact /tmp/shanklife_pro_venv/bin/python app.py process and listening port 5055 verified. Maintenance flag absent; both pro.shanklife.no and app.shanklife.no public health returned 2.1.2. Production worktree was clean at exact application source before documentation-only handoff.
+- Authenticated shell/state/favorites/jobs/history, home/rounds/insight, legacy redirect and native host passed. Real read-only GolfBox name/member lookups still work. Catalog API returned154 clubs including Haga/Hauger. Haga resource API returned both main/shareholder courses. Actual resolver returned distinct resource GUIDs for those two courses under the same club GUID. New membership read found2 memberships including Haga and Ballerud and restored original club.
+- Real authenticated Chrome showed exact 2.1.2-r3 script, Ha prefix results including Haga/Hauger, then the two separate Haga course choices. Only reading/opening suggestions was used; existing user selection was not changed.
+- Browser QA verified H→Ha filtering, Haga course split, click-to-add, single-course direct add, removal, multiple-course search payload, reload persistence, future-dated search, self-first picker and final review showing Haga membership. Complete synthetic booking was tested before the final layout-only revision; final review was rechecked. 320/393/1440 views have no document-wide overflow. Screenshots and starttider-212-qa.json are in the current visualization directory.
+- 221 Python tests passed. No live booking window, reservation, cancellation or automatic job used as QA. Physical-device keyboard/safe area and actual GolfBox booking authorization remain separate acceptance checks; membership existence does not itself prove every playing right.
+- Deployment email confirmed by mailer return True and matching success log. Synthetic server stopped (exact process exit verified) and viewport overrides reset. No new iOS binary or TestFlight upload.
+- All release work complete. README.md documents architecture, cache, permissions, old/new job resource boundaries and test commands. Read current Git/runtime state before a future change; temporary staging paths may disappear.
 
 Shared /Volumes/Shared/AGENTS.md is unchanged. Project AGENTS.md documents authoritative SSH Git checks when SMB reports an index error and the correct switchClub/fresh-identity/resource handling.
 
