@@ -1,15 +1,38 @@
-# Starttider 2.1.4 checkpoint
+# Starttider 2.1.4 delivery
 
-Updated 2026-10-15. In isolated clone /tmp/shanklife-booking-count.H2pg9J/repo. Baseline 8c36c317813bbd8b70ae84c9025b6c1c28c6e798, production2.1.3.
+Updated 2026-10-15. Implemented, tested, pushed, deployed and production-verified. Completed22:27:18 Europe/Oslo.
 
-User authorized booking fewer participants than search capacity, and full database backups only when release changes schema/existing data. selected_members accepts 1..searched count with self first; review/capacity confirmation and new automatic jobs use actual named participants. Search count retained. Existing payment flow audited: positive price or returned payment requirement stops booking, releases temporary lock, never pays; user completes manually in GolfBox. Added mocked price-before-submit/cleanup regression. 230 Python tests pass; shell syntax/invalid release flag checked. No schema/data migration.
+## Requested changes and result
 
-Deploy script now defaults SHANKLIFE_DATABASE_CHANGES=0; set1 for schema/migration/bulk data changes. This release must NOT take a full database backup. Keep source rollback, maintenance, row/schema verification and health checks. Existing private backups retained. Do not run the old wrapper with unconditional SQLite snapshot. Source-only controller prepared at /tmp/shanklife-booking-count.H2pg9J/release_guard.py; private state /home/kristian/shanklife-release-backups/starttider.2DZC7Z. It validates unchanged schema/core rows and unchanged full-backup file set, retains source rollback and independent timer.
+Search count is a capacity filter, not mandatory booking size. A two-place search can book self alone; a four-place search can book self plus one companion. Self remains first, all selected identities are verified and duplicated people refused. Booking payload and final capacity check use actual selected count. New watch/scheduled/recurring jobs also store actual participant count. Search criteria and server-owned exact resource remain unchanged. No schema or bulk data changes.
 
-Browser QA passed synthetic 2places->1player complete booking and4places->2players review at393/1440. iPhone request added: existing native2.0.0(21) has Profil->Starttider via authenticated webview and legacy GET redirect. Native UI test passed on iPhone18Pro/iOS27: Profil->Starttider opened authenticated web page, chose a time from a two-place search and reviewed a booking for player1 only. Do not reset/change fixture during XCTest. Xcode driver exited0; result /tmp/shanklife-booking-count.H2pg9J/starttider-iphone.xcresult. Obtain explicit process exit before another Xcode run. No TestFlight upload authorized.
+- Application source775e05de273f5233c24e4c11fd3bb82df24d6be7, pushed to main and codex/starttider-flexible-booking before deploy. Baseline8c36c317813bbd8b70ae84c9025b6c1c28c6e798/version2.1.3. Isolated clone /tmp/shanklife-booking-count.H2pg9J/repo; Python3.11 environment /tmp/shanklife-sportsmodus.nqnY0T/venv311. Later documentation-only commits do not change the runtime.
+- 230 Python tests passed. New/updated regressions cover2places->1participant through final confirmation and capacity recheck,4places->2participants, actual job count, changed search count rejection and existing duplicate/self/ownership/capacity behavior. Mocked positive-price booking window proves no booking POST occurs and temporary lock cleanup is called. Existing payment outcome/idempotence checks remain.
+- Synthetic browser QA:393px two-place search with self alone through completed local booking;1440px four-place search with self plus favorite through correct review. No live booking used. PWA cache and exact JS/CSS URLs2.1.4.
 
-Shared AGENTS.md unchanged; project guidance documents new backup and participant-count rules.
-Resume command: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
+## iPhone availability
+
+Native2.0.0(21) already has Profil→Starttider for BalleTour-entitled users. Its authenticated WKWebView opens /balletour/ai, redirected to /starttider. Existing native app source unchanged; new webflow is available without rebuilding/distributing iOS.
+
+- Added testStarttiderFromProfileCanReviewFewerPlayers. Passed in iPhone18Pro/iOS27 simulator: native navigation to authenticated Starttider, no double native tabbar, choosing a time from two-place fixture, self only and correct booking review. Xcode driver exited0 after TEST SUCCEEDED. Result /tmp/shanklife-booking-count.H2pg9J/starttider-iphone.xcresult; two exported attachments visually inspected. Images starttider-214-iphone-picker.png and starttider-214-iphone-review.png retained in current visualization directory. Test preparation described in ios/Shanklife/README.md.
+- Physical installed iPhone version was not inspected. No native application change, new archive or TestFlight upload. Existing entitlement boundary retained.
+
+## Database backup policy and production
+
+User explicitly requested full database backup only for actual database changes. scripts/deploy.sh now defaults SHANKLIFE_DATABASE_CHANGES=0; set1 for schema migrations or bulk rewrites of existing data. Ordinary user booking/workspace writes do not turn a code release into a migration. Invalid flag fails before maintenance. Shell syntax verified. Future database releases must verify one consistent backup, avoiding redundant copies in both controller and script.
+
+- Source-only guarded rollout shanklife-starttider-release-2DZC7Z.service completed successfully at22:27:18. Independent rollback timer inactive. Private state /home/kristian/shanklife-release-backups/starttider.2DZC7Z contains baseline/release source bundles, original cron, controller and verification material. Markers source-ready, migration-verified (existing pre-unlock contract), verified and mail-verified confirmed. No database.sqlite3 snapshot created; full-backup directory file set unchanged. Prior private database backups retained.
+- Main app/project cron paused under maintenance. Pre-unlock gate required identical SQLite schema and core record/tour/favorites/job/history digests. No schema change or migration occurred. Source rollback preserves current shared data. Main app restarted quickly without full database copies.
+- Actual systemd unit read, service enabled/active, exact /tmp/shanklife_pro_venv/bin/python app.py process, listening5055 and maintenance flag absent verified. Both public HTTPS health endpoints returned2.1.4; authenticated Starttider shell/state/favorites/jobs/history, home/rounds/insight, native app host and legacy redirect passed.
+- Real read-only GolfBox directory by name/member number,154-club catalog, Haga's two distinct resource resolutions, Ballerud/Grini single-resource endpoints/resolvers and both own memberships with original-club restore passed. No live booking window, reservation, cancellation, job creation or payment used for QA.
+- Deployment email confirmed by mailer True and matching success log. Production worktree clean at exact source before documentation handoff. Synthetic server stopped with confirmed exit143 and viewport overrides reset.
+
+## Payment behavior (audited, unchanged)
+
+Shanklife does not perform payment or present a payment session. Existing GolfBox engine stops at a visible positive Booking/ExtraPrice, even when it may only be a greenfee payable later. It also stops when the submit response signals payment required. It attempts to release temporary booking lock and returns payment_required (shown as stopped at payment in history), not booking_created. User must complete paid bookings directly in GolfBox. This conservative behavior is documented; no live payment attempted or authorization flow claimed.
+
+Shared /Volumes/Shared/AGENTS.md unchanged. Project AGENTS.md updated with participant-count and user-approved backup rules. All requested work complete; read current Git/runtime state before further work. Temporary staging paths may disappear.
+Resume command if quota interrupts future continuation: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
 
 ---
 
