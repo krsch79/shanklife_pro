@@ -59,3 +59,5 @@
 - Keep concrete GolfBox resources in new Starttider search/job names and frozen review GUIDs. Never replace a removed explicit resource with the first course. Legacy club-only jobs retain their old resolution; new club-only searches expand resources and new jobs require a specific course.
 
 - GolfBox redirects single-course clubs from chooseclub.asp straight to grid.asp. Read the grid's `ddlRessource_GUID` as well as chooseclub's `ddlRessoruce`, discard placeholder values such as `x`, and share this parser between the catalog and resolver. Regression fixtures must include the actual redirected single-course markup, not only a synthetic one-option chooseclub selector.
+
+- When streaming maintenance checks, consume the complete curl response before printing selected markers/status (for example through Python). Piping the HTML to head can close stdout early and make curl exit 56 before reporting the HTTP code.

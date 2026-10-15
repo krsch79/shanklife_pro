@@ -1,13 +1,28 @@
-# Starttider 2.1.3 checkpoint
+# Starttider 2.1.3 delivery
 
-Updated 2026-10-15. Fix implemented in /tmp/shanklife-single-course.b7Z1zX/repo; not yet deployed.
+Updated 2026-10-15. Implemented, tested, pushed, deployed and production-verified.
 
-Single-course GolfBox clubs redirect chooseclub.asp to grid.asp, which uses ddlRessource_GUID instead of ddlRessoruce. Live read-only probes confirmed this for Ballerud and Grini; Hauger still uses the multi-course selector. Shared resource parser now supports both and rejects placeholder x/non-GUID values. Used by both Starttider resource discovery and exact course resolution. No schema or native iOS change.
+## Single-course club selection fix
 
-61 targeted and 226 total tests passed. Candidate code verified read-only against live GolfBox: Ballerud and Grini return one exact resolvable resource each; Haga returns two distinct courses. Browser QA passed at 320/393/1440 px: Grini adds directly, Haga retains two choices, both selected courses survive reload and are included in the availability request. Screenshots visually inspected. Commit/push and guarded deployment are pending. Baseline 1fb8f405302b56675fdd910eeb08c8e97439be97, production 2.1.2. Server has about 13 GiB free: verify space before backup/deploy; do not remove existing backups. Private prior release controller is /tmp/shanklife-courses.sjhFYM/release_guard.py; adapt baseline/version before reuse.
+GolfBox redirects clubs with one course from chooseclub.asp directly to grid.asp. The redirected page uses ddlRessource_GUID instead of the multi-course selector ddlRessoruce. Starttider and the booking resolver previously read only the latter. A shared parser now supports both and discards placeholder/non-GUID values such as x (Velg fasilitet). Clubs with one course add directly; clubs with several courses retain explicit selection. Exact resource resolution and removed-resource refusal remain unchanged. No schema change or new native iOS build.
 
-Shared /Volumes/Shared/AGENTS.md unchanged; project AGENTS.md documents real single-course markup regression.
-Resume command if interrupted: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
+- Baseline 1fb8f405302b56675fdd910eeb08c8e97439be97, version 2.1.2. Application source 9ddd3fa9b04095535987e00e411808cc1df492e8, pushed to GitHub main and codex/starttider-single-course before deployment. Later documentation-only commits do not change the runtime.
+- Development /tmp/shanklife-single-course.b7Z1zX/repo; Python 3.11 environment /tmp/shanklife-sportsmodus.nqnY0T/venv311. 61 targeted and 226 total tests passed. Five new regressions cover redirected markup, invalid placeholder rejection, multi-course preservation, exact single-course resolution, authenticated resource endpoint/cache and downstream search.
+- Live read-only verification before and after deploy: Ballerud and Grini each return one real resource and resolve that exact resource. Haga still returns two distinct resources. Real catalog154 entries, both account memberships with original-club restore and name/member directory lookups passed. No booking window, reservation, cancellation or automatic job created for QA.
+- Synthetic browser QA at 320/393/1440 px: Grini adds directly, Haga retains two course choices, selected Grini plus Haga shareholder course survive reload and reach the availability request. No document-wide horizontal overflow. Screenshots starttider-213-mobile.png and starttider-213-desktop.png visually inspected; starttider-213-qa.json in the current visualization directory records checks. Synthetic server stopped with confirmed exit143; viewport override reset.
+- Assets/cache version2.1.3. Real authenticated production Chrome rendered v2.1.3 and exact starttider.js?v=2.1.3. Existing user course selections were preserved during production verification. Physical-device testing and real booking authorization are not claimed.
+
+## Production rollout
+
+- Controller shanklife-starttider-release-2cwAxi.service exited successfully; independent rollback timer inactive. Private recovery state /home/kristian/shanklife-release-backups/starttider.2cwAxi retains consistent SQLite snapshot, double-verified checksum, baseline/release bundles, original cron and controllers. Markers backup-ready, migration-verified, verified and mail-verified confirmed. Do not publish runtime or recovery files.
+- Both public hosts showed actual static maintenance HTML and HTTP503 during downtime. Main app/project cron paused for backup. Standard deploy script also took its normal backup. Existing core rows, GolfBox favorites/jobs/history and tour selection matched before unlock. Other shared DB service remained running; source rollback preserves current shared data.
+- Actual systemd unit read; enabled/active shanklife-pro.service, exact /tmp/shanklife_pro_venv/bin/python app.py process, listening5055 and removed maintenance flag verified. Both pro.shanklife.no and app.shanklife.no public health returned2.1.3. Authenticated Starttider state/favorites/jobs/history, home/rounds/insight, legacy redirect and native host passed. Production worktree clean at exact application source before documentation handoff.
+- Deployment email confirmed by mailer return True plus matching success log. No new iOS archive or TestFlight upload.
+- Disk reserve after this release is about3.5GiB. Retained existing backups; do not delete them automatically. Before another release requiring snapshots, arrange sufficient capacity and rerun disk preflight (current reserve cannot accommodate another full4.7GB snapshot).
+- Shared /Volumes/Shared/AGENTS.md unchanged. Project AGENTS.md records redirected single-course handling with real markup regression fixtures, plus consuming complete streamed maintenance responses before printing status.
+
+All requested work complete. Read current Git/runtime state before another change. Temporary staging paths may disappear.
+Resume command if quota interrupts a future continuation: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
 
 ---
 
