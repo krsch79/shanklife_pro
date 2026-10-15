@@ -2,6 +2,11 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [2.1.3] - 2026-10-15
+
+- Retter valg av klubber med bare én bane. Banen legges direkte til i søket selv når GolfBox sender deg rett til starttidsoversikten.
+- Beholder riktig bane videre til søk og booking; klubber med flere baner har fortsatt separate banevalg.
+
 ## [2.1.2] - 2026-10-15
 
 - Lar deg søke etter baner mens du skriver: «H» viser baner på H, og «Ha» viser blant annet Haga og Hauger.

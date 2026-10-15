@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Starttider — Shanklife{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='starttider.css') }}?v=2.1.2-r3"><script src="{{ url_for('static', filename='starttider.js') }}?v=2.1.2-r3" defer></script>{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='starttider.css') }}?v=2.1.3"><script src="{{ url_for('static', filename='starttider.js') }}?v=2.1.3" defer></script>{% endblock %}
 {% block content %}
 <div id="starttider" data-csrf="{{ csrf }}" data-base="{{ url_for('starttider.index') }}" data-self-name="{{ self_name }}">
 <script type="application/json" id="starttider-initial">{{ initial|tojson }}</script>

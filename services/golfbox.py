@@ -807,6 +807,16 @@ def _select_options(page_html, select_name):
     return options
 
 
+def _course_resource_options(page_html):
+    """GolfBox skips chooseclub's resource step for a club with one course."""
+    for field in ("ddlRessoruce", "ddlRessource_GUID"):
+        resources = [option for option in _select_options(page_html, field)
+                     if re.fullmatch(r"\{[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\}", option["value"])]
+        if resources:
+            return resources
+    return []
+
+
 def _qualified_course_name(club_name, resource_name):
     if _normalize_name(resource_name).startswith(_normalize_name(club_name)):
         return resource_name
@@ -840,7 +850,7 @@ def _resolve_course(credentials, course_name):
             },
         )
         resource_response.raise_for_status()
-        resources = _select_options(resource_response.text, "ddlRessoruce")
+        resources = _course_resource_options(resource_response.text)
         selected_resource = next((r for r in resources if _normalize_name(_qualified_course_name(selected_club["label"], r["label"])) == requested_key), None)
         if selected_resource is None and requested_key == _normalize_name(selected_club["label"]):
             selected_resource = resources[0] if resources else None  # Existing club-only jobs retain their previous behavior.

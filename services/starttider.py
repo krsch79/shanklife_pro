@@ -166,7 +166,7 @@ def fetch_course_resources(user, club_name):
         response = client.post(gb.GOLFBOX_BASE_URL + "/site/ressources/booking/chooseclub.asp",
             data={"command": "getClub", "commandValue": "", "ddlClub": club["value"]})
         response.raise_for_status()
-        resources = gb._select_options(response.text, "ddlRessoruce")
+        resources = gb._course_resource_options(response.text)
     courses = list(dict.fromkeys(gb._qualified_course_name(club["label"], resource["label"]) for resource in resources))
     if not courses:
         raise ValueError("GolfBox viser ingen bookbare baner for denne klubben.")

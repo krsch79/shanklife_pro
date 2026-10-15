@@ -414,6 +414,25 @@ class StarttiderTests(unittest.TestCase):
         self.assertEqual(find.call_args.kwargs['courses'],['Haga Golfklubb - Hovedbane','Hauger Golfklubb - 18 hull'])
         self.assertEqual(self.post('review_slot',index=0).status_code,200)
 
+    def test_single_course_grid_redirect_is_selectable_through_resource_endpoint(self):
+        club='{11111111-1111-1111-1111-111111111111}'
+        resource='{22222222-2222-2222-2222-222222222222}'
+        upstream=MagicMock()
+        upstream.get.return_value.text=f'<select name="ddlClub"><option value="{club}">Grini Golfklubb</option></select>'
+        upstream.post.return_value.text=f'<select name="ddlRessource_GUID"><option value="x">Velg fasilitet</option><option value="{resource}" selected="selected">Grini Golfklubb - Grini Golfbane</option></select>'
+        with patch('services.starttider.httpx.Client') as factory,patch('services.starttider.gb._login'):
+            factory.return_value.__enter__.return_value=upstream
+            result=self.client.get('/starttider/data?kind=course_resources&club=Grini%20Golfklubb')
+            again=self.client.get('/starttider/data?kind=course_resources&club=Grini%20Golfklubb')
+        self.assertEqual(result.status_code,200,result.json)
+        self.assertEqual(result.json['courses'],['Grini Golfklubb - Grini Golfbane'])
+        self.assertEqual(again.json,result.json)
+        upstream.post.assert_called_once()
+        with patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=self.availability()) as find:
+            searched=self.post('search',draft=self.draft(courses=result.json['courses']))
+        self.assertEqual(searched.status_code,200,searched.json)
+        self.assertEqual(find.call_args.kwargs['courses'],result.json['courses'])
+
     def test_club_resource_endpoint_caches_both_haga_courses(self):
         names=['Haga Golfklubb - Hovedbane','Haga Golfklubb - Aksjonærsløyfen']
         with patch('services.starttider.fetch_course_resources',return_value={'club':'Haga Golfklubb','courses':names}) as fetch:

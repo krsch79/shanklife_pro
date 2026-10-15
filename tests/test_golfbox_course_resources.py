@@ -10,6 +10,9 @@ MAIN='{33333333-3333-3333-3333-333333333333}'
 SHARE='{44444444-4444-4444-4444-444444444444}'
 CLUBS=f'<select name="ddlClub"><option value="{HAGA}">Haga Golfklubb</option></select>'
 RESOURCES=f'<select name="ddlRessoruce"><option value="{MAIN}">Haga Golfklubb - Haga Golf Hovedbane</option><option value="{SHARE}">Haga Golfklubb - Aksjonærsløyfen</option></select>'
+SINGLE_GRID=f'''<select name="ddlRessource_GUID" id="ddlRessource_GUID">
+<option value="x">Velg fasilitet</option>
+<option value="{MAIN}" selected="selected">Grini Golfklubb - Grini Golfbane</option></select>'''
 SWITCH=f'''<table><tr><td><div class="flex-grow-1"><div>Haga Golfklubb</div></div><button onclick="_postBack('switchClub','{HAGA}')" title=" Velg "></button></td></tr><tr><td><div class="flex-grow-1">Ballerud Golfklubb</div><button onclick="_postBack('switchClub','{BALLERUD}')" title=" Valgt "></button></td></tr></table>'''
 
 def response(text='',url='https://www.golfbox.no/site/security/switchClub.asp'):
@@ -19,6 +22,26 @@ def identity(club,number):
     return f'<p>QA Spiller | {club} | {number} | HCP: 5.4</p>'
 
 class GolfBoxCourseResourceTests(unittest.TestCase):
+    def test_redirected_single_course_grid_excludes_placeholder(self):
+        self.assertEqual(gb._course_resource_options(SINGLE_GRID),[{'value':MAIN,'label':'Grini Golfklubb - Grini Golfbane'}])
+
+    def test_placeholder_without_resource_never_becomes_a_course(self):
+        self.assertEqual(gb._course_resource_options('<select name="ddlRessource_GUID"><option value="x">Velg fasilitet</option></select>'),[])
+
+    def test_multi_course_selector_still_keeps_both_resources(self):
+        self.assertEqual([r['value'] for r in gb._course_resource_options(RESOURCES)],[MAIN,SHARE])
+
+    def test_single_course_resource_is_resolved_after_grid_redirect(self):
+        client=MagicMock();client.get.return_value=response(f'<select name="ddlClub"><option value="{BALLERUD}">Grini Golfklubb</option></select>')
+        client.post.return_value=response(SINGLE_GRID,url=gb.GOLFBOX_BASE_URL+'/site/my_golfbox/ressources/booking/grid.asp')
+        with patch('services.golfbox.httpx.Client') as factory,patch('services.golfbox._login'):
+            factory.return_value.__enter__.return_value=client
+            result=gb._resolve_course({'username':'qa','password':'qa'},'Grini Golfklubb - Grini Golfbane')
+        self.assertEqual(result['resource_guid'],MAIN)
+        self.assertEqual(result['club_guid'],BALLERUD)
+        self.assertEqual(result['course'],'Grini Golfklubb - Grini Golfbane')
+        self.assertEqual(client.post.call_count,1)  # Directory read, no booking window.
+
     def resolve(self,name):
         client=MagicMock();client.get.return_value=response(CLUBS);client.post.return_value=response(RESOURCES)
         with patch('services.golfbox.httpx.Client') as factory,patch('services.golfbox._login'):

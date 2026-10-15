@@ -1,3 +1,16 @@
+# Starttider 2.1.3 checkpoint
+
+Updated 2026-10-15. Fix implemented in /tmp/shanklife-single-course.b7Z1zX/repo; not yet deployed.
+
+Single-course GolfBox clubs redirect chooseclub.asp to grid.asp, which uses ddlRessource_GUID instead of ddlRessoruce. Live read-only probes confirmed this for Ballerud and Grini; Hauger still uses the multi-course selector. Shared resource parser now supports both and rejects placeholder x/non-GUID values. Used by both Starttider resource discovery and exact course resolution. No schema or native iOS change.
+
+61 targeted and 226 total tests passed. Candidate code verified read-only against live GolfBox: Ballerud and Grini return one exact resolvable resource each; Haga returns two distinct courses. Browser QA passed at 320/393/1440 px: Grini adds directly, Haga retains two choices, both selected courses survive reload and are included in the availability request. Screenshots visually inspected. Commit/push and guarded deployment are pending. Baseline 1fb8f405302b56675fdd910eeb08c8e97439be97, production 2.1.2. Server has about 13 GiB free: verify space before backup/deploy; do not remove existing backups. Private prior release controller is /tmp/shanklife-courses.sjhFYM/release_guard.py; adapt baseline/version before reuse.
+
+Shared /Volumes/Shared/AGENTS.md unchanged; project AGENTS.md documents real single-course markup regression.
+Resume command if interrupted: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
+
+---
+
 # Starttider 2.1.2 delivery
 
 Updated 2026-10-15. Implemented, tested, pushed, deployed and production-verified.
