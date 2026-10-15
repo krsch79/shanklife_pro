@@ -248,8 +248,8 @@ def selected_members(draft, user, course):
         raise ValueError("Velg de riktige spillerne i spillervelgeren: " + ", ".join(draft["unresolved_names"]))
     if not draft["player_refs"] or draft["player_refs"][0] != "self":
         raise ValueError("Du skal alltid være spiller 1. Velg spillerne på nytt.")
-    if len(draft["player_refs"]) != draft["players"]:
-        raise ValueError("Velg navn eller medlemsnummer for alle spillerne før du bekrefter.")
+    if len(draft["player_refs"]) > draft["players"]:
+        raise ValueError("Du har valgt flere spillere enn søket gjelder. Velg færre spillere eller søk på nytt.")
     members = []
     # Keep the account identity first, matching the existing GolfBox booking window.
     refs = sorted(draft["player_refs"], key=lambda r: r != "self")
@@ -329,9 +329,9 @@ def review_slot(index, state, user):
         raise ValueError("Velg en tid fra ditt siste søkeresultat.")
     slot = slots[index]
     draft = validate_draft(state["draft"], user)
-    if int(slot.get("available_spots") or 0) < draft["players"]:
-        raise ValueError("Denne tiden har ikke plass til alle spillerne.")
     members = selected_members(draft, user, slot["course"])
+    if int(slot.get("available_spots") or 0) < len(members):
+        raise ValueError("Denne tiden har ikke plass til alle spillerne.")
     payload = {key: slot[key] for key in ("course", "date", "time", "club_guid", "resource_guid")}
     payload.update(players=len(members), player_memberships=members)
     return new_review(user, "booking", payload, {"course": slot["course"], "date": slot["date"],
@@ -353,7 +353,7 @@ def review_job(raw, draft, user):
     if kind not in {"watch", "scheduled", "recurring"}:
         raise ValueError("Velg oppdragstype.")
     members = selected_members(draft, user, draft["courses"][0])
-    interpretation = {**draft, "intent": "create_booking", "include_current_user": "self" in draft["player_refs"],
+    interpretation = {**draft, "players": len(members), "intent": "create_booking", "include_current_user": "self" in draft["player_refs"],
         "player_names": [m["player_name"] for m in members],
         "member_numbers": [m["member_number"] for m in members[1:]],
         "member_number_names": {m["member_number"]: m["player_name"] for m in members[1:]}, "recurrence": {}}

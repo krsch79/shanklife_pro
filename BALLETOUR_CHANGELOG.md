@@ -2,6 +2,12 @@
 
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
+## [2.1.4] - 2026-10-15
+
+- Lar deg booke for færre spillere enn antall ledige plasser du søkte etter. Du er fortsatt spiller 1, og bare spillerne du velger blir booket.
+- Viser tydelig at du kan fortsette med de valgte spillerne uten å fylle alle plassene.
+- Tar full databasebackup ved databaseendringer; vanlige kodeoppdateringer hopper over denne ekstra backupen.
+
 ## [2.1.3] - 2026-10-15
 
 - Retter valg av klubber med bare én bane. Banen legges direkte til i søket selv når GolfBox sender deg rett til starttidsoversikten.

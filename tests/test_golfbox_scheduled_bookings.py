@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, time
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from services.golfbox import (
     _booking_contains_expected_players,
@@ -18,6 +18,18 @@ from services.golfbox import (
 
 
 class GolfBoxScheduledBookingTests(unittest.TestCase):
+    def test_positive_price_stops_before_booking_submit_and_releases_lock(self):
+        from services import golfbox as gb
+        members=[{'player_name':'QA','member_number':'65-1','club_name':'Ballerud Golfklubb'}]
+        client=MagicMock()
+        client.get.return_value.text='Medlemsnummer: 65-1 <input name="hidden_BookingPrice_0" value="500">'
+        with patch('services.golfbox.httpx.Client') as factory,patch('services.golfbox._login'),patch('services.golfbox._switch_club',return_value={}),patch('services.golfbox._player_memberships_for_booking_course',return_value=members),patch('services.golfbox._verified_booking_in_my_times',return_value=None),patch('services.golfbox._cleanup_booking_lock') as cleanup:
+            factory.return_value.__enter__.return_value=client
+            result=gb._book_slot({},None,date(2026,10,20),time(16,20),members,'club','resource','Ballerud')
+        self.assertEqual(result['status'],'payment_required')
+        client.post.assert_not_called()
+        cleanup.assert_called_once_with(client,'20261020T162000','resource')
+
     def test_member_number_lookup_response_is_normalized_for_storage(self):
         member = _parse_member_number_lookup(
             "{player-guid}|Øyvind Schiander|Ballerud Golfklubb|1|1||",

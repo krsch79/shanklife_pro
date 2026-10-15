@@ -11,8 +11,14 @@ APP_PORT="${APP_PORT:-5055}"
 MAINTENANCE_LOG_FILE="${MAINTENANCE_LOG_FILE:-/tmp/shanklife_pro_maintenance.log}"
 SERVICE_NAME="${SHANKLIFE_SERVICE_NAME:-shanklife-pro.service}"
 SERVICE_FILE="${SHANKLIFE_SERVICE_FILE:-$APP_DIR/deploy/shanklife-pro.service}"
+DATABASE_CHANGES="${SHANKLIFE_DATABASE_CHANGES:-0}"
 HEALTH_URL="${SHANKLIFE_HEALTH_URL:-http://127.0.0.1:$APP_PORT/api/v1/health}"
 MAINTENANCE_SERVER_PID=""
+
+case "$DATABASE_CHANGES" in
+    0|1) ;;
+    *) echo "SHANKLIFE_DATABASE_CHANGES må være 0 eller 1."; exit 1 ;;
+esac
 
 cd "$APP_DIR"
 
@@ -105,8 +111,12 @@ mkdir -p "$(dirname "$MAINTENANCE_FILE")"
 printf 'Deploy startet %s\n' "$(date -Is)" > "$MAINTENANCE_FILE"
 trap 'finish_deploy $?' EXIT
 
-echo "Tar databasebackup før deploy..."
-"$PYTHON_BIN" scripts/daily_backup.py --force --name "Backup før deploy"
+if [ "$DATABASE_CHANGES" = "1" ]; then
+    echo "Tar databasebackup før deploy med databaseendringer..."
+    "$PYTHON_BIN" scripts/daily_backup.py --force --name "Backup før deploy"
+else
+    echo "Kodeoppdatering uten databaseendringer: hopper over full databasebackup."
+fi
 
 echo "Henter siste kode fra GitHub..."
 git fetch "$GIT_SOURCE" "$BRANCH"

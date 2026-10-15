@@ -1,3 +1,18 @@
+# Starttider 2.1.4 checkpoint
+
+Updated 2026-10-15. In isolated clone /tmp/shanklife-booking-count.H2pg9J/repo. Baseline 8c36c317813bbd8b70ae84c9025b6c1c28c6e798, production2.1.3.
+
+User authorized booking fewer participants than search capacity, and full database backups only when release changes schema/existing data. selected_members accepts 1..searched count with self first; review/capacity confirmation and new automatic jobs use actual named participants. Search count retained. Existing payment flow audited: positive price or returned payment requirement stops booking, releases temporary lock, never pays; user completes manually in GolfBox. Added mocked price-before-submit/cleanup regression. 230 Python tests pass; shell syntax/invalid release flag checked. No schema/data migration.
+
+Deploy script now defaults SHANKLIFE_DATABASE_CHANGES=0; set1 for schema/migration/bulk data changes. This release must NOT take a full database backup. Keep source rollback, maintenance, row/schema verification and health checks. Existing private backups retained. Do not run the old wrapper with unconditional SQLite snapshot. Source-only controller prepared at /tmp/shanklife-booking-count.H2pg9J/release_guard.py; private state /home/kristian/shanklife-release-backups/starttider.2DZC7Z. It validates unchanged schema/core rows and unchanged full-backup file set, retains source rollback and independent timer.
+
+Browser QA passed synthetic 2places->1player complete booking and4places->2players review at393/1440. iPhone request added: existing native2.0.0(21) has Profil->Starttider via authenticated webview and legacy GET redirect. Native UI test passed on iPhone18Pro/iOS27: Profil->Starttider opened authenticated web page, chose a time from a two-place search and reviewed a booking for player1 only. Do not reset/change fixture during XCTest. Xcode driver exited0; result /tmp/shanklife-booking-count.H2pg9J/starttider-iphone.xcresult. Obtain explicit process exit before another Xcode run. No TestFlight upload authorized.
+
+Shared AGENTS.md unchanged; project guidance documents new backup and participant-count rules.
+Resume command: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
+
+---
+
 # Starttider 2.1.3 delivery
 
 Updated 2026-10-15. Implemented, tested, pushed, deployed and production-verified.

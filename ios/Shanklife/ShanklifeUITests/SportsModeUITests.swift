@@ -6,6 +6,36 @@ final class SportsModeUITests: XCTestCase {
     super.setUp()
     continueAfterFailure = false
   }
+  // The disposable fixture has a future-dated two-place search ready before launch.
+  func testStarttiderFromProfileCanReviewFewerPlayers() throws {
+    let app = XCUIApplication()
+    app.launchEnvironment["SPORTS_UI_QA"] = "1"
+    app.launch()
+    XCTAssertTrue(app.tabBars.buttons["Profil"].waitForExistence(timeout: 30), app.debugDescription)
+    app.tabBars.buttons["Profil"].tap()
+    XCTAssertTrue(app.buttons["Starttider"].waitForExistence(timeout: 10), app.debugDescription)
+    app.buttons["Starttider"].tap()
+    let web = app.webViews.firstMatch
+    XCTAssertTrue(web.waitForExistence(timeout: 20), app.debugDescription)
+    XCTAssertTrue(web.staticTexts["Starttider."].waitForExistence(timeout: 20), app.debugDescription)
+    XCTAssertFalse(app.tabBars.firstMatch.exists)
+    XCTAssertTrue(web.buttons["Finn tid"].exists)
+    XCTAssertTrue(web.buttons["Mine tider 1"].exists || web.buttons["Mine tider 0"].exists)
+    let choose = web.buttons["Velg tid"].firstMatch
+    if !choose.isHittable { web.swipeUp() }
+    XCTAssertTrue(choose.waitForExistence(timeout: 15), app.debugDescription)
+    choose.tap()
+    XCTAssertTrue(web.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Søkt etter plass til 2")).firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+    attach(app, "Starttider på iPhone med valgfri medspiller")
+    let review = web.buttons["Kontroller booking →"]
+    if !review.isHittable { web.swipeUp() }
+    XCTAssertTrue(review.isEnabled)
+    review.tap()
+    XCTAssertTrue(web.buttons["Bekreft booking"].waitForExistence(timeout: 15), app.debugDescription)
+    XCTAssertTrue(web.staticTexts["Kristian"].exists, app.debugDescription)
+    attach(app, "Bookingoppsummering med bare spiller 1")
+    // Review only: never submit a real booking from this native navigation test.
+  }
   func testPersonalNavigationAndAuthenticatedWebsite() throws {
     let app = XCUIApplication()
     app.launchEnvironment["SPORTS_UI_QA"] = "1"

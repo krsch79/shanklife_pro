@@ -20,3 +20,9 @@ xcodebuild -project ios/Shanklife/Shanklife.xcodeproj -scheme Shanklife -configu
 ```
 
 `ShanklifeUITests/SportsModeUITests.swift` prøver ekte navigasjon, felles innlogging og scorelagring gjennom hullbytte mot den disponible demo-serveren beskrevet i `IMPLEMENTATION_STATUS.md`. Start serveren og kontroller health før testen; ikke nullstill fixture eller opprett browser-runder mens XCTest kjører. Skjermbilder lagres som xcresult-vedlegg. Signering og Apple-opplasting krever egne kontroller av arkiv, team og provisioning. Et usignert Release-bygg er kompilasjonsbevis, ikke en publisert iPhone-utgivelse.
+
+## Starttider på iPhone
+
+I native2.0.0(21) finnes **Profil → Starttider** for brukere med BalleTour-tilgang. Den autentiserte webvisningen åpner /balletour/ai, som serveren videresender til /starttider. Den bruker dermed gjeldende webflyt med banesøk/sløyfer, AI, antall ledige plasser og valgfritt færre bookingdeltakere uten ny iOS-binær. Tilgangsgrensen er den samme som på web.
+
+`testStarttiderFromProfileCanReviewFewerPlayers` er bestått på iPhone18Pro-simulator med iOS27: Profil→Starttider, innlogget webside, ingen dobbel tabbar, tidsvalg fra topersonsøk, spiller1 alene og korrekt bookingoppsummering. Den oppretter ingen live booking. Før denne testen skal den disponible serveren på5057 ha et fremtidsdatert søk med2plasser og tilgjengelige syntetiske tider lagret i demoens arbeidsflate. Ikke endre fixture mens XCTest kjører. Faktisk installert versjon på brukerens fysiske iPhone er ikke lest.

@@ -91,10 +91,44 @@ class StarttiderTests(unittest.TestCase):
             self.assertNotIn('golfbox_ai_chat',cookie);self.assertNotIn('golfbox_pending_booking',cookie)
         self.assertLess(sum(len(h) for h in self.client.get('/starttider').headers.getlist('Set-Cookie')),3000)
 
-    def test_only_count_can_search_but_cannot_book_unnamed_players(self):
+    def test_two_place_search_can_book_only_the_signed_in_player(self):
+        from models import GolfBoxAction
         self.search(players=2,player_refs=[])
         r=self.post('review_slot',index=0)
-        self.assertEqual(r.status_code,400);self.assertIn('alle spillerne',r.json['message'])
+        self.assertEqual(r.status_code,200,r.json)
+        self.assertEqual(r.json['review']['players'],['Profilspiller'])
+        self.assertEqual(r.json['draft']['players'],2)
+        with self.app.app_context():
+            payload=json.loads(self.db.session.get(GolfBoxAction,r.json['review']['id']).payload_json)
+        self.assertEqual(payload['players'],1)
+        self.assertEqual(len(payload['player_memberships']),1)
+        with patch('services.starttider.gb.find_golfbox_availability_for_courses',return_value=self.availability()) as availability,patch('services.starttider.gb.confirm_golfbox_booking',return_value={'status':'booking_created'}) as book:
+            confirmed=self.post('confirm',id=r.json['review']['id'])
+        self.assertEqual(confirmed.status_code,200,confirmed.json)
+        self.assertEqual(availability.call_args.kwargs['players'],1)
+        self.assertEqual(book.call_args.args[0]['players'],1)
+
+    def test_four_place_search_can_book_two_known_players(self):
+        from models import GolfBoxAction
+        self.search(players=4)
+        r=self.post('review_slot',index=0,draft=self.draft(players=4,player_refs=['self','f:65-2']))
+        self.assertEqual(r.status_code,200,r.json)
+        self.assertEqual(r.json['review']['players'],['Profilspiller','Erik Test'])
+        with self.app.app_context():
+            payload=json.loads(self.db.session.get(GolfBoxAction,r.json['review']['id']).payload_json)
+        self.assertEqual(payload['players'],2)
+
+    def test_job_uses_chosen_participant_count_instead_of_search_count(self):
+        from models import GolfBoxAction
+        r=self.post('review_job',draft=self.draft(players=4,player_refs=['self','f:65-2']),job={'kind':'watch'})
+        self.assertEqual(r.status_code,200,r.json)
+        with self.app.app_context():
+            payload=json.loads(self.db.session.get(GolfBoxAction,r.json['review']['id']).payload_json)
+        self.assertEqual(payload['interpretation']['players'],2)
+
+    def test_booking_still_rejects_changed_search_count(self):
+        self.search(players=2)
+        self.assertEqual(self.post('review_slot',index=0,draft=self.draft(players=3)).status_code,400)
 
     def test_favorite_is_owner_scoped(self):
         from models import GolfBoxFavorite, User, Player
