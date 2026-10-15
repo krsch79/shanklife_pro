@@ -1,4 +1,30 @@
-# Starttider 2.1.0 delivery
+# Starttider 2.1.1 delivery
+
+Updated 2026-10-15. Implementation and QA complete; production rollout pending.
+
+## Current refinement
+
+User requested count-only availability search, then player identity selection after choosing a time. The signed-in account is fixed as player 1. Companions come from existing owner-scoped favorites or a live GolfBox directory search by name or membership number. Both booking and new automatic jobs use the same exact-count picker. Closing a picker discards temporary choices. AI only infers search criteria/count, never assigns a booking identity. Existing access, favorite data, reservations, active jobs and historical records are retained.
+
+- Baseline source: 83daca04d8b814e740174560c84ed6b69e5c3e22, version 2.1.0.
+- Development: /tmp/shanklife-players.tUk7Ke/repo, Python 3.11 environment /tmp/shanklife-sportsmodus.nqnY0T/venv311.
+- No database migration or native iOS build. Existing webview follows the new web flow; no TestFlight upload.
+- Assets and shell cache: 2.1.1-r2, with exact CSS/JS URLs in the service-worker cache.
+- Authenticated, CSRF-protected POST /starttider/players is read-only and no-store. Directory requests do not claim/change workspace revisions. Name lookup reuses existing GolfBox marker search; verified actual result labels start with a membership number, followed by name/club. Chosen membership numbers are looked up again before review. No client-supplied name is trusted for booking.
+- 202 Python tests passed, including 37 Starttider cases: mandatory self-first identity, exact participant count, stable favorite ownership, name ambiguity, membership lookup, empty/error/CSRF/access behavior, old reviews without the account blocked, plus existing booking/idempotence/uncertainty/job/access regressions.
+- Synthetic browser QA: count-only search, fixed self, favorite selection, name search across two club memberships, number lookup, full-count blocking, removing a companion, cancel/discard, one-player flow, combined three-player selection and new-job progression. Complete booking against a local simulator only. Real GolfBox read-only name lookup contract verified; no production reservation, cancellation or job activation used as QA.
+- Responsive checks at 320/393/1440 px; no document-wide horizontal overflow. Screenshots under the current Codex visualization directory (starttider-211-*).
+- Test runner is unittest, not an assumed pytest installation. Browser viewport override is a browser-level capability. These concrete corrections are documented in project AGENTS.md; shared /Volumes/Shared/AGENTS.md is unchanged.
+
+## Rollout checkpoint
+
+Commit/push exact source, deploy via the existing guarded maintenance/backup flow, require unchanged core-data digests and both TLS health endpoints before declaring complete, and verify notification email. The previous 2.1.0 procedure and recovery details follow as historical evidence.
+
+Resume command if quota interrupts: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
+
+---
+
+# Historical: Starttider 2.1.0 delivery
 
 Updated 2026-10-15. Implemented, pushed, deployed and verified. User approved Søk først after the visual/functional proposal. Existing BalleTour entitlement was retained; broader access was not included. No native binary or TestFlight upload was requested or produced.
 

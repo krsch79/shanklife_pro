@@ -101,6 +101,21 @@ def data():
     return jsonify(message="Ukjent visning."), 400
 
 
+@starttider_bp.post("/players")
+@login_required
+def players():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(message="Ugyldig spillersøk."), 400
+    try:
+        return jsonify(players=st.search_players(g.current_user, payload.get("query")))
+    except ValueError as exc:
+        return jsonify(message=str(exc)), 400
+    except Exception:
+        db.session.rollback()
+        return jsonify(message="Kunne ikke hente spillere fra GolfBox. Prøv igjen. Valgene dine er beholdt."), 502
+
+
 @starttider_bp.post("/action")
 @login_required
 def action():
@@ -121,14 +136,17 @@ def action():
         if operation == "reset":
             state = {"draft": st.default_draft()}
         elif operation in {"draft", "search"}:
-            state["draft"] = st.validate_draft(payload.get("draft"), user)
+            raw = payload.get("draft")
+            if not isinstance(raw, dict):
+                raise ValueError("Ugyldig søk.")
+            state["draft"] = st.validate_draft({**raw, "player_refs": ["self"], "unresolved_names": []}, user)
             state["recent_refs"] = list(dict.fromkeys(state["draft"]["player_refs"] + state.get("recent_refs", [])))[:12]
             state.pop("review", None)
             state.pop("result", None)
             if operation == "search":
                 state["result"] = st.search(state["draft"], user)
         elif operation == "interpret":
-            draft = st.validate_draft(payload.get("draft", state["draft"]), user)
+            draft = st.validate_draft({**payload.get("draft", state["draft"]), "player_refs": ["self"], "unresolved_names": []}, user)
             prompt = str(payload.get("prompt", ""))
             updated, method = st.interpret(prompt, draft, user)
             state["draft"] = updated
@@ -143,10 +161,12 @@ def action():
             if any(draft[k] != previous[k] for k in ("courses", "date", "time_from", "time_to")) or draft["players"] != previous["players"]:
                 raise ValueError("Søket er endret. Hent nye tider før du velger.")
             state["draft"] = draft
+            state["recent_refs"] = list(dict.fromkeys(draft["player_refs"] + state.get("recent_refs", [])))[:12]
             state["review"] = st.review_slot(payload.get("index"), state, user)
         elif operation == "review_job":
             draft = st.validate_draft(payload.get("draft", state["draft"]), user)
             state["draft"] = draft
+            state["recent_refs"] = list(dict.fromkeys(draft["player_refs"] + state.get("recent_refs", [])))[:12]
             state["review"] = st.review_job(payload.get("job") or {}, draft, user)
         elif operation == "review_cancel":
             cache = json.loads(row.cache_json)

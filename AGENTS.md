@@ -50,3 +50,6 @@
 
 - Starttider player references must use owner-scoped GolfBox member numbers, never `GolfBoxFavorite.id`: the existing sync replaces favorite rows, so SQLite IDs can be reassigned to another person. Test selection across reordered syncs. Keep review/action payloads server-owned and consume action IDs before external mutations; network uncertainty must never offer blind replay.
 - A QA fixture may already have handled its first Flask request. Register hooks before creating/using its test client; for later synthetic failure injection, wrap that fixture's WSGI app rather than registering new Flask routes/hooks after the first request.
+
+- The verified macOS Python 3.11 test environment uses stdlib unittest, not necessarily pytest. Run `python -m unittest tests.test_starttider -q` or `python -m unittest discover -s tests -q`; check the runner exists before assuming pytest is installed.
+- Responsive viewport override belongs to the browser capability (`browser.capabilities.get("viewport")`), not the tab. Use `browser.capabilities.list()` when checking availability, and reset the override after QA.

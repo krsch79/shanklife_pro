@@ -2,6 +2,13 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [2.1.1] - 2026-10-15
+
+- Forenkler søk etter starttid: velg bare antall spillere før du søker, og legg til medspillere etter valgt tidspunkt.
+- Setter innlogget spiller fast som spiller 1. Spillervelgeren viser hvor mange som mangler før booking kan kontrolleres.
+- Lar deg velge medspillere fra favoritter eller søke direkte i GolfBox på navn eller medlemsnummer, med klubb og medlemskap synlig ved flere treff.
+- Bruker samme spillervalg før nye automatiske oppdrag. Avsluttet spillervalg endrer ikke søket.
+
 ## [2.1.0] - 2026-10-15
 
 - Gjør Starttider kortere med Finn tid, Mine tider, Automatikk og paginert historikk.

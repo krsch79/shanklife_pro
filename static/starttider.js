@@ -8,7 +8,7 @@
   let state = JSON.parse($('#starttider-initial').textContent), options = [], selected = [...state.draft.player_refs];
   let unresolved = [...(state.draft.unresolved_names || [])], bookings = [], jobs = [], page = 1, pageMore = false;
   let queue = Promise.resolve(), savingTimer, dirty = false, pendingSlot = null, showAll = false, activeTab = 'find';
-  let slotsShown = 20, inFlight = false;
+  let slotsShown = 20, inFlight = false, picking = false, picked = ['self'], lookupRows = [], lookupBusy = false, pickerVersion = 0;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const when = value => {
     if (!value) return '';
@@ -35,8 +35,7 @@
     selected = [...draft.player_refs]; unresolved = [...(draft.unresolved_names || [])]; labels();
   }
   function labels() {
-    const names = selected.map(ref => ref === 'self' ? 'Meg' : options.find(p => p.ref === ref)?.name || (ref.startsWith('m:') ? ref.slice(2) : 'Favoritt'));
-    $('#st-player-label').textContent = names.length ? names.join(' + ') + ' · ' + names.length : 'Velg spillere når du vil booke';
+    return selected.map(ref => ref === 'self' ? root.dataset.selfName + ' (deg)' : options.find(p => p.ref === ref)?.name || ref.slice(2)).join(', ');
   }
   function disable(value, light = false) {
     inFlight = value;
@@ -73,7 +72,7 @@
         $('#st-draft-status').textContent = 'Søket er lagret';
         if (!light) message(state.message || (action === 'search' ? 'Søket er oppdatert.' : ''), false);
         renderResults(); renderChat();
-        if (state.review && action !== 'draft') showReview();
+        if (state.review && (action.startsWith('review_') || action === 'confirm')) showReview();
         if (action === 'confirm') {
           if (!state.review) dialog.close();
           renderOutcome(); loadJobs(); loadBookings(true);
@@ -82,6 +81,7 @@
       } catch (error) {
         message(error.message || 'Forbindelsen ble brutt. Kontroller status før du sender en booking på nytt.', true);
         $('#st-draft-status').textContent = 'Endringene er ikke bekreftet lagret';
+        if (action === 'review_slot' && $('#st-people')) picking = true;
         return false;
       } finally { disable(false, light); }
     };
@@ -138,28 +138,71 @@
     if (key === 'mine') loadBookings(); if (key === 'auto') loadJobs(); if (key === 'history') loadHistory();
   }
   async function loadFavorites() {
-    const data = await read('favorites'); options = data.players; labels();
+    const data = await read('favorites'); options = [...data.players, ...options.filter(p => p.ref.startsWith('m:') && !data.players.some(o => memberKey(o.ref) === memberKey(p.ref)))]; labels();
     return data;
   }
-  function renderPeople(filter = '') {
-    const el = $('#st-people'); if (!el) return;
-    const all = [{ref:'self',name:'Meg',club:root.dataset.selfName,member_number:''}, ...options];
-    const query = filter.toLocaleLowerCase('nb');
-    const recent = state.recent_refs || [];
-    const filtered = all.filter(p => (p.name + ' ' + p.member_number + ' ' + p.club).toLocaleLowerCase('nb').includes(query));
-    const ordered = [...filtered].sort((a,b) => Number(selected.includes(b.ref)) - Number(selected.includes(a.ref)) || Number(recent.includes(b.ref)) - Number(recent.includes(a.ref)));
+  const memberKey = ref => ref === 'self' ? ref : ref.slice(2);
+  const isPicked = ref => picked.some(r => memberKey(r) === memberKey(ref));
+  function personRow(p) {
+    const full = picked.length >= Number(form.elements.players.value);
+    return `<label class="st-favorite"><span class="st-avatar" aria-hidden="true">${esc(p.name.slice(0,1))}</span><span class="st-person"><strong>${esc(p.name)}</strong><small>${esc(p.club)} · ${esc(p.member_number)}</small></span><input type="checkbox" data-person="${esc(p.ref)}" ${isPicked(p.ref) ? 'checked' : ''} ${full && !isPicked(p.ref) ? 'disabled' : ''} aria-label="${esc(p.name + ', ' + p.club + ', ' + p.member_number)}"></label>`;
+  }
+  function renderPeople(filter = $('#st-people-search')?.value || '') {
+    if (!picking || !$('#st-people')) return;
+    const query = filter.toLocaleLowerCase('nb'), recent = state.recent_refs || [];
+    const filtered = options.filter(p => p.ref.startsWith('f:') && (p.name + ' ' + p.member_number + ' ' + p.club).toLocaleLowerCase('nb').includes(query));
+    const ordered = [...filtered].sort((a,b) => Number(isPicked(b.ref)) - Number(isPicked(a.ref)) || Number(recent.includes(b.ref)) - Number(recent.includes(a.ref)));
     const rows = showAll || query ? ordered : ordered.slice(0,5);
-    el.innerHTML = rows.map(p => `<label class="st-favorite"><span class="st-avatar" aria-hidden="true">${esc(p.name.slice(0,1))}</span><span class="st-person"><strong>${esc(p.name)}</strong><small>${esc(p.club)}${p.member_number ? ' · ' + esc(p.member_number) : ''}</small></span><input type="checkbox" data-person="${esc(p.ref)}" ${selected.includes(p.ref) ? 'checked' : ''}></label>`).join('') || '<p class="st-help">Ingen treff. Du kan også legge til et medlemsnummer.</p>';
-    $('#st-selected').textContent = 'Valgt: ' + (selected.map(r => r === 'self' ? 'Meg' : options.find(p => p.ref === r)?.name || r.slice(2)).join(', ') || 'ingen · søk kun etter antall plasser');
-    $('#st-people-done').textContent = selected.length ? 'Bruk ' + selected.length + (selected.length === 1 ? ' spiller' : ' spillere') : 'Søk kun etter antall';
+    $('#st-people').innerHTML = rows.map(personRow).join('') || '<p class="st-help">Ingen favoritter passer. Søk i GolfBox for å finne flere spillere.</p>';
+    $('#st-lookup-results').innerHTML = lookupRows.map(personRow).join('');
+    const companions = picked.filter(r => r !== 'self');
+    $('#st-chosen').innerHTML = companions.map((ref,i) => {
+      const p = options.find(p => p.ref === ref);
+      return `<div class="st-chosen-row"><span><small>SPILLER ${i + 2}</small><strong>${esc(p?.name || ref.slice(2))}</strong><small>${esc(p?.club || '')} · ${esc(p?.member_number || ref.slice(2))}</small></span><button type="button" class="st-link" data-command="remove-person" data-ref="${esc(ref)}" aria-label="Fjern ${esc(p?.name || ref.slice(2))}">Fjern</button></div>`;
+    }).join('');
+    const remaining = Number(form.elements.players.value) - picked.length;
+    $('#st-selected').textContent = remaining ? `${picked.length} av ${form.elements.players.value} valgt · velg ${remaining} til` : picked.length === 1 ? 'Spiller 1 er valgt' : `Alle ${picked.length} spillere er valgt`;
+    $('#st-people-done').disabled = remaining !== 0 || lookupBusy;
+    $('#st-people-done').textContent = pendingSlot === null ? 'Fortsett til oppdrag →' : 'Kontroller booking →';
   }
   async function players() {
+    const version = ++pickerVersion;
     showDialog('Hvem blir med?', '<p>Henter dine favoritter …</p>');
     try {
       const data = await loadFavorites();
-      showDialog('Hvem blir med?', `<p class="st-help">Velg medlemskapet som skal brukes. Du kan også søke etter bare antall plasser.</p><label class="st-field">Søk medspillere<input type="text" id="st-people-search" placeholder="Navn, klubb eller medlemsnummer" autocomplete="off"></label><div id="st-selected" class="st-selected"></div><div id="st-people"></div><div class="st-inline st-pick-toolbar"><button type="button" class="st-link" data-command="all-people">Vis alle favoritter (${options.length})</button><button type="button" class="st-link" data-command="sync">Oppdater fra GolfBox</button></div><p class="st-help">${data.fetched_at ? 'Sist hentet ' + esc(when(data.fetched_at)) : 'Ingen favoritter hentet ennå.'}</p><details class="st-manual"><summary>Legg til medlemsnummer</summary><label class="st-field">GolfBox-medlemsnummer<input type="text" id="st-member" placeholder="65-1234" inputmode="text" maxlength="20"></label><button type="button" class="button secondary" data-command="add-member">Legg til spiller</button></details><div class="st-inline"><button type="button" id="st-people-done" class="button" data-command="players-done">Bruk spillere</button></div>`);
+      if (version !== pickerVersion || !dialog.open) return;
+      // Retain verified directory choices for this picker session.
+      options = [...options, ...lookupRows.filter(p => !options.some(o => memberKey(o.ref) === memberKey(p.ref)))];
+      const slot = pendingSlot === null ? null : state.result?.available_slots[pendingSlot];
+      showDialog('Hvem blir med?', `<p class="st-help">${slot ? esc(slot.course) + ' · ' + esc(day(slot.date)) + ' · kl. ' + esc(slot.time) : 'Velg spillere til oppdraget'} · ${form.elements.players.value} ${Number(form.elements.players.value) === 1 ? 'spiller' : 'spillere'}</p><div class="st-self"><span class="st-avatar" aria-hidden="true">1</span><span><small>SPILLER 1 · DEG</small><strong>${esc(root.dataset.selfName)}</strong><small>Alltid med i bookingen</small></span><span aria-hidden="true">✓</span></div><div id="st-chosen"></div><div id="st-selected" class="st-selected" role="status"></div>${Number(form.elements.players.value) > 1 ? `<label class="st-field">Finn medspillere<input type="text" id="st-people-search" maxlength="100" placeholder="Navn eller medlemsnummer" autocomplete="off"></label><button type="button" class="button secondary" data-command="lookup-players">Søk i GolfBox</button><p id="st-lookup-status" class="st-help" role="status"></p><div id="st-lookup-results"></div><h4 class="st-favorites-title">Dine favoritter</h4><div id="st-people"></div><div class="st-inline st-pick-toolbar"><button type="button" class="st-link" data-command="all-people">Vis alle favoritter (${options.filter(p => p.ref.startsWith('f:')).length})</button><button type="button" class="st-link" data-command="sync">Oppdater fra GolfBox</button></div><p class="st-help">${data.fetched_at ? 'Sist hentet ' + esc(when(data.fetched_at)) : 'Ingen favoritter hentet ennå.'}</p>` : '<div id="st-people" hidden></div><div id="st-lookup-results" hidden></div>'}<div class="st-inline"><button type="button" id="st-people-done" class="button st-primary" data-command="players-done">Kontroller booking →</button></div><p class="st-help">Ingen plasser reserveres før siste bekreftelse.</p>`);
       renderPeople();
-    } catch (error) { $('#st-dialog-status').textContent = error.message; }
+    } catch (error) { if (version === pickerVersion) $('#st-dialog-status').textContent = error.message; }
+  }
+  async function lookupPlayers() {
+    if (lookupBusy) return;
+    const query = $('#st-people-search').value.trim(), version = pickerVersion;
+    if (query.length < 2) { $('#st-lookup-status').textContent = 'Skriv minst to tegn eller et medlemsnummer.'; return; }
+    lookupBusy = true; $('[data-command="lookup-players"]').disabled = true;
+    $('#st-lookup-status').textContent = 'Søker i GolfBox …'; lookupRows = []; renderPeople();
+    try {
+      const response = await fetch(`${base}/players`, {method:'POST', credentials:'same-origin', cache:'no-store',
+        headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({query})});
+      if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Kunne ikke hente spillere. Kontroller innloggingen og prøv igjen.');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Spillersøket feilet. Prøv igjen.');
+      if (version !== pickerVersion || !picking) return;
+      lookupRows = data.players;
+      for (const p of lookupRows) if (!options.some(o => memberKey(o.ref) === memberKey(p.ref))) options.push(p);
+      $('#st-lookup-status').textContent = lookupRows.length ? `${lookupRows.length} treff i GolfBox · velg riktig navn og klubb` : 'Ingen treff på andre spillere. Prøv fullt navn eller medlemsnummer.';
+    } catch (error) {
+      if (version === pickerVersion && picking) $('#st-lookup-status').textContent = error.message;
+    } finally {
+      if (version === pickerVersion && picking) { lookupBusy = false; $('[data-command="lookup-players"]').disabled = false; renderPeople(); }
+    }
+  }
+  function openPlayers(index = null) {
+    clearTimeout(savingTimer); pendingSlot = index; picking = true; lookupBusy = false; showAll = false;
+    picked = ['self']; lookupRows = []; players();
   }
   async function loadBookings(refresh = false) {
     try {
@@ -191,7 +234,7 @@
   function jobDialog() {
     pendingSlot = null;
     const d = currentDraft();
-    showDialog('Et oppdrag. Tydelige rammer.', `<p class="st-help">Bruker bane, spilledato, tidsrom og spillere fra søket ditt. Kontroller disse før du fortsetter.</p><label class="st-field">Oppdragstype<select id="st-job-kind"><option value="watch">Følg med på ledige tider</option><option value="scheduled">Book når booking åpner</option><option value="recurring">Fast ukentlig oppdrag</option></select></label><dl class="st-facts"><dt>Bane</dt><dd>${esc(d.courses.join(', '))}</dd><dt>Spilledato</dt><dd>${esc(d.date)}</dd><dt>Tidsrom</dt><dd>${esc(d.time_from)}–${esc(d.time_to)}</dd><dt>Valgt</dt><dd>${esc($('#st-player-label').textContent)}</dd></dl><div id="st-job-fields"></div><div class="st-inline"><button type="button" class="button" data-command="review-job">Kontroller oppdrag →</button></div>`);
+    showDialog('Et oppdrag. Tydelige rammer.', `<p class="st-help">Bruker bane, spilledato, tidsrom og spillere fra søket ditt. Kontroller disse før du fortsetter.</p><label class="st-field">Oppdragstype<select id="st-job-kind"><option value="watch">Følg med på ledige tider</option><option value="scheduled">Book når booking åpner</option><option value="recurring">Fast ukentlig oppdrag</option></select></label><dl class="st-facts"><dt>Bane</dt><dd>${esc(d.courses.join(', '))}</dd><dt>Spilledato</dt><dd>${esc(d.date)}</dd><dt>Tidsrom</dt><dd>${esc(d.time_from)}–${esc(d.time_to)}</dd><dt>Valgt</dt><dd>${esc(labels())}</dd></dl><div id="st-job-fields"></div><div class="st-inline"><button type="button" class="button" data-command="review-job">Kontroller oppdrag →</button></div>`);
     jobFields();
   }
   function jobFields() {
@@ -200,22 +243,25 @@
     $('#st-job-fields').innerHTML = kind === 'watch' ? '<p class="st-help">Sjekker hvert 5. minutt og kan booke automatisk frem til slutten av tidsrommet. Må aktiveres på neste steg.</p>' : kind === 'scheduled' ? '<label class="st-field">Kjør forsøket · Europe/Oslo<input type="datetime-local" id="st-execute-at" required></label><p class="st-help">Ett forsøk på starttiden «Fra klokken». Velg når booking åpner hos klubben.</p>' : `<label class="st-field">Forsøk hver<select id="st-weekday">${days.map((d,i) => `<option value="${i}">${d}</option>`).join('')}</select></label><label class="st-field">Kjør klokken · Europe/Oslo<input type="time" id="st-execute-time" value="07:00"></label><label class="st-field">Regel for neste spilledag<select id="st-weeks">${["Første spilledag, også samme dag","Første spilledag, neste uke ved samme ukedag","Én senere ukentlig forekomst","To senere ukentlige forekomster","Tre senere ukentlige forekomster"].map((text,n) => `<option value="${n}">${text}</option>`).join('')}</select></label><p class="st-help">Spilleukedagen tas fra datoen i søket. Oppdraget gjelder til du stopper det.</p>`;
   }
   function changed() {
+    selected = ['self']; unresolved = [];
     dirty = true; renderResults(); $('#st-draft-status').textContent = 'Lagrer søket …';
     clearTimeout(savingTimer);
     savingTimer = setTimeout(() => { if (form.checkValidity()) run('draft', {draft:currentDraft()}, true); }, 700);
   }
-  form.addEventListener('submit', event => { event.preventDefault(); slotsShown = 20; run('search',{draft:currentDraft()}); });
+  form.addEventListener('submit', event => { event.preventDefault(); slotsShown = 20; selected = ['self']; unresolved = []; run('search',{draft:currentDraft()}); });
   form.addEventListener('change', event => { if (event.target.name) changed(); });
   form.addEventListener('input', event => { if (event.target.name) changed(); });
   root.addEventListener('input', event => { if (event.target.id === 'st-people-search') renderPeople(event.target.value); });
+  root.addEventListener('keydown', event => { if (event.target.id === 'st-people-search' && event.key === 'Enter') { event.preventDefault(); lookupPlayers(); } });
+  dialog.addEventListener('close', () => { picking = false; pickerVersion++; lookupBusy = false; pendingSlot = null; });
   root.addEventListener('change', event => {
     if (event.target.matches('[data-person]')) {
       const ref = event.target.dataset.person;
       if (event.target.checked) {
-        if (selected.length >= 4) { event.target.checked = false; $('#st-dialog-status').textContent = 'Velg maksimalt fire spillere.'; return; }
-        selected.push(ref);
-      } else selected = selected.filter(r => r !== ref);
-      renderPeople($('#st-people-search').value);
+        if (picked.length >= Number(form.elements.players.value)) { event.target.checked = false; return; }
+        if (!isPicked(ref)) picked.push(ref);
+      } else picked = picked.filter(r => memberKey(r) !== memberKey(ref));
+      renderPeople();
     }
     if (event.target.id === 'st-job-kind') jobFields();
   });
@@ -224,24 +270,21 @@
     if (b.dataset.tab) { tab(b.dataset.tab); return; }
     const command = b.dataset.command; if (!command) return;
     if (command === 'close') { dialog.close(); pendingSlot = null; return; }
-    if (command === 'players') { pendingSlot = null; clearTimeout(savingTimer); players(); return; }
-    if (command === 'all-people') { showAll = true; renderPeople($('#st-people-search').value); return; }
-    if (command === 'add-member') {
-      const number = $('#st-member').value.trim();
-      if (!/^\d{1,5}-\d{1,8}$/.test(number)) { $('#st-dialog-status').textContent = 'Bruk medlemsnummer som 65-1234.'; return; }
-      if (selected.length >= 4) { $('#st-dialog-status').textContent = 'Velg maksimalt fire spillere.'; return; }
-      if (!selected.includes('m:' + number)) selected.push('m:' + number); renderPeople(); $('#st-member').value = ''; return;
-    }
+    if (command === 'all-people') { showAll = true; renderPeople(); return; }
+    if (command === 'lookup-players') { lookupPlayers(); return; }
+    if (command === 'remove-person') { picked = picked.filter(r => r !== b.dataset.ref); renderPeople(); return; }
     if (command === 'players-done') {
-      const previousCount = Number(form.elements.players.value);
-      if (selected.length > previousCount) form.elements.players.value = selected.length;
-      unresolved = []; labels(); dialog.close();
-      if (pendingSlot !== null && selected.length <= previousCount) { const i = pendingSlot; pendingSlot = null; run('review_slot',{index:i,draft:currentDraft()}); }
-      else { pendingSlot = null; changed(); }
+      if (picked.length !== Number(form.elements.players.value) || lookupBusy) return;
+      const index = pendingSlot;
+      selected = [...picked]; unresolved = []; picking = false;
+      // Keep the dialog open while moving to review; close events cancel a picker.
+      if (index !== null) run('review_slot',{index,draft:currentDraft()});
+      else jobDialog();
       return;
     }
     if (command === 'sync') {
-      if (await run('sync_favorites')) { await players(); }
+      const keep = [...picked];
+      if (await run('sync_favorites')) { picked = keep; await players(); }
       return;
     }
     if (command === 'reset') { if (await run('reset')) { selected = [...state.draft.player_refs]; dirty = false; fill(state.draft); renderResults(); } return; }
@@ -255,15 +298,14 @@
     if (command === 'slot') {
       if (dirty || inFlight) { message('Søket er endret. Hent nye tider før du velger.',true); return; }
       const index = Number(b.dataset.index);
-      if (selected.length !== Number(form.elements.players.value) || unresolved.length) { pendingSlot = index; players(); }
-      else run('review_slot',{index,draft:currentDraft()}); return;
+      openPlayers(index); return;
     }
     if (command === 'confirm') { if (state.review) run('confirm',{id:state.review.id}); return; }
     if (command === 'dismiss') { dialog.close(); run('dismiss'); return; }
     if (command === 'more-slots') { slotsShown += 20; renderResults(); return; }
     if (command === 'mine') { tab('mine'); return; }
     if (command === 'refresh-bookings') { loadBookings(true); return; }
-    if (command === 'new-job') { clearTimeout(savingTimer); jobDialog(); return; }
+    if (command === 'new-job') { openPlayers(); return; }
     if (command === 'review-job') {
       const kind = $('#st-job-kind').value;
       run('review_job',{draft:currentDraft(),job:{kind,execute_at:$('#st-execute-at')?.value,
@@ -280,6 +322,6 @@
   }));
   fill(state.draft); renderResults(); renderChat(); renderOutcome();
   if (state.review) showReview();
-  loadFavorites().catch(() => {}); loadJobs(); loadBookings();
+  loadJobs(); loadBookings();
   const firstTab = location.hash.slice(1); if (['mine','auto','history'].includes(firstTab)) tab(firstTab);
 })();

@@ -103,7 +103,7 @@ def validate_draft(raw, user):
     refs = raw.get("player_refs", [])
     if not isinstance(refs, list) or len(refs) > 4:
         raise ValueError("Velg maksimalt fire spillere.")
-    refs = list(dict.fromkeys(str(r) for r in refs))
+    refs = ["self"] + list(dict.fromkeys(str(r) for r in refs if r != "self"))
     for ref in refs:
         if ref == "self":
             continue
@@ -124,6 +124,38 @@ def favorites(user):
              "member_number": r.member_number} for r in rows]
 
 
+def search_players(user, query):
+    """Read the existing GolfBox directory, without changing favorites or booking."""
+    from services.golfbox_scores import search_marker
+    query = " ".join(str(query or "").split())
+    if not 2 <= len(query) <= 100:
+        raise ValueError("Skriv minst to tegn i navnet eller et medlemsnummer som 65-1234.")
+    if not gb.user_has_golfbox_credentials(user):
+        raise ValueError("Koble til din GolfBox-konto i Profil før du søker etter spillere.")
+    db.session.commit()  # No SQLite transaction across an upstream read.
+    if re.fullmatch(r"\d{1,5}-\d{1,8}", query):
+        members = list(gb._lookup_golfbox_members_by_number(user, [query]).values())
+    else:
+        members = []
+        for row in search_marker(user, query)[:30]:
+            # GolfBox name-search labels start with the national membership ID.
+            # Names and GUIDs alone are insufficient for its booking form.
+            match = re.match(r"\s*(\d{1,5}-\d{1,8})\s*,", row.get("label", ""))
+            if match:
+                members.append({"member_number": match[1], "player_name": row["name"],
+                                "club_name": row["club"], "golfbox_player_guid": row["guid"]})
+    own_favorites = {p["member_number"]: p for p in favorites(user)}
+    seen, results = set(), []
+    for member in members:
+        number = member["member_number"]
+        if number in seen or gb._membership_represents_user(user, member):
+            continue
+        seen.add(number)
+        results.append(own_favorites.get(number) or {"ref": "m:" + number,
+            "name": member["player_name"], "club": member["club_name"], "member_number": number})
+    return results
+
+
 def player_labels(draft, user):
     options = {p["ref"]: p["name"] for p in favorites(user)}
     return ["Meg" if r == "self" else options.get(r, r.removeprefix("m:")) for r in draft["player_refs"]]
@@ -132,6 +164,8 @@ def player_labels(draft, user):
 def selected_members(draft, user, course):
     if draft.get("unresolved_names"):
         raise ValueError("Velg de riktige spillerne i spillervelgeren: " + ", ".join(draft["unresolved_names"]))
+    if not draft["player_refs"] or draft["player_refs"][0] != "self":
+        raise ValueError("Du skal alltid være spiller 1. Velg spillerne på nytt.")
     if len(draft["player_refs"]) != draft["players"]:
         raise ValueError("Velg navn eller medlemsnummer for alle spillerne før du bekrefter.")
     members = []
@@ -150,6 +184,8 @@ def selected_members(draft, user, course):
             membership = found.get(ref[2:])
         if not membership or not membership.get("member_number"):
             raise ValueError("GolfBox-medlemskap mangler. Kontroller tilkoblingen eller velg riktig medlemskap.")
+        if ref != "self" and gb._membership_represents_user(user, membership):
+            raise ValueError("Du er allerede spiller 1. Velg en annen medspiller.")
         members.append(membership)
     if len({m["member_number"] for m in members}) != len(members):
         raise ValueError("Samme medlemskap er valgt flere ganger. Velg ulike spillere.")
@@ -255,6 +291,10 @@ def confirm(action_id, user):
     if action.expires_at < server_now():
         raise ValueError("Oppsummeringen er utløpt. Velg tiden eller oppdraget på nytt.")
     payload, kind = json.loads(action.payload_json), action.kind
+    if kind in {"booking", "watch", "scheduled", "recurring"}:
+        members = payload.get("player_memberships", []) if kind == "booking" else payload.get("members", [])
+        if not members or not gb._membership_represents_user(user, members[0]):
+            raise ValueError("Du skal alltid være spiller 1. Velg tiden og spillerne på nytt.")
     changed = db.session.execute(update(GolfBoxAction).where(
         GolfBoxAction.id == action.id, GolfBoxAction.status == "ready"
     ).values(status="processing"))
@@ -374,4 +414,7 @@ def interpret(prompt, draft, user):
             patch["players"] = max(1, len(refs) + len(unresolved))
     if not patch:
         raise ValueError("Jeg fikk ikke avklart endringen. Bruk feltene, eller skriv for eksempel «heller etter 17». Ingen booking er sendt.")
+    # AI can infer the number of places, but identities are chosen after a time.
+    patch["player_refs"] = ["self"]
+    patch["unresolved_names"] = []
     return validate_draft({**draft, **patch}, user), method

@@ -33,3 +33,10 @@
 #starttider .st-fields{align-items:start}
 #st-player-label{overflow-wrap:anywhere}
 @media(max-width:640px){#starttider .st-course .st-help,#starttider .st-players .st-help{display:none}#starttider .st-players{grid-column:auto}#starttider .st-search-title{margin-bottom:17px}#starttider .st-search-actions{margin-top:18px}}
+/* Count first; identities are chosen only after selecting a start time. */
+.st-self,.st-chosen-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)}
+.st-self{background:#eff4f8;border-radius:8px;padding:14px}.st-self>span:nth-child(2),.st-chosen-row>span{flex:1;min-width:0}
+.st-self strong,.st-self small,.st-chosen-row strong,.st-chosen-row small{display:block;overflow-wrap:anywhere}.st-self small,.st-chosen-row small{font-size:11px;color:var(--muted);margin:3px 0}
+.st-self .st-avatar{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;border-radius:50%;background:var(--text);color:var(--card)}
+#starttider .st-dialog .st-field{margin:16px 0 10px}.st-favorites-title{font-size:13px;margin:22px 0 4px}
+#starttider #st-people-done[disabled]{cursor:default}

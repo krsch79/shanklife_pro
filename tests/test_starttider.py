@@ -100,7 +100,8 @@ class StarttiderTests(unittest.TestCase):
             u=User(username='other',password_hash='x',player_id=p.id);self.db.session.add(u);self.db.session.flush()
             f=GolfBoxFavorite(user_id=u.id,name='Hemmelig',member_number='65-99',club_name='Ballerud');self.db.session.add(f);self.db.session.commit();other=f.id
         self.assertNotIn('Hemmelig',self.client.get('/starttider/data?kind=favorites').text)
-        self.assertEqual(self.post('draft',draft=self.draft(player_refs=['f:65-99'])).status_code,400)
+        self.search(players=2)
+        self.assertEqual(self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=['self','f:65-99'])).status_code,400)
 
     def test_ai_time_followup_preserves_course_date_and_people(self):
         self.post('draft',draft=self.draft(courses=['Haga'],players=2,player_refs=['self','f:65-2'],time_from='16:00',time_to='20:00'))
@@ -115,13 +116,13 @@ class StarttiderTests(unittest.TestCase):
             r=self.post('interpret',prompt='heller etter 17',draft=self.draft(time_to='20:00'))
         self.assertEqual(r.status_code,200);self.assertEqual(r.json['draft']['time_from'],'17:00')
 
-    def test_ambiguous_player_name_requires_manual_choice(self):
+    def test_ai_names_only_set_count_before_player_choice(self):
         from models import GolfBoxFavorite
         with self.app.app_context():
             self.db.session.add(GolfBoxFavorite(user_id=self.uid,name='Erik Test',member_number='99-2',club_name='Haga'));self.db.session.commit()
         with patch.dict('os.environ',{'OPENAI_API_KEY':''}):
             r=self.post('interpret',prompt='meg og Erik Test',draft=self.draft())
-        self.assertEqual(r.status_code,200);self.assertIn('Erik Test',r.json['draft']['unresolved_names'])
+        self.assertEqual(r.status_code,200);self.assertEqual(r.json['draft']['unresolved_names'],[]);self.assertEqual(r.json['draft']['player_refs'],['self']);self.assertEqual(r.json['draft']['players'],2)
 
     def test_selected_slot_is_server_owned_and_capacity_checked(self):
         self.search()
@@ -203,10 +204,10 @@ class StarttiderTests(unittest.TestCase):
         self.assertEqual(r.json['result']['status'],'configuration_required');fetch.assert_not_called()
 
     def test_manual_member_number_looked_up_before_review(self):
-        self.search(player_refs=['m:99-123'])
+        self.search(players=2)
         with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value={'99-123':{'player_name':'Manuell','member_number':'99-123','club_name':'Haga'}}) as lookup:
-            r=self.post('review_slot',index=0)
-        self.assertEqual(r.status_code,200,r.json);lookup.assert_called_once();self.assertEqual(r.json['review']['players'],['Manuell'])
+            r=self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=['self','m:99-123']))
+        self.assertEqual(r.status_code,200,r.json);lookup.assert_called_once();self.assertEqual(r.json['review']['players'],['Profilspiller','Manuell'])
 
     def test_history_is_paginated_and_private(self):
         with patch('services.starttider.gb.golfbox_booking_history',return_value=[]) as history:
@@ -222,7 +223,7 @@ class StarttiderTests(unittest.TestCase):
             user=self.db.session.get(User,self.uid)
             gb._replace_golfbox_favorites(user,[{'name':'Ny spiller','member_number':'99-3','club_name':'Haga'},{'name':'Erik Test','member_number':'65-2','club_name':'Ballerud'}])
             self.db.session.commit()
-        r=self.post('review_slot',index=0)
+        r=self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=['self','f:65-2']))
         self.assertEqual(r.status_code,200,r.json);self.assertEqual(r.json['review']['players'][-1],'Erik Test')
 
     def test_cancel_review_is_own_place_and_repeat_is_single_use(self):
@@ -253,10 +254,10 @@ class StarttiderTests(unittest.TestCase):
             r=self.post('confirm',id=r.json['review']['id'])
         self.assertEqual(r.status_code,200,r.json);self.assertEqual(r.json['review']['kind'],'booking');send.assert_not_called()
 
-    def test_ai_explicit_member_number_is_preserved(self):
+    def test_ai_explicit_member_number_only_sets_count(self):
         with patch.dict('os.environ',{'OPENAI_API_KEY':''}):
             r=self.post('interpret',prompt='meg og 99-123',draft=self.draft())
-        self.assertEqual(r.status_code,200,r.json);self.assertEqual(r.json['draft']['player_refs'],['self','m:99-123'])
+        self.assertEqual(r.status_code,200,r.json);self.assertEqual(r.json['draft']['player_refs'],['self']);self.assertEqual(r.json['draft']['players'],2)
 
     def test_recurring_review_shows_first_actual_play_date(self):
         from services import golfbox as gb
@@ -268,3 +269,70 @@ class StarttiderTests(unittest.TestCase):
             action=self.db.session.get(GolfBoxAction,r.json['review']['id']);i=json.loads(action.payload_json)['interpretation']
             expected=gb._next_play_date_for_recurring(SimpleNamespace(next_run_at=__import__('datetime').datetime.fromisoformat(i['execute_at']),play_weekday=i['recurrence']['play_weekday'],play_weeks_ahead=2))
         self.assertEqual(r.json['review']['date'],expected.isoformat())
+
+    def lookup(self, query):
+        return self.client.post('/starttider/players',json={'query':query},headers={'X-CSRF-Token':self.csrf})
+
+    def test_search_discards_participant_identity_and_keeps_count(self):
+        r=self.search(players=3,player_refs=['m:99-123'])
+        self.assertEqual(r.json['draft']['player_refs'],['self'])
+        self.assertEqual(r.json['draft']['players'],3)
+
+    def test_self_is_first_even_if_client_omits_or_reorders_self(self):
+        from models import GolfBoxAction
+        self.search(players=2)
+        for refs in [['f:65-2'],['f:65-2','self']]:
+            r=self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=refs))
+            self.assertEqual(r.status_code,200,r.json)
+            with self.app.app_context():
+                payload=json.loads(self.db.session.get(GolfBoxAction,r.json['review']['id']).payload_json)
+            self.assertEqual([m['member_number'] for m in payload['player_memberships']],['65-1','65-2'])
+
+    def test_duplicate_self_or_extra_player_is_not_booked(self):
+        self.search(players=2)
+        with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value={'65-1':{'player_name':'Profilspiller','member_number':'65-1','club_name':'Ballerud'}}):
+            r=self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=['self','m:65-1']))
+        self.assertEqual(r.status_code,400);self.assertIn('allerede spiller 1',r.json['message'])
+        self.assertEqual(self.post('review_slot',index=0,draft=self.draft(players=2,player_refs=['self','f:65-2','m:99-123'])).status_code,400)
+
+    def test_old_review_without_self_cannot_be_confirmed(self):
+        from models import GolfBoxAction
+        action=self.review()
+        with self.app.app_context():
+            a=self.db.session.get(GolfBoxAction,action);p=json.loads(a.payload_json)
+            p['player_memberships']=[{'player_name':'Someone else','member_number':'99-123'}]
+            a.payload_json=json.dumps(p);self.db.session.commit()
+        with patch('services.starttider.gb.confirm_golfbox_booking') as send:
+            r=self.post('confirm',id=action)
+        self.assertEqual(r.status_code,400);send.assert_not_called()
+
+    def test_directory_name_lookup_preserves_ambiguous_club_choices(self):
+        from services.golfbox_scores import _parse_marker_search_results
+        # GolfBox's real response contract: membership in label, GUID/name/club in value.
+        markup="""<select id="slc_MarkerSearch4result"><option value="{'g':'a','n':'Anne Test','c':'Haga'}">99-123, Anne Test, Haga</option><option value="{'g':'b','n':'Anne Test','c':'Oslo'}">10-456, Anne Test, Oslo</option><option value="{'g':'c','n':'Unusable','c':'Unknown'}">No membership</option></select>"""
+        before=self.state()['revision']
+        with patch('services.golfbox_scores.search_marker',return_value=_parse_marker_search_results(markup)) as search:
+            r=self.lookup('Anne Test')
+        self.assertEqual(r.status_code,200,r.json);search.assert_called_once()
+        self.assertEqual([p['member_number'] for p in r.json['players']],['99-123','10-456'])
+        self.assertEqual(self.state()['revision'],before)
+        self.assertEqual(r.headers['Cache-Control'],'no-store')
+        self.assertNotIn('Anne Test',self.client.get('/starttider/data?kind=favorites').text)
+
+    def test_directory_number_lookup_deduplicates_favorite_and_excludes_self(self):
+        with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value={'65-2':{'player_name':'Erik Test','member_number':'65-2','club_name':'Ballerud'}}) as lookup:
+            r=self.lookup('65-2')
+        lookup.assert_called_once();self.assertEqual(r.json['players'][0]['ref'],'f:65-2')
+        with patch('services.starttider.gb._lookup_golfbox_members_by_number',return_value={'65-1':{'player_name':'Profilspiller','member_number':'65-1','club_name':'Ballerud'}}):
+            self.assertEqual(self.lookup('65-1').json['players'],[])
+
+    def test_directory_empty_error_csrf_and_access(self):
+        self.assertEqual(self.client.post('/starttider/players',json={'query':'Erik'}).status_code,403)
+        self.assertEqual(self.lookup('x').status_code,400)
+        with patch('services.golfbox_scores.search_marker',return_value=[]):
+            self.assertEqual(self.lookup('Absent').json['players'],[])
+        with patch('services.golfbox_scores.search_marker',side_effect=TimeoutError()):
+            self.assertEqual(self.lookup('Erik').status_code,502)
+        with self.app.app_context():
+            self.db.session.execute(self.db.text('UPDATE user_app_access SET has_access=0 WHERE user_id=:id AND app_id=2'),{'id':self.uid});self.db.session.commit()
+        self.assertEqual(self.lookup('Erik').status_code,403)
