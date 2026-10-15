@@ -19,7 +19,8 @@
 <body class="sports-body {% if request.endpoint == 'rounds.round_hole' %}sports-scoring{% endif %}">
     {% set endpoint = request.endpoint or '' %}
     {% set current_area = 'home' %}
-    {% if endpoint.startswith('balletour.') or endpoint.startswith('series.') or endpoint == 'main.sports_tour' %}{% set current_area = 'tour' %}
+    {% if (endpoint.startswith('starttider.') or endpoint == 'balletour.ai_booking_history_detail') %}{% set current_area = 'starttider' %}
+    {% elif endpoint.startswith('balletour.') or endpoint.startswith('series.') or endpoint == 'main.sports_tour' %}{% set current_area = 'tour' %}
     {% elif endpoint.startswith('stats.') or endpoint == 'main.sports_insight' %}{% set current_area = 'insight' %}
     {% elif endpoint.startswith('rounds.') or endpoint in ['profile.my_rounds', 'main.sports_rounds', 'main.sports_start'] %}{% set current_area = 'rounds' %}
     {% elif endpoint.startswith('profile.') or endpoint.startswith('trackman.') or endpoint.startswith('admin.') or endpoint == 'auth.change_password' %}{% set current_area = 'profile' %}{% endif %}
@@ -37,7 +38,7 @@
             {% endfor %}
             <div class="sports-nav-extra">
                 {% if sports_access.shanklife %}<a href="{{ url_for('courses.courses') }}">Baner</a><a href="{{ url_for('players.players') }}">Spillere</a>{% endif %}
-                {% if sports_access.tour %}<a href="{{ url_for('balletour.ai_tools') }}">Starttider</a>{% endif %}
+                {% if sports_access.tour %}<a href="{{ url_for('starttider.index') }}" {% if current_area == 'starttider' %}aria-current="page"{% endif %}>Starttider</a>{% endif %}
                 <a href="{{ url_for('leaderboard.live_leaderboard') }}">Live</a>
                 {% if current_user.is_admin %}<a href="{{ url_for('admin.admin_home') }}">Administrasjon</a>{% endif %}
                 <a href="{{ url_for('main.changelog') }}" class="sports-version">v{{ app_version }}</a>

@@ -26,6 +26,7 @@ from routes.admin import admin_bp
 from routes.series import series_bp
 from routes.stats import stats_bp
 from routes.balletour import balletour_bp
+from routes.starttider import starttider_bp
 from routes.golfbox_scores import golfbox_scores_bp
 from routes.api import api_bp
 from services.balletour import get_balletour_series, is_balletour_player
@@ -303,7 +304,7 @@ def required_access_slug():
     endpoint = request.endpoint or ""
     if host == "app.shanklife.no":
         return "shanklife-app"
-    if endpoint.startswith("balletour.") or request.path.startswith("/balletour"):
+    if endpoint.startswith(("balletour.", "starttider.")) or request.path.startswith("/balletour"):
         return "balletour"
     return "shanklife-pro"
 
@@ -558,6 +559,7 @@ def create_app():
     app.register_blueprint(stats_bp)
     app.register_blueprint(trackman_bp)
     app.register_blueprint(balletour_bp)
+    app.register_blueprint(starttider_bp)
     app.register_blueprint(golfbox_scores_bp)
     app.register_blueprint(api_bp)
 

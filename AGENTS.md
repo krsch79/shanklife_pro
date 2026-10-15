@@ -47,3 +47,6 @@
 - A non-debug Flask QA server caches Jinja templates. Restart it after final template edits before browser assertions, and verify the rendered asset URL rather than assuming source-file edits are live. Use a new service-worker asset/cache revision when testing changed cached JavaScript or CSS.
 
 - On score forms, controls named `action` shadow `HTMLFormElement.action`. Fetch the destination from `form.getAttribute("action") || location.href`, and verify a successful save and retry in the browser; a simulated server error alone does not prove the destination is correct.
+
+- Starttider player references must use owner-scoped GolfBox member numbers, never `GolfBoxFavorite.id`: the existing sync replaces favorite rows, so SQLite IDs can be reassigned to another person. Test selection across reordered syncs. Keep review/action payloads server-owned and consume action IDs before external mutations; network uncertainty must never offer blind replay.
+- A QA fixture may already have handled its first Flask request. Register hooks before creating/using its test client; for later synthetic failure injection, wrap that fixture's WSGI app rather than registering new Flask routes/hooks after the first request.

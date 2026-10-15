@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Starttider — Shanklife{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='starttider.css') }}?v=2.1.0-r4"><script src="{{ url_for('static', filename='starttider.js') }}?v=2.1.0-r4" defer></script>{% endblock %}
+{% block content %}
+<div id="starttider" data-csrf="{{ csrf }}" data-base="{{ url_for('starttider.index') }}" data-self-name="{{ self_name }}">
+<script type="application/json" id="starttider-initial">{{ initial|tojson }}</script>
+<div class="st-heading"><div><p class="eyebrow">DITT NESTE UTSLAG</p><h2>Starttider.</h2></div><a class="st-connection" href="{{ url_for('profile.me') }}">GolfBox · {{ 'innlogging lagret' if connection.connected else 'koble til' }} ↗</a></div>
+{% if not connection.connected %}<div class="st-notice"><strong>Koble til GolfBox for å finne og bestille tider.</strong><p>Innlogging og medlemskap håndteres i profilen din.</p><a class="button" href="{{ url_for('profile.me') }}">Koble til GolfBox</a></div>{% endif %}
+<nav class="st-tabs" role="tablist" aria-label="Starttider">
+{% for key,label in [('find','Finn tid'),('mine','Mine tider'),('auto','Automatikk'),('history','Historikk')] %}<button type="button" id="st-tab-{{ key }}" role="tab" aria-controls="st-panel-{{ key }}" aria-selected="{{ 'true' if key == 'find' else 'false' }}" data-tab="{{ key }}">{{ label }}<span data-count="{{ key }}"></span></button>{% endfor %}
+</nav>
+<div id="st-message" role="status" aria-live="polite" hidden></div>
+<div id="st-conflict" class="st-notice" hidden><p>Søket er oppdatert i en annen fane. Dine felt er beholdt til du velger hva du vil gjøre.</p><button type="button" class="button secondary" data-command="reload">Hent gjeldende søk</button></div>
+<section id="st-panel-find" role="tabpanel" aria-labelledby="st-tab-find">
+<form id="st-search" class="st-search" data-no-loading="true">
+<div class="st-search-title"><div><h3>Mer spill. Mindre leting.</h3><p>Finn en tid som passer dere.</p></div><button type="button" class="st-link" data-command="reset">Nytt søk</button></div>
+<div class="st-fields">
+<label class="st-field st-course">Bane eller baner<input type="text" name="courses" list="st-course-list" maxlength="500" placeholder="Ballerud, Haga" required autocomplete="off"><span class="st-help">Skill flere baner med komma.</span></label>
+<datalist id="st-course-list">{% for c in ['Ballerud','Haga','Oslo','Bærum','Grini','Asker','Oppegård','Drøbak'] %}<option value="{{ c }}">{% endfor %}</datalist>
+<label class="st-field">Spilledato<input type="date" name="date" min="{{ today }}" required></label>
+<div class="st-field st-time"><span>Tidsrom</span><div><label><span class="st-sr">Fra klokken</span><input type="time" name="time_from" required></label><span aria-hidden="true">–</span><label><span class="st-sr">Til klokken</span><input type="time" name="time_to" required></label></div></div>
+<label class="st-field">Antall plasser<select name="players">{% for n in [1,2,3,4] %}<option value="{{ n }}">{{ n }} {{ 'plass' if n == 1 else 'plasser' }}</option>{% endfor %}</select></label>
+<div class="st-field st-players"><span>Hvem skal spille?</span><button type="button" class="st-player-button" data-command="players"><span id="st-player-label">Meg</span><span aria-hidden="true">＋</span></button><span class="st-help">Navn kan velges etter at du har funnet en tid.</span></div>
+</div>
+<div class="st-search-actions"><button type="submit" class="button st-primary">Finn ledige tider <span aria-hidden="true">→</span></button><span id="st-draft-status" class="st-help" role="status"></span></div>
+<details id="st-ai"><summary>Skriv med AI <span aria-hidden="true">↗</span></summary><label for="st-prompt">Fortell hva du vil spille</label><textarea id="st-prompt" maxlength="1000" rows="2" placeholder="Ballerud i morgen etter 16, meg og Erik"></textarea><div class="st-inline"><button type="button" class="button secondary" data-command="interpret">Oppdater søket</button><button type="button" class="st-link" data-command="later">Heller etter 17</button></div><p class="st-help">AI foreslår søkevalg. Ingen booking eller automatikk starter fra meldingen.</p><div id="st-chat"></div></details>
+</form>
+<div class="st-section-heading"><h3 id="st-results-title">Klar for neste runde?</h3><span id="st-fetched" class="st-help"></span></div>
+<div id="st-results"><div class="st-empty"><p>Velg bane, dato og tidsrom for å finne ledige tider.</p></div></div>
+<div class="st-result-actions"><button type="button" class="st-link" data-command="new-job">Følg med på ledige tider ↗</button><span class="st-help">Et oppdrag krever egen aktivering.</span></div>
+<div id="st-next" class="st-next" hidden></div>
+</section>
+<section id="st-panel-mine" role="tabpanel" aria-labelledby="st-tab-mine" hidden><div class="st-section-heading"><div><h3>Dette er booket.</h3><p class="st-help">Kommende reservasjoner fra GolfBox.</p></div><button type="button" class="button secondary" data-command="refresh-bookings">Oppdater</button></div><div id="st-bookings"><p>Henter tider fra GolfBox …</p></div></section>
+<section id="st-panel-auto" role="tabpanel" aria-labelledby="st-tab-auto" hidden><div class="st-section-heading"><div><h3>La Shanklife prøve.</h3><p class="st-help">Oppdrag er ikke bekreftede starttider.</p></div><button type="button" class="button" data-command="new-job">Nytt oppdrag</button></div><div id="st-jobs"></div></section>
+<section id="st-panel-history" role="tabpanel" aria-labelledby="st-tab-history" hidden><div class="st-section-heading"><div><h3>Forsøk og hendelser.</h3><p class="st-help">Shanklifes bookinghistorikk.</p></div><button type="button" class="button secondary" data-command="refresh-history">Oppdater</button></div><div id="st-history"></div><div class="st-inline st-pagination"><button type="button" class="button secondary" data-command="history-prev" disabled>Forrige</button><span id="st-page-label" class="st-help"></span><button type="button" class="button secondary" data-command="history-next" disabled>Neste</button></div></section>
+<dialog id="st-dialog" class="st-dialog" aria-labelledby="st-dialog-title"><div class="st-dialog-heading"><h3 id="st-dialog-title"></h3><button type="button" class="st-close" data-command="close" aria-label="Lukk dialog">✕</button></div><div id="st-dialog-content"></div><div id="st-dialog-status" role="status" aria-live="polite"></div></dialog>
+<noscript><p>Starttidsflyten trenger JavaScript. Aktiver JavaScript, eller bruk GolfBox direkte.</p><a href="https://www.golfbox.no/">Åpne GolfBox</a></noscript>
+</div>
+{% endblock %}

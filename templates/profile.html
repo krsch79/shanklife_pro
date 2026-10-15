@@ -190,5 +190,5 @@
     </div>
 </section>
 <div class="sports-mobile-tools">{% if sports_access.shanklife %}<a href="{{ url_for('courses.courses') }}">Baner</a><a href="{{ url_for('players.players') }}">Spillere</a>{% endif %}<a href="{{ url_for('leaderboard.live_leaderboard') }}">Live</a>{% if current_user.is_admin %}<a href="{{ url_for('admin.admin_home') }}">Administrasjon</a>{% endif %}</div>
-<div class="sports-profile-links"><a href="{{ url_for('main.changelog') }}">Versjon {{ app_version }}</a>{% if sports_access.tour %}<a href="{{ url_for('balletour.ai_tools') }}">Starttider</a>{% endif %}<form method="post" action="{{ url_for('auth.logout') }}"><button class="button secondary" type="submit">Logg ut</button></form></div>
+<div class="sports-profile-links"><a href="{{ url_for('main.changelog') }}">Versjon {{ app_version }}</a>{% if sports_access.tour %}<a href="{{ url_for('starttider.index') }}">Starttider</a>{% endif %}<form method="post" action="{{ url_for('auth.logout') }}"><button class="button secondary" type="submit">Logg ut</button></form></div>
 {% endblock %}

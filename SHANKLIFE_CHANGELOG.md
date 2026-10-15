@@ -2,6 +2,15 @@
 
 Merkbare endringer som gjelder Shanklife Pro loggføres her separat fra BalleTour.
 
+## [2.1.0] - 2026-10-15
+
+- Gjør Starttider kortere med Finn tid, Mine tider, Automatikk og paginert historikk.
+- Flytter GolfBox-favoritter til en søkbar spillervelger med navn, medlemskap og mulighet for å bruke bare antall plasser i søket.
+- Beholder søk på serveren og lar AI justere bane, dato, tid og spillere uten å nullstille resten av søket.
+- Gir booking, avbestilling og alle tre typer automatikk en tydelig oppsummering før bekreftelse. Engangshandlinger beskytter mot dobbelttrykk og blind gjentakelse ved uavklart svar.
+- Henter kommende bookinger separat, viser tidspunkt for siste henting og beholder sist kjente data ved feil.
+- Bevarer eksisterende BalleTour-tilgang og gamle adresser. Den native appens eksisterende Starttider-inngang åpner den nye webflyten.
+
 ## [2.0.0] - 2026-10-14
 
 - Samler Shanklife og BalleTour i én Sportsmodus-opplevelse med felles navigasjon, personlig hjem og rundehistorikk.

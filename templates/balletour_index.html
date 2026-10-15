@@ -32,7 +32,7 @@
 </div>
 
 <details class="sports-tour-rules"><summary>Konkurranseregel og kvalifisering</summary><p>Rangeringen bruker summert score mot par fra alle fullførte runder i valgt tee-klasse. Lavest total rangeres først; snittscore brukes ved lik total. {{ series.min_qualifying_rounds }} runder kreves for kvalifisering. Spillere under kvalifisering vises fortsatt i dagens rangering og er tydelig merket.</p></details>
-<nav class="sports-tour-subnav" aria-label="BalleTour"><a href="{{ url_for('balletour.stats') }}">Statistikk</a><a href="{{ url_for('balletour.live_leaderboard') }}">Live</a><a href="{{ url_for('balletour.players') }}">Spillere</a><a href="{{ url_for('series.gallery',series_id=series.id) }}">Galleri</a><a href="{{ url_for('series.club_stats',series_id=series.id) }}">Køllevalg</a><a href="{{ url_for('balletour.ai_tools') }}">Starttider</a></nav>
+<nav class="sports-tour-subnav" aria-label="BalleTour"><a href="{{ url_for('balletour.stats') }}">Statistikk</a><a href="{{ url_for('balletour.live_leaderboard') }}">Live</a><a href="{{ url_for('balletour.players') }}">Spillere</a><a href="{{ url_for('series.gallery',series_id=series.id) }}">Galleri</a><a href="{{ url_for('series.club_stats',series_id=series.id) }}">Køllevalg</a><a href="{{ url_for('starttider.index') }}">Starttider</a></nav>
 <h3>Leaderboard</h3>
 <div class="table-wrap">
     <table class="balletour-leaderboard">

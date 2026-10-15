@@ -685,3 +685,27 @@ class ShanklifeInvitation(db.Model):
 
     invited_by_user = db.relationship("User", foreign_keys=[invited_by_user_id])
     accepted_user = db.relationship("User", foreign_keys=[accepted_user_id])
+
+
+class GolfBoxWorkspace(db.Model):
+    """One expiring server-side draft per owner; no booking state in cookies."""
+    __tablename__ = "golfbox_workspaces"
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)
+    state_json = db.Column(db.Text, nullable=False, default="{}")
+    cache_json = db.Column(db.Text, nullable=False, default="{}")
+    revision = db.Column(db.Integer, nullable=False, default=0)
+    busy = db.Column(db.Boolean, nullable=False, default=False)
+    updated_at = db.Column(db.DateTime, nullable=False, default=server_now)
+
+
+class GolfBoxAction(db.Model):
+    """Frozen, owner-bound review. Claimed before any irreversible upstream call."""
+    __tablename__ = "golfbox_actions"
+    id = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    kind = db.Column(db.String(30), nullable=False)
+    payload_json = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(30), nullable=False, default="ready")
+    result_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=server_now)
+    expires_at = db.Column(db.DateTime, nullable=False)
