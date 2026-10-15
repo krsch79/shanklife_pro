@@ -53,3 +53,4 @@
 
 - The verified macOS Python 3.11 test environment uses stdlib unittest, not necessarily pytest. Run `python -m unittest tests.test_starttider -q` or `python -m unittest discover -s tests -q`; check the runner exists before assuming pytest is installed.
 - Responsive viewport override belongs to the browser capability (`browser.capabilities.get("viewport")`), not the tab. Use `browser.capabilities.list()` when checking availability, and reset the override after QA.
+- The static maintenance page is `static/maintenance.html` (not `deploy/maintenance.html`). Locate deployment assets with `rg --files` before assuming their path; verify both pro and app hosts return the static maintenance content during downtime.

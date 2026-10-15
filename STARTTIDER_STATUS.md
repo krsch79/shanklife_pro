@@ -1,11 +1,12 @@
 # Starttider 2.1.1 delivery
 
-Updated 2026-10-15. Implementation and QA complete; production rollout pending.
+Updated 2026-10-15. Implemented, tested, pushed, deployed and production-verified.
 
 ## Current refinement
 
 User requested count-only availability search, then player identity selection after choosing a time. The signed-in account is fixed as player 1. Companions come from existing owner-scoped favorites or a live GolfBox directory search by name or membership number. Both booking and new automatic jobs use the same exact-count picker. Closing a picker discards temporary choices. AI only infers search criteria/count, never assigns a booking identity. Existing access, favorite data, reservations, active jobs and historical records are retained.
 
+- Application source: b5abf0f5bd38b074075cad30a526e08b54075745, pushed to GitHub main and codex/starttider-players before cutover. Later documentation commits do not change the runtime.
 - Baseline source: 83daca04d8b814e740174560c84ed6b69e5c3e22, version 2.1.0.
 - Development: /tmp/shanklife-players.tUk7Ke/repo, Python 3.11 environment /tmp/shanklife-sportsmodus.nqnY0T/venv311.
 - No database migration or native iOS build. Existing webview follows the new web flow; no TestFlight upload.
@@ -16,9 +17,16 @@ User requested count-only availability search, then player identity selection af
 - Responsive checks at 320/393/1440 px; no document-wide horizontal overflow. Screenshots under the current Codex visualization directory (starttider-211-*).
 - Test runner is unittest, not an assumed pytest installation. Browser viewport override is a browser-level capability. These concrete corrections are documented in project AGENTS.md; shared /Volumes/Shared/AGENTS.md is unchanged.
 
-## Rollout checkpoint
+## Production verification
 
-Commit/push exact source, deploy via the existing guarded maintenance/backup flow, require unchanged core-data digests and both TLS health endpoints before declaring complete, and verify notification email. The previous 2.1.0 procedure and recovery details follow as historical evidence.
+- Completed 2026-10-15 at 13:36:32 Europe/Oslo. Guard shanklife-starttider-release-rzgxoa.service exited successfully (status 0). Its independent 25-minute rollback timer is inactive.
+- Recovery material is private at /home/kristian/shanklife-release-backups/starttider.rzgxoa: consistent SQLite snapshot, double-verified checksum, baseline and release Git bundles, original cron, controller and verification script. Markers backup-ready, migration-verified, verified and mail-verified exist. Never commit runtime/backup files.
+- Maintenance covered the entire stop/backup/deploy/restart window. Both pro.shanklife.no and app.shanklife.no returned the actual static maintenance HTML with HTTP 503 during downtime. Main service and project cron were paused; the other database service remained running. Core record counts/digests and tour selection matched before unlock. No migration was required.
+- Actual systemd unit read before final health checks. Service enabled/active, exact /tmp/shanklife_pro_venv/bin/python app.py process, listening port 5055, removed maintenance flag and inactive rollback timer verified. Both public HTTPS health endpoints returned 2.1.1.
+- Authenticated Starttider shell/state/favorites/jobs/history, home/rounds/insight, old redirect and native app host returned expected results. Actual read-only GolfBox lookups by a companion's full name and membership number both returned the expected membership. No production reservation, cancellation or automatic job was created for testing.
+- Real authenticated Chrome showed Starttider with the count selector, no first-step participant picker, and exact starttider.js?v=2.1.1-r2. Original Chrome tab had been closed, so a new authenticated tab was used. Existing iOS binary uses this web flow; no new archive or TestFlight upload.
+- Deployment email to Kristian confirmed by send_mail True and mail-log success entry. Production worktree was clean at exact application source b5abf0f before documentation-only handoff.
+- Synthetic QA server stopped and process exit verified; responsive browser override reset. All required release work complete. See README.md for architecture and tests. Retain the historical 2.1.0 notes below for recovery context.
 
 Resume command if quota interrupts: Fortsett Shanklife Sportsmodus fra siste kontrollpunkt.
 
