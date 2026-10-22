@@ -563,6 +563,12 @@ def create_app():
     app.register_blueprint(golfbox_scores_bp)
     app.register_blueprint(api_bp)
 
+    from shanklife_security import revalidate_shared_sessions
+    with app.app_context():
+        app.config["SHANKLIFE_DB_PATH"] = db.engine.url.database
+    revalidate_shared_sessions(app, None, identity_key='user_id')
+    from shanklife_security import install_security
+    install_security(app, native_json_prefixes=("/api/v1/",))
     return app
 
 
@@ -570,4 +576,4 @@ app = create_app()
 
 if __name__ == "__main__":
     debug_enabled = os.environ.get("SHANKLIFE_DEBUG", "").lower() in ("1", "true", "yes")
-    app.run(host="0.0.0.0", port=5055, debug=debug_enabled, use_reloader=debug_enabled)
+    app.run(host="127.0.0.1", port=5055, debug=False, use_reloader=False)

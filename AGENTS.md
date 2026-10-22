@@ -64,3 +64,5 @@
 
 - User-approved release policy (2026-10-15): take a full database backup only for schema changes, migrations or bulk rewrites of existing data. For code-only releases use `SHANKLIFE_DATABASE_CHANGES=0` (default) and retain source rollback plus runtime verification. For database changes set it to `1`; take and verify one consistent backup, without a redundant second full copy in the release wrapper. Routine booking/workspace writes do not make a release a database migration.
 - Starttider search count is a capacity filter, not a mandatory booking size. Accept one through the searched count of explicitly selected, verified players, with self first. Freeze and recheck actual participant count for both bookings and new jobs; never send unnamed extra players.
+
+- Security runtime (2026-10-22): production launchers use the pre-provisioned `/opt/shanklife/venvs/sl-pro` and Gunicorn on loopback. Do not recreate the old `/tmp` venv at boot. During security maintenance the global marker `/etc/shanklife/webapps-maintenance` intentionally prevents service startup; do not remove it or start nginx as an incidental verification step.

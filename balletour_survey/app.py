@@ -1,3 +1,4 @@
+import math
 from flask import Flask, jsonify, render_template, request
 
 from balletour_survey.database import (
@@ -25,6 +26,9 @@ ALLOWED_GEOMETRY_TYPES = {"Point", "LineString", "Polygon"}
 
 def create_app(database_url=None):
     app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = 512 * 1024
+    from shanklife_security import install_shared_login
+    install_shared_login(app, "survey")
     engine = create_database_engine(database_url)
     init_database(engine)
     app.config["SURVEY_ENGINE"] = engine
@@ -52,6 +56,8 @@ def create_app(database_url=None):
     @app.post("/api/features")
     def api_create_feature():
         payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return jsonify(error="Ugyldig innhold."), 400
         error = validate_feature_payload(payload)
         if error:
             return jsonify({"error": error}), 400
@@ -64,6 +70,8 @@ def create_app(database_url=None):
             return jsonify({"error": "Fant ikke punktet."}), 404
         return jsonify({"deleted": True})
 
+    from shanklife_security import install_security
+    install_security(app)
     return app
 
 
@@ -112,7 +120,7 @@ def _valid_position(value):
     if not isinstance(value, list) or len(value) < 2:
         return False
     lon, lat = value[0], value[1]
-    if not isinstance(lon, (int, float)) or not isinstance(lat, (int, float)):
+    if type(lon) not in (int, float) or type(lat) not in (int, float) or not math.isfinite(lon) or not math.isfinite(lat):
         return False
     return -180 <= lon <= 180 and -90 <= lat <= 90
 
@@ -121,14 +129,14 @@ def _valid_coordinates(geometry_type, coordinates):
     if geometry_type == "Point":
         return _valid_position(coordinates)
     if geometry_type == "LineString":
-        return isinstance(coordinates, list) and len(coordinates) >= 2 and all(
+        return isinstance(coordinates, list) and 2 <= len(coordinates) <= 5000 and all(
             _valid_position(position) for position in coordinates
         )
     if geometry_type == "Polygon":
         if not isinstance(coordinates, list) or not coordinates:
             return False
         ring = coordinates[0]
-        return isinstance(ring, list) and len(ring) >= 4 and all(
+        return isinstance(ring, list) and 4 <= len(ring) <= 5000 and all(
             _valid_position(position) for position in ring
         )
     return False
@@ -138,4 +146,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5060, debug=False)
+    app.run(host="127.0.0.1", port=5060, debug=False)

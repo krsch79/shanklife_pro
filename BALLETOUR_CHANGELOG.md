@@ -1,5 +1,9 @@
 # BalleTour Changelog
 
+## [2.1.5] - 2026-10-22
+
+- Sikkerhetsoppdatering: strengere tilgangskontroll, beskyttelse av endringer og isolert serverdrift. Webtjenestene forblir i vedlikehold til de er særskilt gjenåpnet.
+
 Merkbare endringer som gjelder BalleTour loggføres her separat fra Shanklife Pro.
 
 ## [2.1.4] - 2026-10-15

@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 cd "$(dirname "$0")"
-
-if [ ! -x /tmp/shanklife_pro_venv/bin/python ]; then
-    if command -v python3.11 >/dev/null 2>&1; then
-        PYTHON_BIN="python3.11"
-    else
-        PYTHON_BIN="python3"
-    fi
-    "$PYTHON_BIN" -m venv /tmp/shanklife_pro_venv
-    /tmp/shanklife_pro_venv/bin/pip install -r requirements.txt
+VENV_PATH="${VENV_PATH:-/opt/shanklife/venvs/sl-pro}"
+if [[ ! -x "$VENV_PATH/bin/python" ]]; then
+    echo "Pre-provisioned production runtime is missing" >&2
+    exit 1
 fi
-
-/tmp/shanklife_pro_venv/bin/python -m balletour_survey.app
+exec "$VENV_PATH/bin/python" -m gunicorn --workers 2 --threads 2 --timeout 120 --bind 127.0.0.1:5060 balletour_survey.app:app

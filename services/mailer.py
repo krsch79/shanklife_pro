@@ -14,6 +14,9 @@ LOG_PATH = Path(os.environ.get("SHANKLIFE_MAIL_LOG", "/tmp/shanklife_pro_mail.lo
 
 
 def _load_env_file():
+    if os.environ.get("SHANKLIFE_AUTH_READONLY") == "1":
+        # Other apps receive only their own SMTP settings from systemd.
+        return
     env_path = Path(__file__).resolve().parents[1] / ".env"
     if not env_path.exists():
         return

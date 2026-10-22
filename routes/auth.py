@@ -1,3 +1,4 @@
+from shanklife_security import safe_next
 from functools import wraps
 import hashlib
 
@@ -31,7 +32,7 @@ def login_required(view):
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if g.get("current_user"):
-        return redirect(request.args.get("next") or url_for("main.index"))
+        return redirect(safe_next(request.args.get("next")) if request.args.get("next") else url_for("main.index"))
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -57,7 +58,7 @@ def login():
         session.permanent = True
         session["user_id"] = user.id
         flash("Du er logget inn.", "success")
-        return redirect(request.args.get("next") or url_for("main.index"))
+        return redirect(safe_next(request.args.get("next")) if request.args.get("next") else url_for("main.index"))
 
     return render_template("login.html", username="")
 

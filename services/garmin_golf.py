@@ -68,6 +68,7 @@ def _garmin_client_for_user(user):
     except ImportError as exc:
         raise GarminGolfSyncError("Garmin-integrasjonen mangler på serveren.") from exc
 
+    token_store.chmod(0o700)
     client = Garmin()
     try:
         client.login(str(token_store))
